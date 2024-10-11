@@ -1,0 +1,65 @@
+Agenda:
+1) brief review of posits (for homework sake)
+2) review making a simple assembly program
+3) review how we're putting data into status codes
+4) cmp, the pony of a thousand tricks
+5) if-statments in assembly
+6) digression: labels and functions
+7) faking funk(tions)
+8) RIP %rip
+9) push and pop, ret and call
+10) back to the known^Wcase-statements
+11) loops
+12) ??? oh god I didn't expect us to get this far
+
+POSITS:
+
+two parameters:
+# of bits
+es - the max number of exponent bits
+
+to interpret a posits number (8-bit, es=3, as an example) 
+
+1 sign bit
+up to 7 "regime" bits
+if the number of regime bits is less than 7, up to 3 es bits
+anything left over is a mantissa bit
+
+if regime is all 1s
+(-1)^s * 2^((#r -1)*2^es) 
+       * 2^||e|| * (1 + ||m||)
+if regime is all 0s
+(-1)^s * 2^(-#r*2^es) 
+       * 2^||e|| * (1 + ||m||)
+
+to read a posit number:
+ 1. read the sign bit
+ 2. look at the first bit after the sign: if it is a 1, collect all 1s until you hit a 0 or the end of the bit-string. If it is a 0, collect all 0s until you hit a 1 or the end of the bit-string. count the number of bits you collect and call it #r
+ 3. skip the terminator of the regime bits, then collect up to es bits, interpret this as a unsigned number and that's the ||e||
+4. if there are any bits left, interpret them as ||m|| a fractional binary number
+
+01100111
+
+(-1)^0 * 2^8 * 2^3 * (1 + 0.5)
+= 2^8 * 2^3 * 1.5 = 2^11 * 1.5 = 3072
+
+
+--------------------------------------
+
+%rax =>
+
+blah = funcall()
+
+this is REALLY
+mov %rax,(whatever the location of blah is)
+
+int main(){
+ int num1;
+ scanf("%d",&num1);
+ iseven(num1);
+ return (iseven(num1));
+}
+
+
+
+
