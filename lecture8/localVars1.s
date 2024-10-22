@@ -6,9 +6,19 @@ message2:	.asciz "Enter another integer: "     # 23
 	.global _start
 
 	.extern readInt
+
+	## int sillyFun(){
+	##   int num1;
+	##   int num2;
+	##   printf(message1)
+	##   num1 = readInt()
+	##   printf(message2)
+	##   num2 = readInt()
+	##   return (num1 + num2)
+	## }
 	
-sillyFun:
-	push %rbp
+sillyFun: 
+	push %rbp 		# we save the OLD base pointer
 	movq %rsp,%rbp
 	sub $16,%rsp
 
