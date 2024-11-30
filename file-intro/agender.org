@@ -1,0 +1,38 @@
+* Agenda
+ + Feels bad, man
+ + Where have we come, where are we going
+   + Does this count as stalling for time?
+   + ...maybe
+   + Future topics:
+     + (async) Second rust video
+     + Covering even more of network programming and writing servers
+     + Part of a lecture will be optimization
+     + Microkernel architectures (lecture + discussion)
+       + Secure systems!
+       + L4
+       + seL4
+     + RISCV architecture
+     + (high level) lecture on the actual instruction set design
+     + (if there are no requested deep dives) big review 
+ + Opening files
+   + The simplest way
+   + Now let's handle errors (at least simply)
+   + Command line arguments
+   + Now again
+   + We have the world's worst cat
+ + Writing to files
+   + Well, basically how we've already been doing writes
+   + But now we need to write to (and possibly create) a file
+   + Okay now we have a really bad version of copy
+ + Reading directories
+   + Listing everything that's in a directory
+   + Listing everything that's a regular *file* in the directory
+   + Now we make a silly little program that will present a menu of the regular files in a directory and let you select 1 to print
+ + Now for networking and sockets!
+ + Opening a socket and waiting for a connection
+   + Connecting via nc
+ + Now for an echo server
+   + Again, talking to it over nc
+ + Now for a tiny web server
+   + This time let's use curl
+ + ...probably save writing a client program until Tuesday?

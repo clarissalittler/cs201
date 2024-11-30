@@ -19,7 +19,7 @@ void printPet(FILE* f,struct petData p){
 }
 
 void readPet(FILE* f, struct petData* p){
-  fscanf(f,"%49s,%49s,%d",p->name,p->species,&p->age);
+  fscanf(f,"%49[^,],%49[^,],%d",p->name,p->species,&p->age);
 }
 
 int main(){
@@ -31,7 +31,7 @@ int main(){
 
   readPet(petFile,&p);
 
-  printf("%s",p.name);
+  printf("%s is a %s and is %d years old\n",p.name,p.species,p.age);
   
   fclose(petFile);
   fclose(petFile2);
