@@ -1,0 +1,30 @@
+* Agenda
+ + instructions
+   + technically have multiple versions for each operation (q/l/w/b), but frequently it can *infer* the ones we need
+   + mov, add, sub
+   + cmp and the various jumps
+     + cmp %a,%b means you compare (%b - %a) and make a decision about all of that
+       + jl
+       + jg
+       + je
+       + jnl
+       + jle
+       + jne
+       + etc.
+   + using the data section
+     + .quad vs. .long vs .word vs .byte
+     + Using the value
+     + Extracting the address
+     + Dereferencing the address
+   + making an array of data
+     + Still using the data section
+     + using the label as an address
+     + Putting the address in a register
+     + Iterating through the array
+     + Summing it and putting it in a variable
+   + Writing hello world
+     + .asciz
+     + how do we know the length?
+     + We can use =message_len = . - message=
+     + Now we calculate the length using the null termination
+     + system call to write to screen
