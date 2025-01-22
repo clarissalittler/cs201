@@ -1,0 +1,150 @@
+* Agenda
+ + Review IEEE 754
+   + Examples!!
+ + Review Posits
+   + Even more examples!!!
+ + Stacks
+   + What are they?
+   + What do I expect you to do?
+ + We start assembly
+ + Compiling C to assembly
+ + Let's look at what we got
+   + Sections?
+   + Instructions?
+   + Registers?
+ + Writing tiny examples by hand
+* Review of IEE 754
+
+Basic concept:
+you have one (1) sign bit
+
+you have some number of exponent bits with a bias
+
+you have some number of significand bits
+
+For 32 bit specifically,
+1 sign
+8 exponent (with a bias of 127)
+23 significand bits
+
+Let |e| be the meaning of the exponent bits (as an unsigned integer)
+Let |m| be the meaning of the significand bits (as a sum of fractional powers of two)
+Let |s| be the meaning of the sign bit
+
+The formula (for the normalized cases) is:
+(-1)^|s| * 2^(|e| - 127) * (1 + |m|)
+
+A word on the interpretation of |m|:
+Let's pretend we have a 8 bit number interpreted as a sum of fractional powers of two (binary rational number)
+
+11010001 =>
+
+2^-1 + 2^-2 + 0*2^-3 + 2^-4 + 0*2^-5
+     + 0*2^-6 + 0*2^-7 + 2^-8
+
+1/2 + 1/4 + 1/16 + 1/256 =
+128/256 + 64/256 + 16/256 + 1/256
+= 209/256
+
+Now if we have *23* bits then our powers range from
+2^-1 --> 2^-24
+and the (non-zero) numbers we can represent range from
+
+2^-24 -> (1-2^-24)
+
+(1 + |m|) ===> ranges from 1 to *almost* 2
+
+it can't *be* 2 because otherwise
+
+(-1)^s*2^(|e| - 127)*2
+ = (-1)^s*2^(|e| + 1 - 127)*1
+
+two ways to represent the same number
+
+------------
+
+1 00111111 10100...00
+
+(-1)^1 * 2^(-64) * (13/8)
+= -13 * 2^(-72) ~= -2.75 x 10^-21
+
+denormalized:
+ all 0s is 0 (but can -0 if the sign bit is 1)
+ exponent all 1s and the significand all 0s is +/- infinity
+ exponent all 1s and the significand NOT all 0s is NaN
+ if the exponent is all 0s then
+ (-1)^s * 2^(-126) * |m|
+
+* Posits
+Competing standard, might be the future??? (But probably not)
+
+Two parameters to set:
+
+n is the number of bits total
+es is the maximum number of exponent bits
+
+(-1)^s * (2^(2^es * k)) * 2^|e| * (1 + |m|)
+
+The way you read a posit number is:
+You read the sign bit
+Look at the next bit, if it is a 1 keep counting 1s until you reach the end of the number *or* you hit a 0. Call the number of bits you counted |r|. The number k becomes the number of bits you counted - 1
+k = |r| -1
+If the next bit after the sign is a 0, keep countin 0s until you reach the end of the number or you hit a 1. Call the number of bits you counted |r|. The number k becomes -1*|r|.
+
+Once you've counted to find k, if you haven't reached the end of the number take *up to* es bits and call that the exponent
+
+If you haven't reached the end of the number collecting es bits, then the remaining bits are the significand
+
+Let n = 8, es = 2
+
+01101101
+
+1 * (2^(2^2)) * 2^3 * (1 + 1/4)
+
+= 2^4 * 2^3 * (5/4) = 5 * 2^5
+* Stacks and their implementation
+
+A stack is a datastructure with two primary operations:
+
+push and pop
+
+void push(struct Stack* s,int x);
+
+int pop(struct Stack* s);
+
+For the assignment I'm expecting:
+
+define a struct for the Stack type (two obvious ways to do this would be as a linked list or as an array with a length in the struct)
+
+define the push and pop operations above
+
+write a tiny program that demonstrates that the structure works correctly
+
+Reminder: a stack is LIFO
+
+struct Stack* s; // initialized somehow
+...
+push(s,2);
+printf("The last value put in is %d\n",pop(s));
+
+// this should print "The last value put in is 2"
+* Assembly
+Specifically: x86-64
+
+"Assembly language" more like a family of dialects that all turn into the same instruction set on the architecture
+
+will be using the gnu assembler (the =as= command)
+
+(other assemblers on linux inlude nasm)
+
+two major conventions: AT&T vs. Intel
+
+gnu assembler defaults to AT&T syntax
+
+PSU uses the AT&T syntax
+
+ergo we will use the AT&T syntax
+
+(intel is pretty nice though)
+
+
