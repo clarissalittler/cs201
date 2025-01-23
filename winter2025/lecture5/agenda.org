@@ -1,0 +1,57 @@
+* Agenda
+** Reference
+ To choose a syscall:
+  + put the number of the syscall in %rax
+  + *then* pass arguments like normal in the argument registers
+ Argument order:
+ + %rdi
+ + %rsi
+ + %rdx
+ + %rcx
+ + %r8
+ + %r9
+ Stack: 
+ + current stack pointer %rsp
+ + base pointer: %rbp
+ Syscalls:
+ + read = 0
+   + Args:
+   + fd
+   + address
+   + max size
+ + write = 1
+   + Args:
+   + fd
+   + address
+   + bytes to write
+ + exit = 60
+ Caller saved:
+  + rax
+  + rcx
+  + rdx
+  + rsi
+  + rdi
+  + r8
+  + r9
+  + r10
+  + r11
+ Callee saved:
+  + rbx
+  + rbp
+  + r12 - r15
+** Syscalls for reading and writing bytes
+ + Hello, World --- finally
+   + make an output data buffer with the .rodata section
+   + system call to write this to the screen
+ + Echo program
+   + Make an input buffer with .bss section
+   + Read a series of bytes into the buffer
+   + Note! This isn't going to be a null terminated string
+   + read and write are too low level for that
+   + The read syscall returned the number of bytes read
+     + How was it returned?
+     + In rax!
+   + So we can use that in writing!
+** Let's write a function that calculates the length of a null-terminated string
+** Let's write a function that uses the stack
+** Now lets write a function that will concatenate two null-terminated strings
