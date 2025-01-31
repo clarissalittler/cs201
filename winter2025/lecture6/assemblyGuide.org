@@ -1,0 +1,807 @@
+#+title:      left_adjoint's guide to writing x86-64 assembly
+#+date:       [2025-01-30 Thu 15:02]
+#+filetags:   :assembly:class:cs:systemsprogramming:teaching:
+#+identifier: 20250130T150222
+
+* Goals of this document
+What you're reading are my supplementary notes on how to write x86-64 assembly, with an eye towards making entire programs so that you can finish your assignments!
+* Quick reference
+** Register reference
+ Basic registers
+ + =%rax=: accumulator register (for operations like mul, div, etc.)
+ + =%rbx=: base register (historically used for array base address)
+ + =%rcx=: counter register (used in loops and rep instructions)
+ + =%rdx=: data register (used in I/O operations, multiplication, and division)
+ + =%rsi=: source index for string operations
+ + =%rdi=: destination index for string operations
+ + =%rbp=: base pointer (often used to point to function stack frames)
+ + =%rsp=: stack pointer (points to top of the stack)
+ + =%r8= – =%r15=: additional general-purpose registers
+ + =%rip= (special case, you won't use it except in rip-relative addressing)
+** Floating point registers
+TBD
+** Vector registers
+TBD
+** Calling convention reference
+ + Functions must return values via =%rax=
+ + Arguments are passed into functions via the registers (presented in order):
+   + =%rdi=
+   + =%rsi=
+   + =%rdx=
+   + =%rcx=
+   + =%r8=
+   + =%r9=
+ + Functions are called with =call= after putting their arguments into the appropriate registers and saving (if needed) the caller saved registers
+ + When a function is called it should save the callee saved registers (if needed) and then prepare the stack
+ + To prepare the stack
+   #+begin_src asm
+     fun:
+             push %rbp               # save the base pointer
+             mov %rsp,%rbp           # move the top of the stack to be the new base pointer
+             sub $xx,%rsp            # make room for local variables, the number you fill in for the xx must be multiple of 16
+             ## some time later
+             mov %rbp,%rsp           #can replace the mov and pop with leave
+             pop %rbp
+             ret                     #
+   #+end_src
+ + Caller saved registers must be saved before you call a function since they can be overwritten at will
+   + rax
+   + rcx
+   + rdx
+   + rsi
+   + rdi
+   + r8
+   + r9
+   + r10
+   + r11
+ + Callee saved registers must be saved inside the body of a function and restored before =ret=
+   + rbx
+   + rbp
+   + r12 - r15
+* Sections
+ + =.text= is the section you declare for your code
+ + =.data= for initialized data you want to modify (global variables)
+ + =.rodata= for initialized data you don't want to modify (global constants)
+* Example programs
+** A first program
+This is a simple program that returns an exit code 0f -1 when you run it. You can check the exit code of the program with =echo $?= at the command line.
+
+#+begin_src asm
+
+          .text           ; Indicates the start of the code section
+          .global _start  ; Declares the entry point of the program for the linker
+
+  _start:         ; Program entry point
+          mov $60,%rax    ; Move the syscall number for exit (60) into the rax register
+                          ; On Linux x86_64, syscall 60 is the exit system call
+        
+          mov $-1,%rdi    ; Move the exit status code (-1) into the rdi register
+                          ; -1 typically indicates an error or unsuccessful termination
+        
+          syscall         ; Invoke the system call
+                          ; This will immediately terminate the program with the specified exit status
+
+#+end_src
+
+If you /don't/ properly exit the program you'll see a segfault as the program attempts to move to executing the next region of memory after the last instruction as though /it/ is an instruction. 
+** Basic arithmetic and registers
+ Basic arithmetic is done with the =add= and =sub= instructions. Note that, like most binary operations in assembly, they take only two arguments and store the result of the operation in the second argument
+#+begin_src asm
+          .text
+          .global _start
+
+          ## q - quad sized (64 bits)
+          ## l - long (32 bits)
+          ## w - word sized (16 bits)
+          ## b - byte (8 bits)
+          ##  add/sub source arg,destination arg
+          ## source can be a value or a register (or a memory location)
+          ## destination has to be a register (or memory location)
+  _start:
+          mov $1,%rax
+          mov $2,%rdx
+          sub %rax,%rdx           # sub s,d -> d = d - s 
+          mov %rdx,%rdi           # we stored our computation in rdx BUT the syscall to exit needs the exit code value passed in via rdi (by The Calling Convention)
+
+          mov $60,%rax
+          syscall
+#+end_src
+** cmp and jmp
+Now assembly doesn't have if-statements like you're used to. Instead you have to do a =cmp= instruction and then different kinds of /jump/ based on the result of the =cmp=. Jumps need to take an address of where to go next, generally in the form of a label. You can make lables by just writing a name and then a =:=.
+
+We can summarize this in the following table where we assume that we've just done =cmp a,b= (I myself get confused about this basically *all* the time, I'm half certain I've got this table backwards /right now/)
+
+| jmp | unconditional jump                    |
+| jl  | jump if b less than a                 |
+| jle | jump if b less-than-or-equal to a     |
+| je  | jump if a = b                         |
+| jne | jump if a != b                        |
+| jg  | jump if b greater than a              |
+| jge | jump if b greather than or equal to a |
+
+
+#+begin_src asm
+  .text                   # Indicates the start of the code section
+  .global _start          # Makes the _start label visible to the linker
+
+  _start:
+          # Load some initial values into registers
+          mov $1,%rax     # Store the value 1 in the rax register
+          mov $2,%rbx     # Store the value 2 in the rbx register
+
+          # Compare the values in rax and rbx
+          cmp %rbx,%rax   # Compare rax to rbx 
+                          # Note: cmp does arg1 - arg2 internally
+                          # Flags are set based on this subtraction
+
+          # Conditional jump based on the comparison
+          jne less        # Jump to 'less' label if NOT equal
+                          # This means the jump happens if rax != rbx
+
+          # If values are equal, set exit code to -1
+          mov $-1,%rdi    # Load -1 as the exit status
+          jmp finish      # Unconditionally jump to finish
+
+  less:
+          # If values are not equal, set exit code to 10
+          mov $10,%rdi    # Load 10 as the exit status
+
+  finish:
+          # Syscall to exit the program
+          mov $60,%rax    # System call number for exit
+          syscall         # Invoke the system call
+#+end_src
+
+*** Anonymous labels
+A feature I didn't even learn myself until recently is that you can re-use label names by giving a /number/ in the label and then referring to it with a direction:
+
+Writng =#f= means jump forward to the next label with that name =#= and =#b= means jump backwards to the previous label with the name =#=. Try changing the fs and bs in the following code to break it in different ways.
+
+[please note this example uses concepts that are explained elsewhere in the document]
+#+begin_src asm
+  # Read-only data section (constants)
+  .section .rodata
+      # Define first message string (null-terminated)
+      msg1:   .asciz "In the first sublabel\n"
+      # Calculate length of first message
+      msg1len = . - msg1
+
+      # Define second message string (null-terminated)
+      msg2:   .asciz "In the second sublabel\n"
+      # Calculate length of second message
+      msg2len = . - msg2
+
+  # Executable code section
+  .section .text
+      # Make _start symbol globally accessible (entry point)
+      .globl _start
+
+  # Program entry point
+  _start:
+      # Call functions in order: biglabel2 first, then biglabel1
+      call biglabel2
+      call biglabel1
+    
+      # Exit program gracefully
+  1:  
+      # syscall for program exit
+      # rax = 60 (exit syscall)
+      # rdi = 0 (exit status code)
+      mov $60,%rax
+      xor %rdi,%rdi
+      syscall
+    
+  # First function: print first message
+  biglabel1:
+      # Local jump to next instruction (obviously for toy purposes)
+      jmp 1f
+  1:
+      # Prepare arguments for write syscall
+      # rsi = message address (using RIP-relative addressing)
+      # rdx = message length
+      # rax = syscall number for write (1)
+      # rdi = file descriptor (0 = standard output)
+      lea msg1(%rip),%rsi
+      mov $msg1len,%rdx
+      mov $1,%rax
+      mov $0,%rdi
+      syscall
+      ret
+
+  # Second function: print second message
+  biglabel2:
+      # Local jump to next instruction (obviously for toy purposes)
+      jmp 1f
+  1:
+      # Same syscall setup as biglabel1, but with second message
+      lea msg2(%rip),%rsi
+      mov $msg2len,%rdx
+      mov $1,%rax
+      mov $0,%rdi
+      syscall
+      ret
+
+
+#+end_src
+
+** Using global variables
+ We can make global variables by putting them in the =.data= section of the array. We access those variables with rip-relative addressing!
+
+ Now this requires a bit of explaining:
+ + =%rip= holds the address of the next instruction to be executed
+ + labels you define in your data sections are mapped to actual addresses in the program as its loaded into memory
+ + but these addresses, if you're making "position independent executables", aren't known at compile or even link time
+ + so instead you can do "rip relative addressing", where you tell the linker to calculate the distance in memory between the label and where you are in the program when you're using the label
+ + the executable is built with that /offset/ in mind and uses *that* to find the data in memory because the one thing your executable does know at all times is what the instruction pointer (rip) is pointing to!
+
+Here are some examples of how this looks:
+#+begin_src asm
+  # Data section: Declares initialized static data
+          .section .data
+  num1:   .long 200    # Declares a 32-bit integer variable named 'num1' with initial value 200
+
+  # Code section begins
+
+          .section .text
+          .global _start       # Makes the _start label visible to the linker
+
+  _start:
+          # Load the address of num1 into %rbx
+          # RIP-relative addressing is used to get the memory location of num1
+          mov num1(%rip),%rbx          # Put the address of num1 into the %rbx register
+
+          # Add 10 to the value stored at the memory location pointed to by %rbx
+          # The parentheses () mean "value at this memory address"
+          addl $10,(%rbx)         # Adds 10 to the current value of num1
+
+          # Prepare arguments for system exit
+          # Move the new value of num1 into %rdi (first argument for exit syscall)
+          mov num1,%rdi
+
+          # Set up syscall for program exit
+          mov $60,%rax            # 60 is the syscall number for exit
+          syscall                 # Invoke the system call to exit the program
+
+
+#+end_src
+
+and here's how you'd make an array of ints and sum all of their elements. Please note the description of how to use the =lea= (load effective address) instruction. This instruction is basically how you do pointer arithmetic in assembly!
+#+begin_src asm
+  ### A brief intro to lea (Load Effective Address):
+  ### 
+  ### Basic syntax: lea source, destination
+  ###
+  ### 1. Simple address loading:
+  ###    lea arr(%rip), %rax   # Loads the memory address of 'arr' into %rax
+  ###
+  ### 2. Convenient way to do arithmetic
+  ###    lea (%rbx, %rcx, 4), %rax   # Calculates: %rbx + (%rcx * 4)
+  ###
+  ### 3. Complex address calculations:
+  ###    lea 8(%rbx, %rcx, 4), %rax  -> %rax = %rbx + (%rcx * 4) + 8 (doesn't dereference!)
+  ###    lea (%rbx, %rcx, 8), %rax   -> %rax = %rbx + (%rcx * 8) (doesn't dereference!)
+
+          .section .data
+  arr1:   .long 1,2,3,4     # Define an array of 4 integers
+
+          .section .text
+          .global _start
+
+  _start:
+          # Load the base address of the array into %rbx
+          # %rip-relative addressing ensures position-independent code
+          lea arr1(%rip),%rbx     
+
+          # Initialize loop counter (i) to 0
+          mov $0,%rcx             
+
+          # Initialize sum to 0
+          mov $0,%rax             
+
+  loopBody:
+          # Compare loop counter to array length (4)
+          cmp $4,%rcx             
+
+          # If i >= 4, exit loop
+          jge done
+
+          # Add current array element to sum
+          # (%rbx,%rcx,4) calculates the address of arr1[i]
+          # 4 is the size of each long (32-bit) element
+          add (%rbx,%rcx,4),%rax  
+
+          # Increment loop counter
+          add $1,%rcx             
+
+          # Jump back to beginning of loop
+          jmp loopBody
+        
+  done:
+          # Move sum to %rdi (first argument for exit syscall)
+          mov %rax,%rdi
+
+          # Syscall number for exit
+          mov $60,%rax
+
+          # Invoke system call to exit program
+          syscall
+#+end_src
+
+and here's a slight variation that explicitly loads the address into a register and then dereferences it directly:
+#+begin_src asm
+      # Data section: where we define our static data
+      .section .data
+      # Define an array of 4 long integers (32-bit)
+      arr1:   .long 1,2,3,4
+
+      # Code section where our program instructions live
+      .section .text
+      .global _start  # Entry point of the program
+
+  _start:
+      # Load the memory address of arr1 into %rbx
+      # %rip is the instruction pointer, used for position-independent code
+      lea arr1(%rip),%rbx     # %rbx now contains the base address of arr1
+
+      # Initialize loop counter (i) to 0
+      mov $0,%rcx             # %rcx will be our loop counter (i)
+
+      # Initialize sum to 0
+      mov $0,%rax             # %rax will store our running sum
+
+  loopBody:
+      # Compare loop counter to array length
+      # If i >= 4, we're done looping
+      cmp $4,%rcx             # Compare %rcx (i) with 4
+      jge done                # Jump to 'done' if i >= 4
+
+      # Calculate address of current array element
+      # lea calculates address without actually loading the value
+      # (%rbx,%rcx,4) means: base address + (index * 4-byte element size)
+      lea (%rbx,%rcx,4),%rdx  # %rdx now points to current array element
+
+      # Add current array element to sum
+      # (%rdx) dereferences the pointer, getting the actual value
+      add (%rdx),%rax         # sum += arr1[i]
+
+      # Increment loop counter
+      add $1,%rcx             # i++
+
+      # Jump back to start of loop
+      jmp loopBody
+        
+  done:
+      # Prepare to exit program
+      # Put sum in %rdi (first argument for exit syscall)
+      mov %rax,%rdi
+
+      # Set up exit syscall (60 is exit)
+      mov $60,%rax
+      syscall  # Invoke system call to exit
+
+#+end_src
+** Reading and writing from the terminal!
+Now we get to how to read or write text from the terminal. We need to use the underlying read and write system calls and we're going to have to use actual /buffers/ of bytes we've set aside.
+
+First is our "hello world", that we're finally getting to:
+#+begin_src asm
+          .section .rodata           # Read-only data section (constant data)
+  msg:    .asciz "Hello world!\n"   # Define a null-terminated string
+  hellolen = . - msg         # Calculate length of the string by subtracting start address from current address
+
+          .section .text     # Code section begins
+          .globl _start      # Make _start symbol globally visible for linker
+
+  _start:
+          ## call the write syscall
+          ## and exit appropriately
+          mov $1,%rax        # Set %rax to 1 (syscall number for write)
+          mov $2,%rdi        # File descriptor: 2 is stderr (could be 1 for stdout)
+          lea msg(%rip),%rsi # Load effective address of message relative to instruction pointer
+          mov $hellolen,%rdx # Move message length into %rdx (third argument for write)
+
+          syscall            # Invoke system call to print message
+
+          xor %rdi,%rdi      # Zero out %rdi (sets exit status to 0)
+          mov $60,%rax       # Set %rax to 60 (syscall number for exit)
+          syscall            # Invoke system call to exit program
+
+#+end_src
+
+We don't strictly need to have null-terminated strings here because read and write don't actually care about this: they're too low of level! But it's a good habit to be in. Note that, much like how the variable for a buffer in C is pointing to the start of the buffer, see that when we pass the buffer to a function we're just passing the address to the start of the buffer!
+
+Neat, right?
+
+Now here's an echo program that reads in a string and writes it back out again:
+#+begin_src asm
+  # This is a simple program that reads input from stdin and then writes it back out
+
+          .section .bss           # Uninitialized data section
+  buff:   .skip 128       # Allocate 128 bytes of buffer space for reading input
+
+          .section .text  # Code section
+          .globl _start   # Makes the entry point visible to the linker
+
+  _start:
+          ## Reading input from stdin
+          mov $0,%rax             # System call number for read (0)
+          mov $1,%rdi             # File descriptor for stdin (standard input)
+          lea buff(%rip),%rsi     # Load effective address of buffer into source index
+          mov $128,%rdx           # Maximum number of bytes to read (buffer size)
+          syscall                 # Invoke the system call to read input
+
+          ## Writing the input back out
+          ## Note: %rax now contains the number of bytes actually read
+          mov %rax,%rdx           # Move the byte count to the length parameter
+          mov $1,%rax             # System call number for write (1)
+          lea buff(%rip),%rsi     # Point to the same buffer we read into
+          mov $0,%rdi             # File descriptor for stdout (standard output)
+          syscall                 # Invoke the system call to write output
+
+          ## Exit the program cleanly
+          xor %rdi,%rdi           # Zero out exit code (0 means successful exit)
+          mov $60,%rax            # System call number for exit
+          syscall                 # Terminate the program
+#+end_src
+
+Nice and simple! So the =.skip= directive is interesting because /technically/ it's different than if we'd said =.zero 128=, but it doesn't *have* to be. If you try and test this out you might find that the buffer is just filled with 0s anyway, but you can't rely on that.
+** Functions and stacks
+As summarized above, functions are really just labels that we jump to with specific /calling conventions/ that give us an ordered way to pass arguments into functions, establish scope for local variables, and then make sure to set things up correctly in case we call /other/ functions inside our functions
+
+Here's a tiny "function" that just demonstrates using ret and call and passing in arguments via registers. It doesn't handle the stack at all!
+#+begin_src asm
+          .text                           # Start of code section
+          .globl _start                   # Make _start symbol globally visible
+
+          ## Function: fun
+          ## Purpose: Add two numbers, multiply the result by 3
+          ## Input: 
+          ##   - First number in %rdi (first argument)
+          ##   - Second number in %rsi (second argument)
+          ## Output: 
+          ##   - Result in %rax
+  fun:    
+          mov $0,%rax              # Initialize return value (accumulator) to 0
+          add %rdi,%rax            # Add first argument to accumulator
+          add %rsi,%rax            # Add second argument to accumulator
+          imul $3,%rax             # Multiply result by 3
+                                   # Note: imul is for signed multiplication
+          ret                      # Return, result is in %rax
+
+          ## Main program entry point
+  _start:
+          mov $2,%rdi              # First argument: 2
+          mov $3,%rsi              # Second argument: 3
+
+          call fun                 # Call the function
+
+          mov %rax,%rdi            # Move function result to exit status
+          mov $60,%rax             # Syscall number for program exit
+          syscall                  # Invoke system call to exit program
+
+
+#+end_src
+
+and here's a demonstration of how to properly handle the stack!
+#+begin_src asm
+          .text                   # Start of the code section
+          .global _start          # Make _start symbol globally visible for the linker
+
+  ## This is a function that demonstrates:
+  ## 1. Using local variables on the stack
+  ## 2. Function call conventions
+  ## 3. Basic arithmetic operations
+  ## long fun(long a, long b){
+  ##   long c = a + b;
+  ##   long d = 2+b;
+  ##   return (c + d);
+  fun:    
+          # Standard function prologue
+          # Save the old base pointer (frame pointer)
+          push %rbp
+        
+          # Set up new base pointer for this stack frame
+          mov %rsp,%rbp
+        
+          # Allocate 16 bytes of local stack space
+          # This creates space for two 8-byte (64-bit) local variables
+          sub $16,%rsp
+
+          # First parameter (a) is in %rdi
+          # First local variable will be at -8(%rbp)
+          # Compute a + b and store at -8(%rbp)
+          mov %rdi,-8(%rbp)
+          add %rsi,-8(%rbp)
+
+          # Second local variable at -16(%rbp)
+          # Compute b + 2 and store at -16(%rbp)
+          mov %rsi,-16(%rbp)
+          addq $2,-16(%rbp)
+
+          # Prepare return value by:
+          # 1. Load second local var into %rax
+          # 2. Add first local var to %rax
+          mov -16(%rbp),%rax
+          add -8(%rbp),%rax
+
+          # Function epilogue: 
+          # 'leave' is a single instruction that does:
+          # mov %rbp,%rsp
+          # pop %rbp
+          leave
+          ret
+        
+  _start:
+          # Set up arguments for fun()
+          # First arg (3) goes in %rdi
+          mov $3,%rdi
+          # Second arg (4) goes in %rsi
+          mov $4,%rsi
+
+          # Call the fun() function
+          call fun
+
+          # Prepare to exit
+          # Return value from fun() is already in %rax
+          # Move return value to %rdi (exit status)
+          mov %rax,%rdi
+        
+          # Syscall number for exit
+          mov $60,%rax
+        
+          # Invoke system call to exit
+          syscall
+#+end_src
+** readInt, writeInt, and loading in functions
+Okay now we're getting to a point where we want to be able to split our code between multiple files.
+
+It turns out this is already pretty simple! Here's a readInt function but note that the exposed symbol isn't =_start= it's =readInt=! That's because this isn't a "main" program, it's a library function we're defining:
+#+begin_src asm
+      .section .bss                # Begin uninitialized data section (.bss)
+  buffer: .zero 128                # Allocate 128 bytes for 'buffer', initialized to zero
+
+      .section .text               # Begin code section (.text)
+      .global readInt              # Make 'readInt' function accessible from other files
+
+  # Function: parseInt
+  # Description: Parses ASCII digits from the buffer and converts them into an integer.
+  # Parameters:
+  #   - %rdi: Address of the buffer containing the input string
+  #   - %rsi: Number of characters to process
+  #   - %rcx: Index into the buffer (should be initialized to 0 before calling)
+  # Returns:
+  #   - %rax: The resulting integer value
+  parseInt:
+  intRead:
+      movb (%rdi,%rcx,1), %r8b     # Load one byte from buffer[%rcx] into %r8b
+      sub $'0', %r8                # Convert ASCII character to its numeric value
+      imul $10, %rax               # Multiply accumulator (%rax) by 10 (shifting left in decimal)
+      add %r8, %rax                # Add the numeric value of current digit to accumulator
+      inc %rcx                     # Increment buffer index (%rcx)
+      cmp %rsi, %rcx               # Compare index with total number of characters to process
+      jl intRead                  # If index < total, repeat the loop
+      ret                          # Return from function with result in %rax
+
+  # Function: readInt
+  # Description: Reads input from standard input (stdin), stores it in the buffer,
+  #              and then converts the input string into an integer using parseInt.
+  # Returns:
+  #   - %rax: The integer value read from input
+  readInt:
+      # Prepare for syscall to read from stdin
+      mov $0, %rax                 # Syscall number 0 (sys_read)
+      mov $0, %rdi                 # File descriptor 0 (stdin)
+      lea buffer(%rip), %rsi       # Load address of 'buffer' into %rsi
+      mov $128, %rdx               # Number of bytes to read (up to 128)
+      syscall                      # Make the syscall to read input
+
+      mov %rax, %rbx               # Store the number of bytes read in %rbx
+
+      # Initialize registers for parsing
+      mov $0, %rcx                 # Set index (%rcx) to 0
+      mov $0, %rax                 # Clear accumulator (%rax) for result
+      lea buffer(%rip), %rdi       # Load address of 'buffer' into %rdi for parseInt
+      dec %rbx                     # Decrement byte count (%rbx) by 1 (to exclude newline)
+      mov %rbx, %rsi               # Move byte count to %rsi (number of characters to process)
+
+      call parseInt                # Call parseInt to convert input string to integer
+      ret                          # Return from readInt with result in %rax
+#+end_src
+
+This program might seem a little intimidating but it's not /that bad/ in the end. Basically, we're reading up to 128 characters with a read system call into a buffer of bytes. From *here* go into the parseInt helper function and what it does is start at the left-hand side of the string and interpreting the bytes as numbers (which is accomplished with the Very Clever trick of taking the byte and subtracting =$'0'= (note: that's =$'0'= not =$0=, in other words it's the value of 0 as a character not 0 as a number) to get the actual value of the /number/ from its /ascii/ code.
+
+For every digit you read you need to multiply the number you've read so far by 10 and then add the new amount. We just accumulate that into %rax since that's the register the return value has to be in anyway.
+
+[As a side note, when I originally wrote this program it took me an *hour* in order to discover I'd accidentally typed =$0= and not =$'0'=. So remember that if you feel like you have some goofy debugging stories with assembly]
+
+You can compile this like normal with
+#+begin_example
+as readInt.s -o readInt.o
+#+end_example
+
+but you /can't/ link it into an executable!
+
+We can use it now, though in other functions by importing it with =.extern= and then linking it in. For example, here's a recursive fibonacci calculator!
+#+begin_src asm
+        
+  ### Program: Compute Fibonacci number recursively in assembly
+  ### This program reads an integer n from the user,
+  ### computes the nth Fibonacci number using recursion,
+  ### and exits with the Fibonacci number as the exit code.
+  ### The result is not printed to the screen, but returned as the exit code.
+
+      .section .text            # Code section where the instructions are stored
+      .global _start            # Define _start as global symbol; entry point of the program
+      .extern readInt           # Declare that readInt function is defined externally (provided elsewhere)
+
+  # Define the Fibonacci function
+  fib:
+      # Function prologue - set up the stack frame
+      push %rbp                 # Save the base pointer of the previous frame (caller)
+      mov %rsp, %rbp            # Set up the base pointer for this function's stack frame
+      sub $16, %rsp             # Allocate 16 bytes of space on the stack for local variables (ensure 16-byte alignment)
+
+      # Check if n <= 1 (base case)
+      cmp $1, %rdi              # Compare input n (%rdi) with 1
+      jle .base                 # If n <= 1, jump to .base label (base case)
+
+      # Recursive case: compute fib(n - 1)
+      push %rdi                 # Save current n on the stack before modifying it
+      dec %rdi                  # Decrement n by 1; compute n - 1
+      call fib                  # Recursive call to fib(n - 1); result returned in %rax
+      mov %rax, -8(%rbp)        # Store fib(n - 1) result at offset -8(%rbp) (local variable)
+      pop %rdi                  # Restore n from the stack
+
+      # Compute fib(n - 2)
+      push %rdi                 # Save n on the stack again before modifying it
+      dec %rdi                  # Decrement n by 1; now n = n - 1
+      dec %rdi                  # Decrement n by 1 again; now n = n - 2
+      call fib                  # Recursive call to fib(n - 2); result in %rax
+      pop %rdi                  # Restore n from the stack
+
+      # Add fib(n - 1) and fib(n - 2)
+      add -8(%rbp), %rax        # Add fib(n - 1) (from memory) to fib(n - 2) (in %rax); result is fib(n)
+
+      # Function epilogue - restore the stack frame
+      mov %rbp, %rsp            # Restore the stack pointer to the base pointer
+      pop %rbp                  # Restore the base pointer of the caller
+      ret                       # Return to the caller; result is in %rax
+
+      # Base case: when n <= 1, fib(n) = n
+  .base:
+      mov %rdi, %rax            # Set return value to n (%rdi)
+      mov %rbp, %rsp            # Restore the stack pointer to the base pointer
+      pop %rbp                  # Restore the base pointer of the caller
+      ret                       # Return to the caller; result is in %rax
+
+  # Entry point of the program
+  _start:
+      call readInt              # Call external function to read an integer from the user; result in %rax
+      mov %rax, %rdi            # Move input value from %rax to %rdi (first argument for fib)
+
+      call fib                  # Call fib(n); result will be in %rax
+
+      # Prepare to exit the program with fib(n) as the exit code
+      mov %rax, %rdi            # Move fib(n) result to %rdi (exit code expected in %rdi)
+      mov $60, %rax             # System call number for exit (60)
+      syscall                   # Make the system call to exit the program
+#+end_src
+
+You can compile and run this like (assuming you already turned readInt into an object file):
+#+begin_example
+as fib.s -o fib.o
+ld -o fib fib.o readInt.o
+#+end_example
+
+Test it out!
+
+Although at this point it's kind of annoying that we're checking the exit code every time. We need to finally introduce a function that will let us write out the data we need:
+
+#+begin_src asm
+          .text
+          .global write_int
+
+      # Function: write_int
+      # -------------------
+      # Writes the integer value in %rdi to the standard output.
+      #
+      # This function converts the integer to its ASCII string representation
+      # and outputs it using the sys_write system call.
+      #
+      # Inputs:
+      #   %rdi - The integer to be printed.
+      #
+      # Registers used (clobbered):
+      #   %rax, %rbx, %rcx, %rdx, %rsi, %r8
+      #
+      # Stack layout:
+      #   Uses a local buffer of 32 bytes on the stack to store the string.
+      #
+      # Notes:
+      #   - The function handles negative integers, including INT_MIN (-2^63),
+      #     which cannot be negated in two's complement representation.
+      #   - The integer is converted to a string by repeatedly dividing by 10
+      #     and storing the digits in reverse order in the buffer.
+
+  write_int:
+          # Function prologue: set up the stack frame
+          pushq   %rbp                # Save the caller's base pointer on the stack
+          movq    %rsp, %rbp          # Set base pointer (%rbp) to current stack pointer (%rsp)
+          subq    $40, %rsp           # Allocate 40 bytes on the stack for local variables
+
+          # Variables:
+          # We will use a buffer of 32 bytes on the stack to store the string representation
+          # of the integer. The buffer extends from address (%rbp - 32) to (%rbp - 1).
+          # We will use %rsi as a pointer to the current position in the buffer.
+
+          # Initialize buffer pointer to the end of the buffer (start filling from the end)
+          leaq    -1(%rbp), %rsi      # Load effective address (%rbp - 1) into %rsi
+                                      # %rsi now points to the last byte of the buffer
+          movq    $0, %rcx            # Initialize digit count to 0
+          movq    %rdi, %rax          # Move the input integer from %rdi to %rax for processing
+          movq    $0, %r8             # Initialize negative flag in %r8 to 0 (0 means positive)
+
+          # Handle the special case when the input integer is zero
+          cmpq    $0, %rax            # Compare %rax with zero
+          jne     check_negative      # If %rax is not zero, skip to check_negative
+          # If %rax is zero:
+          movb    $'0', (%rsi)        # Store ASCII character '0' into the buffer at (%rsi)
+          movq    $1, %rcx            # Set digit count to 1
+          jmp     write_output        # Jump to write_output to print the character
+
+  check_negative:
+          # Check if the number is negative
+          testq   %rax, %rax          # Test %rax; sets flags based on the value
+          jge     convert_number      # If %rax >= 0, skip to convert_number
+          # If the number is negative:
+          movq    $1, %r8             # Set negative flag (%r8) to 1
+          negq    %rax                # Negate %rax to get the absolute value
+          jno     convert_number      # If no overflow, proceed to convert_number
+          # Handle INT_MIN (-2^63), which cannot be negated
+          movq    $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
+
+  convert_number:
+          # Convert the integer to its string representation
+  convert_loop:
+          xorq    %rdx, %rdx          # Clear %rdx (set to zero) before division
+          movq    $10, %rbx           # Load divisor 10 into %rbx
+          divq    %rbx                # Unsigned divide %rdx:%rax by %rbx
+                                      # After division:
+                                      # - %rax: quotient
+                                      # - %rdx: remainder
+          addb    $'0', %dl           # Convert remainder to ASCII character
+          subq    $1, %rsi            # Move back one byte in the buffer
+          movb    %dl, (%rsi)         # Store character in buffer at (%rsi)
+          incq    %rcx                # Increment digit count
+          cmpq    $0, %rax            # Compare quotient %rax with zero
+          jne     convert_loop        # If quotient is not zero, repeat loop
+
+          # Add negative sign if necessary
+          cmpq    $0, %r8             # Check negative flag (%r8)
+          je      write_output        # If number is positive, skip to write_output
+          subq    $1, %rsi            # Move back one byte for '-'
+          movb    $'-', (%rsi)        # Store '-' in buffer at (%rsi)
+          incq    %rcx                # Increment digit count
+
+  write_output:
+          # Prepare for sys_write system call
+          # sys_write arguments:
+          #   %rax - syscall number (1)
+          #   %rdi - file descriptor (1 for stdout)
+          #   %rsi - pointer to buffer (already set)
+          #   %rdx - number of bytes to write
+          movq    $1, %rax            # Syscall number for sys_write
+          movq    $1, %rdi            # File descriptor for stdout
+          # %rsi already points to the start of the string
+          movq    %rcx, %rdx          # Set %rdx to digit count (number of bytes)
+          syscall                     # Make the system call
+
+          # Function epilogue: restore stack frame and return
+          leave                       # Restore stack frame (movq %rbp, %rsp; popq %rbp)
+          ret                         # Return from the function
+
+#+end_src
+
+You can include this just like the =readInt= function by putting the integer you want to print in =%rdi=. This code is fun because it allocates a buffer on the stack locally!
+
+
