@@ -1,0 +1,70 @@
+* Agenda
+** Reference
+ To choose a syscall:
+  + put the number of the syscall in %rax
+  + *then* pass arguments like normal in the argument registers
+ Argument order:
+ + %rdi
+ + %rsi
+ + %rdx
+ + %rcx
+ + %r8
+ + %r9
+ Return values:
+ + always go in %rax
+ Stack: 
+ + current stack pointer %rsp
+ + base pointer: %rbp
+ Syscalls:
+ + read = 0
+   + Args:
+   + fd
+   + address
+   + max size
+ + write = 1
+   + Args:
+   + fd
+   + address
+   + bytes to write
+ + exit = 60
+ Caller saved:
+  + rax
+  + rcx
+  + rdx
+  + rsi
+  + rdi
+  + r8
+  + r9
+  + r10
+  + r11
+ Callee saved:
+  + rbx
+  + rbp
+  + r12 - r15
+** The plan for class
+ - review how to call functions in assembly
+ - save the current stack to the base pointer
+ - subtract from the stack (must be a multiple of 16)
+   - why? because there are some registers that are 128 bits wide
+ - now you can put local variables in those slots
+ - push a variable onto the stack
+ - pop from the stack into a variable
+ - let's make a function to print out integers
+   - let's think this through:
+     - we have to go to the *end* and count backwards, right?
+   - and then we need to sum but we need to multiply by 10 each time first, right?
+   - accumulate into rax and return it
+ - now let's turn this into a separate function you can include with the linker
+   - .global
+   - .extern
+ - recursive calls!
+   - let's write a fibonacci
+ - How do we /write/ a number? This one is a little more annoying
+   - Let's walk through a complete example because I don't like writing this and will fuck it up
+ - Okay so now let's do a stupid program where we
+   - read a number
+   - multiply it by 2
+   - print it back out
+ - Cool now we've learned way more than you'll probably ever need to know about x86-64 assembly!
+ - We have some cleanup topics to cover on Wednesday related to floating point registers and wide registers for mmx instructions and such, we might also start file I/O in C and then signals
+
