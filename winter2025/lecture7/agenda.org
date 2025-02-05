@@ -1,0 +1,27 @@
+* Agenda
+Okay we're getting back to the C-world now
+** Administrivia
+** Assembly questions
+ 
+** A cleanup topic
+ The layout of a linux process in memory:
+ https://simonis.github.io/Memory/
+ https://medium.com/@weidagang/linux-beyond-the-basics-process-memory-layout-and-dynamic-allocation-e61ac67a2694
+** Forking and processes
+ + Processes are capable of making other processes
+ + fork()
+ + but fork returns a /clone/ of the original and all of its registers including rip!
+ + this means they're both going to move onto the next line
+ + how do we know who the *real* process is?
+ + we can check what fork returns!
+   + if it's -1 then something went wrong
+   + if it's a number > 0 then you're the parent and that's your baby's name
+   + if it's a number == 0 then you're the baby, sorry
+ + wait() lets you wait for your children to be done
+   + you can pass it a pointer that will nab the data that the other process used to return!
+   + WEXITSTATUS
+     + returned = (returned >> 8) && 0xFF;
+ + function pointers, because it's useful to know
+ + [maybe] communication between processes with pipes!
+** Signals and interrupts
+ + What are interrupts and signals?
