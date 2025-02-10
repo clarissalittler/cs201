@@ -1,0 +1,11 @@
+* Agenda
+** Signals, continued!
+ + Talk about how to mask signals
+ + Sending yourself signals with raise
+ + Go over some of the other signals beyond SIGUSR1,SIGUSR2,SIGINT
+ + Do the parent/child fighting program we sorta started last time
+** Threading!!
+ + (preface) function pointers!
+ + how to make threads
+ + how to wait for threads to finish
+ + mutexs
