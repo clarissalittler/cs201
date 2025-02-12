@@ -1,0 +1,19 @@
+* Agenda
+ + Talk about picoCTF
+ + Review of mutexes
+ + Thread conditions
+   + pthread_cond_init
+   + pthread_cond_destroy
+   + pthread_cond_wait
+   + pthread_cond_timedwait
+   + pthread_cond_signal
+   + pthread_cond_broadcast
+ + Producer/consumer example
+ + Synchronize UI across threads
+ + Semaphores
+   + Like a mutex except that it can be more than just binary on/off
+   + Can control multiple accesses to a resource like a database
+   + Unlike mutexes, semaphores work with forking across processes
+   + need to introduce mmap to do it
+     + do some examples of mmap
+
