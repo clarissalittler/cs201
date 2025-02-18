@@ -1,0 +1,18 @@
+* Assignment 3
+ + The assignment should be able to run only creating each thread /once/
+ + When I said the threads should operate without "being told what to do" I meant that you're not giving them a specific assignments, they calculate what they should do next from some shared state.
+ + That shared state can be an argument passed into the thread function
+* File I/O
+   + Basic file operations and read/write syscalls
+     + file:/home/left_adjoint/cs201/file-intro/fileFunc1.c
+   + Reading an entire file and putting it in a buffer
+     + file:/home/left_adjoint/cs201/file-intro/fileFunc2.c
+   + Using argv
+     + file:/home/left_adjoint/cs201/file-intro/argvtest.c
+   + Reading into and writing from structs
+     + file:/home/left_adjoint/cs201/file-intro/fileFunc3.c
+   + Normal api instead of raw system calls
+     + file:/home/left_adjoint/cs201/file-intro/fileFunc4.c
+   + Directories
+     + file:/home/left_adjoint/cs201/file-intro/directory1.c
+   + Let's build a line editor together
