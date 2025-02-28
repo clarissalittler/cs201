@@ -1,0 +1,17 @@
+* Interprocess Communication
+This is mostly a fun topic, you won't need it for any assignments
+** Pipes
+ + file:/home/left_adjoint/cs201/lecture9/pipe1.c
+ + file:/home/left_adjoint/cs201/winter2025/lecture13/tempconverter.c
+** Named pipes
+ + file:/home/left_adjoint/cs201/ipc-lecture/namedPipesClient1.c
+ + file:/home/left_adjoint/cs201/ipc-lecture/namedPipesServer1.c
+ + file:/home/left_adjoint/cs201/winter2025/lecture13/chat_client.c
+ + file:/home/left_adjoint/cs201/winter2025/lecture13/chat_server.c
+** Shared memory segments
+ + file:/home/left_adjoint/cs201/ipc-lecture/sharedstruct.h
+ + file:/home/left_adjoint/cs201/ipc-lecture/sharedMemprod.c
+ + file:/home/left_adjoint/cs201/ipc-lecture/sharedMemcons.c
+ + file:/home/left_adjoint/cs201/winter2025/lecture13/shm_creator.c
+ + file:/home/left_adjoint/cs201/winter2025/lecture13/shm_client.c
+** Message queues
