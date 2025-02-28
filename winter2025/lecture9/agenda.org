@@ -1,0 +1,8 @@
+* Agenda
++ Starting threads!
++ What is a thread?
+  + It's *sort of* its own process, but it shares the memory space of the parent
+  + Effectively you have different threads of execution that all see the same scope of data
+  + Much more efficient than forking in both time and space
+  + *but* you pay for that for that efficiency with more complicated logic
++ Example 1: Start two threads
