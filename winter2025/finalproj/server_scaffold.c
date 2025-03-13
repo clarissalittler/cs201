@@ -157,8 +157,34 @@ void loadFile(FILE* f, struct clientData* d) {
  */
 void* threadHandler(void* arg) {
     struct clientData* d = (struct clientData*) arg;
+
+    // Ask user for file name
+    char* filename = getStr(d, "What is the name of the file you want to edit? ");
+    filename[strlen(filename)-1] = '\0'; // get rid of pesky newline
+    if(!filename) {
+        close(d->sockfd);
+        return NULL;
+    }
+
+    FILE* ourFile = fopen(filename, "r+");
+    if(!ourFile) {
+        /* 
+         * If the file doesn't exist, try creating it.
+         * Alternatively, you can report an error to the client.
+         */
+        ourFile = fopen(filename, "w+");
+        if(!ourFile) {
+            write(d->sockfd, "Could not open or create that file.\n", 35);
+            free(filename);
+            close(d->sockfd);
+            return NULL;
+        }
+    }
+
+    // Load file into memory
+    loadFile(ourFile, d);
     
-    // Your implementation here
+    // Rest of your implementation here!
     
     return NULL;
 }
