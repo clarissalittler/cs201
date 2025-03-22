@@ -1,0 +1,88 @@
+* Agenda
+** What is this class?
+** How does it work?
+** C: A Brief Summary Thereof
+ + You already almost know it
+ + But there's some differences
+ + Most them are subtractive
+ + Main differences:
+   + different libraries
+   + no booleans
+     + 1 and 0
+   + structs always have to say struct
+   + printf and scanf
+   + gcc not g++
+   + *only* char* no string
+   + malloc and free not new and delete
+   + No pass by reference!
+     + ONLY POINTERS
+** Bit munging
+*** Bitwise operations
+ + & bitwise and
+ + | bitwise or
+ + ^ bitwise xor
+ + >> right shift
+ + << left shift
+
+ 1 && 0 => 0 logical and
+ 1 || 0 => 1 logical or
+
+  11100101
+& 01110100
+-----------
+  01100100
+
+     11100101
+or | 01110100
+-----------
+     11110101
+
+xor ^
+1 ^ 0 = 1
+0 ^ 1 = 1
+1 ^ 1 = 0
+0 ^ 0 = 0
+
+  11100101
+^ 01110100
+-----------
+  10010001
+
+ n >> m
+ shifts the bits in n over to the right m places
+ leaving 0s in the left in its wake
+
+ 10000000 >> 1 => 01000000
+ 10000000 >> 3 => 00010000
+
+ this effectively is a integer division by powers of 2
+
+ n << m
+ shifts the bits in n over to the left m places
+ leaving 0s in the right in its wake
+
+ 00000001 << 1 => 00000010
+ 00000001 << 3 => 00001000
+
+ multiplication by powers of 2
+ 
+*** Experimenting with numbers 
+** Integer representations
+ for most bits!!! (except the last one)
+ the nth bit adds b_n*2^n to the total
+
+ 2's complement
+
+ (Assume an 8-bit 2's complement number for simplicity)
+ 10010101 ===>
+
+ -1*2^7 + 0*2^6 + 0*2^5 + 1*2^4 + 0*2^3 + 1*2^2 + 0*2^1 + 1*2^0 = -128 + 16 + 4 + 1 = -128 + 21 = -107 
+
+ a 2's complement representation of signed numbers can represent
+
+ -2^(n-1) -> 2^(n-1)-1
+
+ unsigned for n bits
+ 2^n-1
+ 
+** Next time: floating point numbers
