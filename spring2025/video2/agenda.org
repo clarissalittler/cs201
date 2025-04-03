@@ -1,0 +1,86 @@
+* Agenda
+** How are bytes stored in memory?
+does NOT mean anything about how bits are ordered inside the bytes
+*** little endian
+the bytes are stored so that so the most significant byte is stored at the highest address
+and the least significant byte is stored at the lowest address
+
+0x01020304 <- an int
+
+if our int base address is 0x05
+
+in little endian it would be stored like
+
+04 would be stored at the lowest address 0x05
+03 at the next address 0x06
+02 stored at the next address 0x07
+01 at the highest address of int 0x08
+
+
+*** big endian
+0x01020304 <- an int
+
+if our int base address is 0x05
+
+in little endian it would be stored like
+
+04 would be stored at the lowest address 0x08
+03 at the next address 0x07
+02 stored at the next address 0x06
+01 at the highest address of int 0x04
+
+file:./pointerarith.c
+file:./byteorder.c
+ 
+** Making our bitmunger work with floats
+file:./floatMunger.c
+** Experimenting with floats
+** IEE 754 standard
+*The* floating point standard
+
+32 bits
+1 sign bit <-- "leftmost" bit, i.e. most significant bit, and it controls +/-
+
+8 exponent bits <- next 8 bits after the sign bit are interpreted like an unsigned char
+
+remaining 23 bits <- the "mantissa"/significand bits which are interpreted as a "fractional binary number"
+
+(-1)^|s| * 2^(|e| - 127) * (1 + |m|)
+
+the mantissa is interpreted as
+
+b-1 b-2 b-3 b-4 ... b-23
+*** aside on fractional binary numbers
+ Let's consider an 8 bit version
+
+ b7 b6 b5 b4 b3 b2 b1 b0
+
+ if this was a normal number it would be
+
+ 2^7 * b7 + 2^6 * b6 + 2^5 * b5 + 2^4 * b4 + 2^3 * b3 + 2^2 * b2 + 2^1 * b1 + b0
+
+ 00010011 = 2^4 + 2 + 1 = 16 + 3 = 19
+
+ b-1 b-2 b-3 b-4 b-5 b-6 b-7 b-8
+
+ b-1 * 2^-1 + b-2 * 2^-2 + b-3 * 2^-3 + b-4 * 2^-4 + b-5 * 2^-5 + b-6 * 2^-6 + b-7*2^-7
+
+ 11110000
+
+ 1/2 + 1/4 + 1/8 + 1/16 = 15/16
+
+ 11111000 = 31/32
+*** Very tiny numbers
+when all the exponent bits are 0, the meaning of the mantissa changes
+
+the formula becomes
+
+(-1)^|s| * 2^(-126) * |m| <-- let's us get close to 0 smoothly
+rather than it being
+(-1)^|s| * 2^(-127) * (1 + |m|) <-- this never gets smaller (in absolute value) than 2^(-127)
+*** A few small observations
+Almost never representing numbers exactly
+
+Has to round all over the place (particularly when something isn't an easy power of 2)
+
+Why? Because there are an infinite number of real numbers between 0 and 1. Not just a little infinite but there are infinitely more numbers between 0 and 1 than there are programs you could ever write in any programming language (more than the number of computable functions) and it would take infinite storage to store any transcendental real number. 
