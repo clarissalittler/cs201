@@ -1,0 +1,197 @@
+* Understanding Posit<8,3> Number Representation
+
+** Introduction
+
+Posits (Positive Interval System) are an alternative to the widely used IEEE 754 floating-point standard. They aim to provide better accuracy and a wider dynamic range for the same number of bits, especially near the values +1 and -1.
+
+This tutorial focuses on a specific, small Posit format: Posit<8,3>.
+- *N=8*: The total number of bits used to represent a number is 8.
+- *es=3*: The maximum number of bits allocated to the exponent field is 3.
+
+We will learn how to take an 8-bit pattern and decode it into the numerical value it represents according to the Posit<8,3> standard.
+
+** Bit Representation Overview
+
+An 8-bit Posit<8,3> number is conceptually divided into four fields:
+
+| Bit Index | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|-----------+---+---+---+---+---+---+---+---|
+| Field     | S | R | R | R | E | E | F | F |
+
+Where:
+- *S*: Sign bit (1 bit)
+- *R*: Regime bits (Variable length)
+- *E*: Exponent bits (Variable length, max 'es' bits)
+- *F*: Fraction/Mantissa bits (Variable length)
+
+*Important Note:* Unlike fixed-width fields in IEEE 754, the boundaries between the Regime, Exponent, and Fraction fields are *dynamic*. Determining these boundaries is the core of decoding a Posit.
+
+** Special Cases
+
+Two bit patterns represent special values:
+
+1.  *Zero*: If all 8 bits are 0, the value is exactly 0.
+    - Bit Pattern: =00000000=
+    - Value: =0=
+
+2.  *NaR (Not a Real)*: In the specific implementation derived from your code, if all 8 bits are 1, the value is NaR. (Note: The standard Posit definition often uses =10000000= for NaR, but we follow the logic leading to your code where =11111111= seems to be treated as NaR).
+    - Bit Pattern: =11111111=
+    - Value: =NaR=
+
+** Decoding Process (for non-special cases)
+
+If the bit pattern is not =00000000= or =11111111=, we decode it step-by-step:
+
+*** Step 1: Determine the Sign (S)
+
+- The most significant bit (Bit 7) is the sign bit.
+- If S = 0, the number is positive.
+- If S = 1, the number is negative. The remaining decoding steps work on the magnitude, and the sign is applied at the very end. If the number is negative, it's often helpful to mentally (or actually) flip all the *other* bits (bits 6 down to 0) using two's complement logic *before* proceeding, decode the positive magnitude, and then remember to make the final result negative. However, the provided code *doesn't* use two's complement for the magnitude; it simply uses the sign bit independently. We will follow the code's simpler approach: decode bits 6-0 directly and apply the sign at the end.
+
+*** Step 2: Decode the Regime (R) and find 'k'
+
+- The regime starts at the second most significant bit (Bit 6).
+- Look at Bit 6. Let this be the *regime starting bit*.
+- Count how many consecutive bits, moving *right* (towards LSB, Bit 5, Bit 4, ...), are *identical* to the regime starting bit.
+- Stop counting when you encounter a bit that is *different* or when you run out of bits (i.e., you've considered Bit 1 and would next look at Bit 0, but the check includes Bit 0 according to the `while` condition `*p > 0` in the `regime` function, meaning it stops *after* considering bit 1 if the condition is met up to bit 1). The bit *after* the run of identical bits is the *terminating bit* (or the implicit end after bit 0).
+- Let the number of identical bits in the run (including the starting bit) be =m=.
+- The regime value, =k=, is calculated based on the *regime starting bit*:
+  - If the regime starting bit (Bit 6) was 0: =k = -m=
+  - If the regime starting bit (Bit 6) was 1: =k = m - 1=
+- The bits used: The =m= identical regime bits *plus* the terminating bit (if it exists within bits 6-0). Keep track of the index of the bit immediately following the regime bits (this is where the exponent starts).
+
+*** Step 3: Decode the Exponent (E) and find 'e'
+
+- After the regime bits (and its terminator), the *next* available bits form the exponent.
+- The *maximum* number of exponent bits is determined by =es= (which is 3 in our case).
+- Read up to =es= bits sequentially from left to right.
+- If fewer than =es= bits remain in the 8-bit pattern after the regime, use only the remaining bits for the exponent.
+- Interpret these bits as a standard unsigned binary integer. This value is =e=.
+- Keep track of the index of the bit immediately following the exponent bits.
+
+*** Step 4: Decode the Fraction (F) and find 'm'
+
+- Any bits remaining after the sign, regime, and exponent form the fraction part.
+- If there are no bits left, the fraction value is 0.
+- The Posit format assumes an *implicit* leading '1' before the fractional part (unless the number is 0 or NaR).
+- Calculate the fraction value =f= similarly to IEEE 754:
+  =f = b_1 * 2^-1 + b_2 * 2^-2 + b_3 * 2^-3 + ...=
+  where =b_1, b_2, ...= are the fraction bits read from left to right.
+- The final mantissa value, =m=, is =1 + f=.
+
+*** Step 5: Calculate the Final Value
+
+- Combine the components using the formula:
+  =Value = (-1)^S * useed^k * 2^e * m=
+- Where:
+  - =S= is the sign bit (0 or 1).
+  - =useed= (use-seed) is a scaling factor determined by =es=. =useed = 2^(2^es)=.
+    For =es=3, =useed = 2^(2^3) = 2^8 = 256=.
+  - =k= is the regime value.
+  - =e= is the exponent value.
+  - =m= is the mantissa value (1 + fraction).
+
+- So, for Posit<8,3>, the formula is:
+  =Value = (-1)^S * 256^k * 2^e * (1 + f)=
+
+** Worked Examples
+
+Let's decode some 8-bit patterns using Posit<8,3>.
+
+*** Example 1: =01101101=
+
+1.  *Sign (S)*: Bit 7 is 0. => Positive number. S=0.
+2.  *Regime (R)*:
+    - Starts at Bit 6. Bit 6 = 1. (Regime starting bit is 1)
+    - Bit 5 = 1. (Identical)
+    - Bit 4 = 0. (Different - this is the terminating bit)
+    - The run of identical bits is '11'. Length =m= = 2.
+    - Since starting bit was 1, =k = m - 1 = 2 - 1 = 1=.
+    - Bits used for regime: 6, 5, 4. Next bit is Bit 3.
+3.  *Exponent (E)*:
+    - Max =es= = 3 bits. Available bits start at Bit 3.
+    - Bits are: Bit 3='1', Bit 2='1', Bit 1='0'. (Using 3 bits: 110)
+    - =e = 1*2^2 + 1*2^1 + 0*2^0 = 4 + 2 + 0 = 6=.
+    - Bits used for exponent: 3, 2, 1. Next bit is Bit 0.
+4.  *Fraction (F)*:
+    - Remaining bits start at Bit 0. Only Bit 0='1'.
+    - Fraction bits: '1'.
+    - =f = 1 * 2^-1 = 0.5=.
+    - Mantissa =m = 1 + f = 1 + 0.5 = 1.5=.
+    - Bits used for fraction: 0.
+5.  *Final Calculation*:
+    - =Value = (-1)^0 * 256^1 * 2^6 * 1.5=
+    - =Value = 1 * 256 * 64 * 1.5=
+    - =Value = 16384 * 1.5 = 24576=
+
+    Therefore, =01101101= represents the value =24576=.
+
+*** Example 2: =10010110=
+
+1.  *Sign (S)*: Bit 7 is 1. => Negative number. S=1.
+2.  *Regime (R)*:
+    - Starts at Bit 6. Bit 6 = 0. (Regime starting bit is 0)
+    - Bit 5 = 0. (Identical)
+    - Bit 4 = 1. (Different - this is the terminating bit)
+    - The run of identical bits is '00'. Length =m= = 2.
+    - Since starting bit was 0, =k = -m = -2=.
+    - Bits used for regime: 6, 5, 4. Next bit is Bit 3.
+3.  *Exponent (E)*:
+    - Max =es= = 3 bits. Available bits start at Bit 3.
+    - Bits are: Bit 3='0', Bit 2='1', Bit 1='1'. (Using 3 bits: 011)
+    - =e = 0*2^2 + 1*2^1 + 1*2^0 = 0 + 2 + 1 = 3=.
+    - Bits used for exponent: 3, 2, 1. Next bit is Bit 0.
+4.  *Fraction (F)*:
+    - Remaining bits start at Bit 0. Only Bit 0='0'.
+    - Fraction bits: '0'.
+    - =f = 0 * 2^-1 = 0=.
+    - Mantissa =m = 1 + f = 1 + 0 = 1.0=.
+    - Bits used for fraction: 0.
+5.  *Final Calculation*:
+    - =Value = (-1)^1 * 256^-2 * 2^3 * 1.0=
+    - =Value = -1 * (1 / 256^2) * 8 * 1.0=
+    - =Value = -1 * (1 / 65536) * 8=
+    - =Value = -8 / 65536 = -1 / 8192 ≈ -0.00012207=
+
+    Therefore, =10010110= represents the value =-1/8192=.
+
+*** Example 3: =00000011=
+
+1.  *Sign (S)*: Bit 7 is 0. => Positive number. S=0.
+2.  *Regime (R)*:
+    - Starts at Bit 6. Bit 6 = 0.
+    - Bit 5 = 0.
+    - Bit 4 = 0.
+    - Bit 3 = 0.
+    - Bit 2 = 0.
+    - Bit 1 = 1. (Different - terminating bit)
+    - Run is '00000'. Length =m= = 5.
+    - Starting bit was 0, =k = -m = -5=.
+    - Bits used for regime: 6, 5, 4, 3, 2, 1. Next bit is Bit 0.
+3.  *Exponent (E)*:
+    - Max =es= = 3 bits. Available bits start at Bit 0. Only 1 bit remaining.
+    - Bit is: Bit 0='1'. (Using 1 bit: 1)
+    - =e = 1=. (Treated as an unsigned int, pad with leading zeros conceptually if needed: 001 -> 1).
+    - Bits used for exponent: 0. No bits remaining.
+4.  *Fraction (F)*:
+    - No remaining bits.
+    - Fraction =f = 0=.
+    - Mantissa =m = 1 + f = 1.0=.
+5.  *Final Calculation*:
+    - =Value = (-1)^0 * 256^-5 * 2^1 * 1.0=
+    - =Value = 1 * (1 / 256^5) * 2 * 1.0=
+    - =Value = 2 / (1,099,511,627,776) ≈ 1.818989e-12=
+
+    Therefore, =00000011= represents a very small positive number.
+
+** Summary
+
+To decode a Posit<8,3> bit pattern:
+1. Check for special cases (=00000000= is 0, =11111111= is NaR).
+2. Determine the sign from Bit 7.
+3. Find the regime bits starting at Bit 6, calculate =k=.
+4. Find the exponent bits (up to =es=3), calculate =e=.
+5. Find the fraction bits, calculate mantissa =m = 1 + f=.
+6. Combine using =Value = (-1)^S * 256^k * 2^e * m=.
+
+This process allows Posits to represent numbers across a wide range, adjusting the precision available for the fraction based on the magnitude indicated by the regime.
