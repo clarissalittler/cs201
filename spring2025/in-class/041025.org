@@ -1,0 +1,36 @@
+* Why is bit shift multiplication or division?
+  + Assume 8 bit numbers
+  + 001101 = 13
+    001101 << 1
+    ==> 011010 = 2 + 8 + 16 = 26 = 2*13
+
+  + 001101 = 13
+    + two's complement:
+      + first step: invert the bits
+        + 110010
+      + second step: add 1
+        + 110011
+    
+* Registers
+ + 16 of them on each core
+ + Each one holds 64 bits (8 bytes) of data
+ + They can be accessed in a single clock cycle
+   + 1GHz processor has clock cycles of 1 billionth of a second
+   + Hz = 1/s = s^-1
+ + Are they like variables?
+   + Sorta...but not really
+   + They are the scratch paper of the processor
+   + You write, erase, and rewrite on them constantly
+   + Almost all operations are using the registers or else it would be too slow
+ + What is a core?
+   + A miserable pile of computation
+   + The physical thing that runs code
+   + Processors have *many* cores now
+   + Each core has 16 * 8 = 128 bytes of fast storage
+ + Speed comparison
+   + How many variables do you need to saturate all the registers?
+   + 16?
+   + But it's worse than that, because anything you need to save to compute with later needs to be in a register at some point
+   + memory is 10000s or 100000s of times slower
+   + (caching helps with this, we'll talk about that)
+ + 
