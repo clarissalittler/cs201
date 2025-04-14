@@ -34,7 +34,7 @@ int main() {
 
   while (1) {
     newSocket = accept(serverFd, (struct sockaddr *)&address, &addrlen);
-
+    
     memset(buffer, 0, bsize);
     ssize_t filenameLen = read(newSocket, buffer, bsize - 1);
     buffer[filenameLen] = '\0'; // Null-terminate the filename
@@ -45,6 +45,10 @@ int main() {
     while ((bytesRead = read(fileFd, buffer, bsize)) > 0) {
       bytesSent = write(newSocket, buffer, bytesRead);
     }
+    write(newSocket,"", 0);
+
+    sleep(10);
+    
     close(fileFd);
     close(newSocket);
     printf("Connection closed.\n");

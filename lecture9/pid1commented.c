@@ -1,29 +1,34 @@
-#include <stdio.h>  // Include the standard input/output library for functions like printf.
-#include <stdlib.h> // Include the standard library for functions like perror.
-#include <unistd.h> // Include the POSIX operating system API for functions like fork and getpid.
-#include <sys/types.h> // Include the system types library for the pid_t data type.
-#include <sys/wait.h> // Include the wait library for functions like wait.
+#include <stdio.h>      // Standard input/output library for functions like printf
+#include <stdlib.h>     // Standard library for functions like exit
+#include <unistd.h>     // POSIX API for functions like fork and getpid
+#include <sys/types.h>  // Defines data types used in system calls
+#include <sys/wait.h>   // For waiting on process state changes, like wait
 
 int main() {
-    pid_t pid = fork(); // Create a new process. fork() returns the process ID (PID) of the child process in the parent process, and 0 in the child process.
+    // Create a new process by duplicating the current process
+    pid_t pid = fork();  // fork() returns:
+                          // - Negative value if the creation of a child process was unsuccessful
+                          // - Zero to the newly created child process
+                          // - Positive value (child's PID) to the parent process
 
-    if (pid < 0) { // Check if fork() failed.
-        // Fork failed
-        perror("Fork failed"); // Print an error message to stderr.
-        return 1; // Return 1 to indicate an error occurred.
+    if (pid < 0) {
+        // This block executes if fork() failed
+        perror("Fork failed");  // Print an error message to stderr
+        return 1;               // Exit the program with a non-zero status indicating failure
     }
-    else if (pid == 0) { // This is the child process, as fork() returns 0 for the child.
-        // This is the child process
-        printf("Hello from the child process! My PID is %d\n", getpid()); // Print a message indicating the child process and its PID.
-        // getpid() returns the process ID of the current process.
+    else if (pid == 0) {
+        // This block executes only in the child process
+        printf("Hello from the child process! My PID is %d\n", getpid());
+        // getpid() retrieves the Process ID (PID) of the calling process (child)
     }
-    else { // This is the parent process, as fork() returns a positive value for the parent.
-        // This is the parent process
-        printf("Hello from the parent process! My child's PID is %d\n", pid); // Print a message indicating the parent process and the PID of the child process.
+    else {
+        // This block executes only in the parent process
+        printf("Hello from the parent process! My child's PID is %d\n", pid);
+        // 'pid' contains the PID of the child process returned by fork()
     }
 
-    // Both processes reach here and print a message
-    printf("This message is printed by both the parent and the child.\n"); // Print a message that is printed by both the parent and the child processes.
+    // This statement is executed by both the parent and the child processes
+    printf("This message is printed by both the parent and the child.\n");
 
-    return 0; // Return 0 to indicate the program executed successfully.
+    return 0;  // Exit the program successfully
 }

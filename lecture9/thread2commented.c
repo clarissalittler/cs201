@@ -1,65 +1,72 @@
-#include <stdio.h> // Include the standard input/output library for functions like printf
-#include <stdlib.h> // Include the standard library for functions like rand and malloc
-#include <time.h> // Include the time library for functions like time, used for random number generation
-#include <pthread.h> // Include the POSIX threads library for functions related to thread management
-#include <unistd.h> // Include the POSIX operating system API for functions like sleep
-#include <fcntl.h> // Include the file control library, not used in this example
-#include <sys/stat.h> // Include the system stat library, not used in this example
-#include <semaphore.h> // Include the semaphore library for functions related to semaphores
+#include <stdio.h>      // Standard input/output library for printf
+#include <stdlib.h>     // Standard library for functions like srand and rand
+#include <time.h>       // Time library for seeding the random number generator
+#include <pthread.h>    // POSIX threads library for threading functions
+#include <unistd.h>     // Unix standard library for sleep function
+#include <fcntl.h>      // File control options (not directly used in this code)
+#include <sys/stat.h>   // System data types and structures (not directly used)
+#include <semaphore.h>  // Semaphore library for semaphore functions
 
-int ourCounter = 0; // Declare a global integer variable named ourCounter, initialized to 0
+// Global counter that will be incremented by threads
+int ourCounter = 0;
 
-sem_t ourSem; // Declare a semaphore named ourSem
+// Semaphore to control access to ourCounter
+sem_t ourSem;
 
-// Define a function named threadCounter that will be executed by each thread
-void* threadCounter(void* arg) {
-  // Wait on the semaphore ourSem. This will block the thread until the semaphore is available (has a value greater than 0).
-  sem_wait(&ourSem); 
-  // Store the current value of ourCounter in a temporary variable temp.
-  int temp = ourCounter;
-  // Sleep for a random number of seconds between 0 and 2.
-  sleep(rand()%3); 
-  // Increment ourCounter by 1.
-  ourCounter = temp+1; 
-  // Signal the semaphore ourSem. This will allow another thread to acquire the semaphore.
-  sem_post(&ourSem); 
-  return NULL; // Return NULL to indicate that the thread has completed successfully.
+// Function that each thread will execute
+void* threadCounter(void* arg){
+    // Wait (decrement) the semaphore before entering critical section
+    sem_wait(&ourSem);
+
+    // Critical Section Start
+    int temp = ourCounter;           // Read the current value of the counter
+    sleep(rand() % 3);               // Simulate some work with random sleep (0-2 seconds)
+    ourCounter = temp + 1;           // Increment the counter
+    // Critical Section End
+
+    // Post (increment) the semaphore to signal that the critical section is done
+    sem_post(&ourSem);
+
+    return NULL; // Thread exits
 }
 
 int main(){
-  // Seed the random number generator using the current time.
-  srand(time(0));
-  // Declare an array of 10 pthread_t structures to represent the threads.
-  pthread_t threads[10]; 
+    // Seed the random number generator with the current time
+    srand(time(0));
 
-  // Initialize the semaphore ourSem with an initial value of 1.
-  // The second argument (0) specifies that the semaphore is not shared between processes.
-  sem_init(&ourSem,0,1); 
+    // Array to hold thread identifiers for 10 threads
+    pthread_t threads[10];
 
-  // Create 10 threads that will execute the threadCounter function.
-  for(int i = 0;i < 10; i++){
-    // Create a new thread and assign its ID to the i-th element of the threads array.
-    // The arguments to pthread_create are:
-    //   - the address of the thread ID variable (threads[i])
-    //   - NULL (attributes, not used)
-    //   - the function to be executed by the thread (threadCounter)
-    //   - NULL (arguments to the function, not used)
-    pthread_create(&threads[i],NULL,threadCounter,NULL);
-  }
+    // Initialize the semaphore
+    // The second argument '0' means the semaphore is shared between threads of the process
+    // The third argument '1' sets the initial value of the semaphore to 1 (binary semaphore)
+    if (sem_init(&ourSem, 0, 1) != 0) {
+        perror("sem_init failed"); // Print error if semaphore initialization fails
+        exit(EXIT_FAILURE);        // Exit the program with failure status
+    }
 
-  // Join the 10 threads to the main thread.
-  for(int i =0; i < 10;i++){
-    // Wait for the i-th thread to complete its execution.
-    // The arguments to pthread_join are:
-    //   - the thread ID (threads[i])
-    //   - NULL (pointer to a location to store the thread's return value, not used)
-    pthread_join(threads[i],NULL);
-  }
+    // Create 10 threads
+    for(int i = 0; i < 10; i++){
+        // pthread_create returns 0 on success
+        if(pthread_create(&threads[i], NULL, threadCounter, NULL) != 0){
+            perror("pthread_create failed"); // Print error if thread creation fails
+            exit(EXIT_FAILURE);             // Exit the program with failure status
+        }
+    }
 
-  // Destroy the semaphore ourSem.
-  sem_destroy(&ourSem);
-  
-  // Print the final value of ourCounter.
-  printf("What's the value of this counter?? %d\n",ourCounter);
-  return 0;
+    // Wait for all 10 threads to finish execution
+    for(int i = 0; i < 10; i++){
+        if(pthread_join(threads[i], NULL) != 0){
+            perror("pthread_join failed"); // Print error if joining thread fails
+            exit(EXIT_FAILURE);            // Exit the program with failure status
+        }
+    }
+
+    // Destroy the semaphore as it's no longer needed
+    sem_destroy(&ourSem);
+
+    // Print the final value of ourCounter
+    printf("What's the value of this counter?? %d\n", ourCounter);
+
+    return 0; // Exit the program successfully
 }

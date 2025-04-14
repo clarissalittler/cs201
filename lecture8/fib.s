@@ -5,7 +5,7 @@
 fib:
 	push %rbp
 	mov %rsp,%rbp
-	sub $8,%rsp
+	sub $16,%rsp # have to keep things 16 bytes aligned
 
 	cmp $1,%rdi
 	jle .base

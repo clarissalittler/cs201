@@ -16,8 +16,14 @@ loopBody:
         jge done
 
         ## here we do the accumulation
+        ## lea puts (%rbx + 4 * %rcx) into %rdx
+        ## %rbx holds arr1
+        ## lea(%rbx,%rcx,4) -> arr1 + i (pointer arithmetic)
+        ## so %rdx holds arr1 + i
         lea (%rbx,%rcx,4),%rdx  # does NOT dereference
+        ## (%rdx) -> *(arr1 + i)
         add (%rdx),%rax  # sum = sum + arr1[i]
+        ## add (%rbx,%rcx,4),%rax
         ## *(%rbx + 4 * %rcx)
         add $1,%rcx             #i++
         jmp loopBody

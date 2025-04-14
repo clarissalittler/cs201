@@ -46,7 +46,7 @@ int main(){
   // - (socklen_t*)&addrlen: Size of address structure
   // Returns: New socket file descriptor for this specific client connection
 
-  write(new_socket, buffer, strlen(buffer));  // Echo message back to client
+  write(new_socket, buffer, strlen(buffer));  // Send message to client
   // Arguments:
   // - new_socket: Socket to send data on
   // - buffer: Data to send

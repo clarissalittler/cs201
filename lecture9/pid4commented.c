@@ -1,58 +1,68 @@
-#include <stdio.h>  // Includes standard input/output library for functions like printf and scanf
-#include <stdlib.h> // Includes standard library for functions like perror and exit
-#include <unistd.h> // Includes POSIX operating system API functions, including fork and wait
-#include <sys/types.h> // Includes system types, such as pid_t (process ID)
-#include <sys/wait.h> // Includes functions for managing processes, including wait
+#include <stdio.h>      // Standard Input/Output library for functions like printf and scanf
+#include <stdlib.h>     // Standard Library for functions like exit
+#include <unistd.h>     // POSIX API for functions like fork
+#include <sys/types.h>  // Data types used in system calls (e.g., pid_t)
+#include <sys/wait.h>   // Definitions for waiting functions like wait
 
 int main(){
+    // Fork the current process to create a child process
+    pid_t pid = fork();  
+    // 'pid' will hold the process ID returned by fork()
+    // If pid < 0, fork failed
+    // If pid == 0, this is the child process
+    // If pid > 0, this is the parent process
 
-  pid_t pid = fork(); // Calls fork() to create a child process.
-                     //  - pid is set to the child process's ID if successful, 
-                     //  - 0 if it's the child process itself, 
-                     //  - and -1 if there's an error.
+    int returned; // Variable to store the status information from child
 
-  int returned;  // Declares an integer variable to store the return value from the child process.
-
-  // Checks if fork failed. If so, prints an error message and exits the program.
-  if(pid < 0){
-    perror("Fork failed");  // Prints an error message to stderr (standard error output)
-    return 1;  // Exits the program with an error code
-  }
-
-  // Executes code in the child process (pid == 0).
-  else if(pid == 0){
-    int blah;  // Declares an integer variable to store user input.
-    printf("Say somethin', will ya: ");  // Prompts the user to enter a number.
-    returned = scanf("%d",&blah);  // Reads an integer from standard input and stores it in 'blah'.
-                                   // - returned will be the number of items successfully read (1 in this case) or 0 if there's an error.
-
-    // Checks if scanf failed. If so, exits the child process with an error code.
-    if(returned < 1){
-      return 1;  // Exits the child process with an error code.
+    // Check if fork() failed
+    if(pid < 0){
+        perror("Fork failed"); // Print an error message to stderr
+        return 1;             // Exit the program with a status code of 1 indicating failure
     }
-    // If scanf succeeded, exits the child process with a success code.
+    // Child process block
+    else if(pid == 0){
+        int blah; // Variable to store the user input integer
+
+        // Prompt the user for input
+        printf("Say somethin', will ya: ");
+
+        // Read an integer from the standard input and store it in 'blah'
+        // 'returned' will hold the number of items successfully read
+        returned = scanf("%d", &blah);
+
+        // Check if scanf successfully read an integer
+        if(returned < 1){
+            // If not, exit the child process with status code 1
+            return 1;
+        }
+        else{
+            // If successful, exit the child process with status code 0
+            return 0;
+        }
+    }
+    // Parent process block
     else{
-      return 0; // Exits the child process with a success code.
+        // Wait for the child process to complete
+        // The exit status of the child is stored in 'returned'
+        wait(&returned);
     }
-  }
-  // Executes code in the parent process (pid > 0).
-  else{
-    wait(&returned); // Suspends the parent process until the child process terminates, storing the child's exit status in 'returned'.
-  }
 
-  // Extracts the exit code of the child process from 'returned'.
-  // - shifts the bits in 'returned' 8 places to the right, 
-  // - then performs a bitwise AND operation with 0xFF to isolate the last byte (representing the exit code).
-  returned = (returned >> 8) && 0xFF; 
+    // Shift the exit status to get the actual return code from the child
+    // The wait() function encodes the exit status in the higher-order bits
+    returned = (returned >> 8) && 0xFF;
+    // Explanation:
+    // - 'returned >> 8' shifts the status to get the exit code
+    // - '&& 0xFF' ensures that only the lower 8 bits are considered
 
-  // Checks if the child process exited with an error code.
-  if(returned  == 1){
-    printf("They massacred my boy!\n");  // Prints a message indicating the child process failed.
-  }
-  // If the child process exited with a success code.
-  else{
-    printf("Everything's great, isn't it?\n");  // Prints a message indicating the child process succeeded.
-  }
+    // Check the exit status of the child process
+    if(returned == 1){
+        // If the child exited with status 1, print an error message
+        printf("They massacred my boy!\n");
+    }
+    else{
+        // If the child exited with status 0, print a success message
+        printf("Everything's great, isn't it?\n");
+    }
 
-  return 0;  // Exits the parent process with a success code.
+    return 0; // Exit the parent process with status code 0 indicating success
 }

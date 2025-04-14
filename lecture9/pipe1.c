@@ -6,8 +6,8 @@
 int main() {
     int pipefd[2];        // pipefd[0] is for reading, pipefd[1] is for writing
     pid_t pid;
-    char writeMsg[] = "Hello from the child process!";
-    char readMsg[100];
+    char write_msg[] = "Hello from the child process!";
+    char read_msg[100];
 
     // Create a pipe
     if (pipe(pipefd) == -1) {

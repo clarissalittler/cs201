@@ -17,8 +17,8 @@ int main(){
   srand(time(0));
   
   struct guardCounter* ourCounter = mmap(NULL, sizeof(struct guardCounter),
-                                PROT_READ | PROT_WRITE,
-                                MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+                                         PROT_READ | PROT_WRITE,
+                                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
   sem_init(&ourCounter->semaphore,1,1); // the semaphore, 1 for being shared between processes, 1 for starting value
   ourCounter->counter =0;

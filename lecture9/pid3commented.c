@@ -1,43 +1,60 @@
-#include <stdio.h>  // Includes standard input/output library for functions like printf and scanf
-#include <stdlib.h> // Includes standard library for general functions like malloc, exit, etc.
-#include <unistd.h> // Includes POSIX operating system API for functions like fork, wait, etc.
-#include <sys/types.h> // Includes system types for data types used in system calls
-#include <sys/wait.h> // Includes wait functions for managing child processes
+#include <stdio.h>      // Standard Input/Output functions
+#include <stdlib.h>     // Standard library functions like exit()
+#include <unistd.h>     // POSIX operating system API, including fork()
+#include <sys/types.h>  // Data types used in system calls
+#include <sys/wait.h>   // Declarations for waiting (wait, waitpid)
 
 int main(){
+    // Declare a variable to hold process ID returned by fork()
+    pid_t pid = fork();
+    
+    // Variable to store the status information returned by wait()
+    int returned;
+    
+    // Check if fork() failed
+    if(pid < 0){
+        // Print an error message to stderr if fork fails
+        perror("Fork failed");
+        return 1; // Exit the program with a non-zero status to indicate failure
+    }
+    // Child process block
+    else if(pid == 0){
+        int blah; // Variable to store user input
+        // Prompt the user for input
+        printf("Say somethin', will ya: ");
+        
+        // Read an integer from standard input and store it in 'blah'
+        // 'returned' will hold the number of items successfully read
+        returned = scanf("%d", &blah);
+        
+        // Check if scanf successfully read at least one item
+        if(returned < 1){
+            // If not, exit with status 1 indicating an error
+            return 1;
+        }
+        else{
+            // If successful, exit with status 0 indicating success
+            return 0;
+        }
+    }
+    // Parent process block
+    else{
+        // Parent waits for the child process to terminate
+        // The exit status of the child is stored in 'returned'
+        wait(&returned);
+    }
 
-  pid_t pid = fork(); // Creates a new process. 'pid' stores the process ID of the child process
-                     // If fork() fails, it returns -1. If it succeeds, it returns 0 in the child process and the child's process ID in the parent process.
-
-  int returned; // Declares an integer variable to store the return value from the child process.
-
-  
-  if(pid < 0){ // If fork() failed
-    perror("Fork failed"); // Prints an error message to stderr (standard error)
-    return 1; // Exits the program with an error code
-  }
-  else if(pid == 0){ // If this is the child process
-    int blah; // Declares an integer variable to store user input
-    printf("Say somethin', will ya: "); // Prompts the user for input
-    returned = scanf("%d",&blah); // Reads an integer from the user input and stores it in the 'blah' variable.
-                               // 'returned' stores the number of items successfully read.
-    if(returned < 1){ // If scanf failed to read an integer
-      return 1; // Exits the child process with an error code
+    // After the child has terminated, check its exit status
+    // WEXITSTATUS extracts the lower 8 bits of the exit status
+    if(WEXITSTATUS(returned) == 1){
+        // If the child exited with status 1, print an error message
+        printf("They massacred my boy!\n");
     }
     else{
-      return 0; // Exits the child process successfully
+        // If the child exited with status 0, print a success message
+        printf("Everything's great, isn't it?\n");
     }
-  }
-  else{ // If this is the parent process
-    wait(&returned); // Waits for the child process to terminate. 
-                    // The exit status of the child process is stored in the 'returned' variable.
-  }
-
-  if(WEXITSTATUS(returned) == 1){ // Checks the child process's exit status. WEXITSTATUS() extracts the child process's exit code.
-    printf("They massacred my boy!\n"); // Prints a message if the child process exited with an error.
-  }
-  else{
-    printf("Everything's great, isn't it?\n"); // Prints a message if the child process exited successfully.
-  }
-  return 0; // Exits the parent process successfully
+    
+    // Exit the parent process with status 0 indicating successful execution
+    return 0;
 }

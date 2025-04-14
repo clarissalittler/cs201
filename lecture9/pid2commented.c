@@ -1,31 +1,39 @@
-#include <stdio.h>  // Include standard input/output library for functions like printf
-#include <stdlib.h> // Include standard library for functions like perror
-#include <unistd.h> // Include POSIX operating system API for functions like fork and wait
-#include <sys/types.h> // Include system types definitions, needed for pid_t
-#include <sys/wait.h>  // Include wait functions for managing child processes
+#include <stdio.h>      // Standard input/output library for printf and perror functions
+#include <stdlib.h>     // Standard library for general-purpose functions
+#include <unistd.h>     // UNIX standard library for fork and other POSIX functions
+#include <sys/types.h>  // Defines data types used in system calls
+#include <sys/wait.h>   // Wait functions for process control
 
-int main() {
+int main(){
+    // Fork a new process
+    pid_t pid = fork();
 
-  pid_t pid = fork(); // Call fork() to create a new process.
-                     // fork() returns:
-                     // - a child process ID (pid) in the child process
-                     // - 0 in the parent process
-                     // - -1 on error
-
-  if (pid < 0) { // Check if fork() failed
-    perror("Fork failed"); // Print the error message to stderr
-    return 1; // Return 1 to indicate an error
-  } 
-  else if (pid == 0) { // This block executes only in the child process
-    printf("This is the child process.\n"); // Print a message to indicate the child process
-  }
-  else { // This block executes only in the parent process
-    wait(0); // Wait for the child process to complete. 
-             // 0 as the argument indicates waiting for any child process.
-             // The wait() function will block the parent process until the child process terminates.
-    printf("This is the parent process.\n"); // Print a message to indicate the parent process
-  }
-  printf("This message is printed by both the parent and the child\n"); // This message will be printed by both processes because both processes continue execution after their respective if-else blocks.
-
-  return 0; // Indicate successful program execution
+    // Check if fork() failed
+    if(pid < 0){
+        // perror prints a descriptive error message to stderr
+        perror("Fork failed");
+        return 1; // Exit the program with a non-zero status indicating failure
+    }
+    // Child process block
+    else if(pid == 0){
+        // This code is executed only by the child process
+        printf("This is the child process.\n");
+    }  
+    // Parent process block
+    else{
+        // Parent process waits for the child process to complete
+        // wait(0) is equivalent to wait(NULL), which waits for any child process
+        wait(0);
+        // After child has finished, parent prints its message
+        printf("This is the parent process.\n");
+    }
+    
+    // This line is executed by both parent and child processes
+    printf("This message is printed by both the parent and the child\n");
+    
+    return 0; // Exit the program successfully
 }
+This is the child process.
+This message is printed by both the parent and the child
+This is the parent process.
+This message is printed by both the parent and the child

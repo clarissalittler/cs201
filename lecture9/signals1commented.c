@@ -1,46 +1,57 @@
-#include <stdio.h>  // Includes standard input/output library for functions like printf.
-#include <signal.h> // Includes signal handling library for functions like signal and sigint_handler.
-#include <unistd.h> // Includes POSIX operating system API functions, including sleep.
-#include <stdbool.h> // Includes boolean data type for true/false values.
-#include <stdlib.h> // Includes standard library functions, including exit.
+#include <stdio.h>      // Standard input/output library for functions like printf
+#include <signal.h>     // Library for handling signals like SIGINT
+#include <unistd.h>     // Provides access to the POSIX operating system API, including sleep
+#include <stdbool.h>    // Defines boolean type and values 'true' and 'false'
+#include <stdlib.h>     // Standard library for functions like exit
 
-// Declares a global variable 'counter' as volatile. 
-// 'volatile' tells the compiler that the variable's value can change unexpectedly, 
-// preventing optimizations that might assume its value is constant.
+// Declare a global variable 'counter' to keep track of the number of SIGINT signals received
+// 'volatile' tells the compiler that 'counter' can be modified asynchronously (e.g., by a signal handler)
 volatile int counter = 0;
 
-// Defines the function 'sigint_handler' that will be called when a SIGINT signal is received.
-// SIGINT is the signal generated when the user presses Ctrl+C.
+// Define the signal handler function for SIGINT
 void sigint_handler(int sig){
-  // Increments the counter variable to keep track of how many times Ctrl+C has been pressed.
-  counter++;
-  // Prints a message to the console, indicating that a SIGINT signal has been caught.
-  // It also shows how many more times Ctrl+C needs to be pressed to terminate the program.
-  printf("Caught a sigint: Press ctrl-c %d more times to exit\n",3-counter);
-  // Checks if the counter has reached 3.
-  if(counter >=3){
-    // If the counter is 3 or more, it means Ctrl+C has been pressed 3 times.
-    // This section prints a message and then exits the program with a status code of 0.
-    printf("I've been banished!\n");
-    exit(0);
-  }
+    // Increment the counter each time SIGINT is received
+    counter++;
+    
+    // Print a message indicating a SIGINT was caught and how many more are needed to exit
+    printf("Caught a sigint: Press ctrl-c %d more times to exit\n", 3 - counter);
+    
+    // Check if the counter has reached or exceeded 3
+    if(counter >= 3){
+        // If so, print a farewell message
+        printf("I've been banished!\n");
+        
+        // Exit the program with a success status
+        exit(0);
+    }
 }
 
-// The main function, the entry point of the program.
 int main(){
-  // Prints a message to the console, indicating that a Ctrl+C handler is set up.
-  printf("We have a ctrl-c handler here!\n");
-  // Registers the 'sigint_handler' function to handle SIGINT signals.
-  // This means that whenever the user presses Ctrl+C, the 'sigint_handler' function will be executed.
-  signal(SIGINT, sigint_handler);
-  // Starts an infinite loop using 'while(true)'.
-  while(true){
-    // Prints "Boop boop" to the console every second.
-    printf("Boop boop\n");
-    // Pauses the program execution for 1 second.
-    sleep(1);
-  }
-  
-  // Returns 0 to indicate successful program execution, although this line will never be reached due to the infinite loop.
-  return 0;
+    // Print an initial message indicating that a SIGINT handler is set up
+    printf("We have a ctrl-c handler here!\n");
+    
+    // Set up the signal handler for SIGINT (Ctrl-C)
+    // When SIGINT is received, 'sigint_handler' will be called
+    signal(SIGINT, sigint_handler);
+    
+    // Enter an infinite loop that continuously prints "Boop boop" every second
+    while(true){
+        printf("Boop boop\n"); // Print a message to the console
+        sleep(1);              // Pause execution for 1 second
+    }
+    
+    // Although the loop is infinite, return 0 to indicate successful termination
+    // (This line will never be reached in this program)
+    return 0;
 }
+We have a ctrl-c handler here!
+Boop boop
+Boop boop
+^CCaught a sigint: Press ctrl-c 2 more times to exit
+Boop boop
+Boop boop
+^CCaught a sigint: Press ctrl-c 1 more times to exit
+Boop boop
+Boop boop
+^CCaught a sigint: Press ctrl-c 0 more times to exit
+I've been banished!

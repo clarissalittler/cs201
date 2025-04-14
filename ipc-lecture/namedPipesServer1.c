@@ -19,6 +19,8 @@ void cleaner(int sig){
 }
 
 int main(){
+  printf("I am %d\n",getpid());
+  
   const int bSize = 1024;
   char buffer[bSize];
 

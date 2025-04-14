@@ -1,70 +1,115 @@
-#include <stdio.h> //  Includes standard input/output library for functions like printf
-#include <stdlib.h> // Includes standard library for functions like rand, srand, malloc, free, etc.
-#include <unistd.h> // Includes POSIX operating system API for functions like fork, wait, etc.
-#include <pthread.h> // Includes POSIX threads library for functions like pthread_create, pthread_join, etc.
-#include <semaphore.h> // Includes POSIX semaphores library for functions like sem_init, sem_wait, sem_post, etc.
-#include <sys/mman.h> // Includes memory mapping functions like mmap, munmap, etc.
-#include <sys/wait.h> // Includes functions for waiting on child processes like wait, waitpid, etc.
-#include <time.h> // Includes functions for working with time like time, srand, rand, etc.
+#include <stdio.h>      // Standard I/O functions
+#include <stdlib.h>     // Standard library functions (e.g., srand, rand, exit)
+#include <unistd.h>     // POSIX API (e.g., fork, sleep)
+#include <pthread.h>    // POSIX threads (not directly used here, but included)
+#include <semaphore.h>  // Semaphore functions
+#include <sys/mman.h>   // Memory management (e.g., mmap, munmap)
+#include <sys/wait.h>   // Waiting for process termination (wait)
+#include <time.h>       // Time functions (e.g., time, srand)
 
-// Define a structure to hold a counter and a semaphore
+/*
+ * Structure to hold a shared counter and a semaphore for synchronization.
+ * - 'counter' is the shared integer that both parent and child processes will increment.
+ * - 'semaphore' ensures that only one process modifies 'counter' at a time.
+ */
 struct guardCounter {
-  int counter; // The integer counter variable
-  sem_t semaphore; // The semaphore used for synchronization
+    int counter;
+    sem_t semaphore;
 };
 
 int main() {
-  // Seed the random number generator with the current time
-  srand(time(0));
+    // Initialize the random number generator with the current time to ensure different sequences each run
+    srand(time(0));
 
-  // Create a shared memory segment using mmap
-  // Allocate memory for a struct guardCounter
-  struct guardCounter* ourCounter = mmap(NULL, sizeof(struct guardCounter),
-                                PROT_READ | PROT_WRITE, // Set permissions for reading and writing
-                                MAP_SHARED | MAP_ANONYMOUS, -1, 0); // Create shared anonymous memory
+    /*
+     * Create a shared memory region to hold 'guardCounter' structure.
+     * - NULL: Let the system choose the address.
+     * - sizeof(struct guardCounter): Size of the memory region.
+     * - PROT_READ | PROT_WRITE: Memory can be read and written.
+     * - MAP_SHARED | MAP_ANONYMOUS: Shared between processes and not backed by any file.
+     * - -1 and 0: File descriptor and offset are irrelevant for anonymous mapping.
+     */
+    struct guardCounter* ourCounter = mmap(NULL, sizeof(struct guardCounter),
+                                     PROT_READ | PROT_WRITE,
+                                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-  // Initialize the semaphore associated with the shared memory
-  // 1 for being shared between processes, 1 for starting value
-  sem_init(&ourCounter->semaphore, 1, 1); 
-  // Initialize the counter to 0
-  ourCounter->counter = 0;
-
-  // Fork a child process using fork()
-  pid_t pid = fork();
-
-  // Parent process logic
-  if (pid != 0) {
-    // Wait for the child process to finish
-    wait(NULL); 
-
-    // Print the final value of the counter
-    printf("Survey says! %d\n", ourCounter->counter);
-
-    // Destroy the semaphore
-    sem_destroy(&ourCounter->semaphore);
-
-    // Unmap the shared memory segment
-    munmap(ourCounter, sizeof(struct guardCounter));
-
-  } else { // Child process logic
-    // Increment the counter 5 times using a semaphore for synchronization
-    for (int i = 0; i < 5; i++) {
-      // Acquire the semaphore
-      sem_wait(&ourCounter->semaphore);
-
-      // Read the current value of the counter
-      int temp = ourCounter->counter;
-
-      // Sleep for a random amount of time
-      sleep(rand() % 3);
-
-      // Increment the counter
-      ourCounter->counter = temp + 1;
-
-      // Release the semaphore
-      sem_post(&ourCounter->semaphore);
+    // Initialize the semaphore in shared memory.
+    // - &ourCounter->semaphore: Address of the semaphore.
+    // - 1: Semaphore is shared between processes.
+    // - 1: Initial value of the semaphore (unlocked).
+    if (sem_init(&ourCounter->semaphore, 1, 1) == -1) {
+        perror("sem_init failed");
+        exit(EXIT_FAILURE);
     }
-  }
-  // Return 0 to indicate successful execution
-  return 0;
+
+    // Initialize the shared counter to zero
+    ourCounter->counter = 0;
+
+    // Create a new child process using fork
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        // Fork failed; print error and exit
+        perror("Fork failed");
+        sem_destroy(&ourCounter->semaphore);
+        munmap(ourCounter, sizeof(struct guardCounter));
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * Both parent and child processes execute the following for-loop independently.
+     * Each iteration attempts to safely increment the shared counter.
+     */
+    for(int i = 0; i < 5; i++) {
+        // Wait (lock) the semaphore before accessing the shared counter
+        if (sem_wait(&ourCounter->semaphore) == -1) {
+            perror("sem_wait failed");
+            exit(EXIT_FAILURE);
+        }
+
+        // Critical Section Begins
+        // Read the current value of the counter
+        int temp = ourCounter->counter;
+        
+        // Simulate some work by sleeping for 0 to 2 seconds
+        sleep(rand() % 3);
+        
+        // Increment the counter and store it back
+        ourCounter->counter = temp + 1;
+        // Critical Section Ends
+
+        // Post (unlock) the semaphore to allow other processes to access the counter
+        if (sem_post(&ourCounter->semaphore) == -1) {
+            perror("sem_post failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Only the parent process will execute the following block
+    if(pid != 0){
+        // Wait for the child process to finish execution
+        if (wait(NULL) == -1) {
+            perror("wait failed");
+            exit(EXIT_FAILURE);
+        }
+
+        // Print the final value of the shared counter
+        printf("Survey says! %d\n", ourCounter->counter);
+
+        // Clean up: Destroy the semaphore
+        if (sem_destroy(&ourCounter->semaphore) == -1) {
+            perror("sem_destroy failed");
+            // Continue to munmap even if sem_destroy fails
+        }
+
+        // Unmap the shared memory region
+        if (munmap(ourCounter, sizeof(struct guardCounter)) == -1) {
+            perror("munmap failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Parent and child processes exit here
+    return 0;
 }
+Survey says! 10
