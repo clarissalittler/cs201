@@ -5,6 +5,10 @@
 
 * Goals of this document
 What you're reading are my supplementary notes on how to write x86-64 assembly, with an eye towards making entire programs so that you can finish your assignments!
+* Introduction to assembly
+** What is assembly?
+** Why learn it?
+** Registers
 * Quick reference
 ** Register reference
  Basic registers
