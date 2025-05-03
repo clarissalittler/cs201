@@ -1,0 +1,6 @@
+* Agenda
+** Using external functions
+** Writing functions
+** Properly handling the stack
+** Using leave to simplify your code
+** Writing a recursive function
