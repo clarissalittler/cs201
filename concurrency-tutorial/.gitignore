@@ -1,0 +1,15 @@
+# Ignore compiled binaries
+bin/
+*.o
+*.out
+*.exe
+
+# Ignore backup files
+*~
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Ignore shared memory files
+/dev/shm/*
