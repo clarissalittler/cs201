@@ -1,0 +1,140 @@
+* Agenda
+ + Brief mention: alignment in structs
+   + On the course site
+   + Buuut I wanted to say a few things about it
+   #+begin_src c :tangle structsize.c
+     #include <stdio.h>
+     #include <stdlib.h>
+
+     // memory access is done on boundaries that are multiples of the architecture size
+     // 64-bit will be on 8-byte boundaries
+     // structs may pad fields to keep alignment properties
+     struct Goofy1 {
+       int num1;
+       int num2;
+     };
+
+     struct Goofy2 {
+       int num1;
+       double num2;
+     };
+
+     struct Goofy3 {
+       double num1;
+       int num2;
+     };
+
+     int main(){
+
+       struct Goofy1 g1;
+       struct Goofy2 g2;
+       struct Goofy3 g3;
+       
+       printf("Goofy1 size: %ld\n",sizeof(g1));
+       printf("Goofy2 size: %ld\n",sizeof(g2));
+       printf("Goofy3 size: %ld\n",sizeof(g3));
+       
+       return 0;
+     }
+   #+end_src
+ + Optimizations!
+   + Uhhh is that document any good? Take a few minutes and read it and tell me what you think
+   + Types of optimization
+     + Loop unrolling
+       + For loops where the body of the loop is small, the cost of doing the jump and condition to check the body of the loop may actually be higher than just doing more instances of the loop body at once
+       + A modern processor tries to pipeline as many instructions as it can and work on them all at once
+       + Branch prediction!
+       #+begin_src c
+         #include <stdio.h>
+         #include <stdlib.h>
+
+         int main(){
+
+           int arr[1000] = {0};
+
+           for(int i = 0; i < 1000; i++){
+             arr[i] = i;
+           }
+           // vs
+           for(int i = 0; i < 200; i++){
+             arr[i] = i;
+             arr[i+1] = i+1;
+             arr[i+2] = i+2;
+             arr[i+3] = i+3;
+             arr[i+4] = i+4;
+           }
+           
+           return 0;
+         }
+       #+end_src
+     + Function inlining
+       + Function calls come at a cost!
+       + Similarly to loop unrolling that cost might be bigger than the body of the function!
+       + It'd be better to just paste in the body of the function whereever it's called, and forgo the actual function definition!
+     + Loop fusion
+       + Take multiple loops that have a compatible range
+       + and combine their bodies together
+     #+begin_src c
+       #include <stdio.h>
+       #include <stdlib.h>
+
+       int main(){
+         int arr[1000];
+
+         for(int i=0; i < 1000; i++){
+           arr[i] = i*i;
+         }
+
+         for(int i=0; i < 1000; i++){
+           printf("arr[%d] = %d",i,arr[i]);
+         }
+         
+         // vs
+
+         for(int i=0; i < 1000; i++){
+           arr[i] = i*i;
+           printf("arr[%d] = %d",i,arr[i]);
+         }
+         
+         return 0;
+       }
+     #+end_src
+     + Cache coherency
+       + Big idea! Consecutive addresses *good*
+       #+begin_src c
+         #include <stdio.h>
+         #include <stdlib.h>
+
+         int main(){
+           int m[100][200];
+           int accum = 0;
+           
+           for(int j=0; j<200; j++){
+             for(int i=0; i < 100; i++){
+               //m[0]+j then m[1]+j then m[2]+j
+               // all different cache lines because
+               // they're too far apart
+               accum += m[i][j]*m[i][j];
+             }
+           }
+           //vs
+           
+           for(int i=0; i < 100; i++){
+             for(int j=0; j<200; j++){
+               accum += m[i][j]*m[i][j];
+               //access m[i]+0 then m[i]+1 then m[i]+2
+               //so sequential accesses stay in the cache line
+             }
+           }
+           
+           return 0;
+         }
+       #+end_src
+ + Dining philosophers
+ + Let's talk about this class??
+   + I'm turning it into a flipped classroom next term
+   + Tell me whatcha think
+ + Issues with GDB and the file server
+ + Wednesday is homework party!
+   + You don't have to show up
+   + But you're free to!!!

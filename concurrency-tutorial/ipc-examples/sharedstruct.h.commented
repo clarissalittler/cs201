@@ -1,0 +1,54 @@
+/* sharedstruct.h - Header file for shared memory examples */
+#ifndef SHAREDSTRUCT_H
+#define SHAREDSTRUCT_H
+
+#include <semaphore.h>
+
+/* 
+ * Shared memory name
+ * 
+ * TEACHING POINT: This defines the name of the shared memory object
+ * that will be accessible through the filesystem namespace at /dev/shm.
+ * 
+ * The name must start with a forward slash and should not contain
+ * additional slashes. This name is used by both the producer and
+ * consumer processes to access the same shared memory region.
+ */
+#define sharedName "/shared_example"
+
+/* 
+ * Define the shared data structure
+ * 
+ * TEACHING POINT: This structure defines the layout of the shared memory
+ * that will be mapped into the address spaces of multiple processes.
+ * 
+ * It includes:
+ * 1. A circular buffer for data exchange
+ * 2. Index variables for managing the buffer
+ * 3. A synchronization primitive (semaphore)
+ * 4. Simple payload fields for direct data exchange
+ * 
+ * The structure must have the same layout in all processes that use it,
+ * which is why it's defined in a shared header file.
+ */
+struct sharedData {
+    int buffer[10];     /* Circular buffer */
+    int in;             /* Index for inserting */
+    int out;            /* Index for removing */
+    int count;          /* Number of items in the buffer */
+    sem_t mutex;        /* Semaphore for synchronization */
+    int payload1;       /* First payload value */
+    int payload2;       /* Second payload value */
+};
+
+/* 
+ * Also define the SharedData type for backward compatibility
+ * 
+ * TEACHING POINT: This typedef provides a more concise type name
+ * that can be used interchangeably with the full structure name.
+ * It's included for backward compatibility with code that might
+ * use the typedef instead of the struct directly.
+ */
+typedef struct sharedData SharedData;
+
+#endif /* SHAREDSTRUCT_H */

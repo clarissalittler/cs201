@@ -11,12 +11,11 @@
 int main(){
 
   pid_t pid = fork(); // the parent forks, gets the pid in this variable
-  
+
   if(pid != 0){
-    int result;
+    // anti-zombie ward
+    wait(NULL);
     printf("I'm the parent!\n");
-    wait(&result);
-    printf("My child returned: %d\n",result);
   }
   else{
     printf("I'm the child!\n");

@@ -31,6 +31,12 @@ The examples are organized in a logical progression from basic to advanced conce
    - Shared memory for high-performance data sharing
    - Unix domain sockets for flexible communication
 
+6. **Socket Programming** (see main examples and exercises)
+   - TCP/IP socket basics
+   - Client-server architecture
+   - Multi-client servers
+   - Socket I/O multiplexing with select()
+
 ## How to Use These Examples
 
 Each example is self-contained and includes:
@@ -71,5 +77,7 @@ For the best learning experience:
 - Common concurrency patterns (producer-consumer, readers-writers)
 - Deadlock causes and prevention
 - Safe and efficient concurrent programming techniques
+- Network programming with TCP/IP sockets
+- Building scalable client-server applications
 
 Each example aims to provide a clear, practical demonstration of these concepts with thorough explanations that bridge theory and implementation.

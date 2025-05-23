@@ -1,0 +1,96 @@
+* Threading
+** Meta-notes
+ - Assignment 3:
+   - This is not meant to be a *hard* assignment
+   - You need to set as constants
+     - the number of threads that will operate at once
+     - the "chunk size" of the work
+     - the array size (this should be something massive like a million or 10 million elements)
+   - You need to write a program that starts the pool of threads and
+     - while there's still work to be done, each thread will claim a chunk of the array
+     - compute on that chunk
+     - then attempt to grab another chunk
+     - if there are no chunks left to grab then exit the thread
+   - The computation on the array doesn't particularly matter
+     - I've seen everything from incrementing every item in the array by one
+     - to parallel processing a gigantic image to invert the colors
+   - Hint: You need *a* mutex to do all of this
+** What's the difference between forks and threads?
+ - What is a process?
+   - A process is a context of execution that the operating system controls and keeps track of
+   - In ye olden days, one process at a time could run on a computer!
+   - Multi-user systems didn't exist at one point!
+   - How do multi-process systems even work????
+     - Context switching!
+     - Kernel keeps track of
+       - Memory
+       - Registers (including %rip)
+       - Everything needed for the process to run
+     - When a process has had its share, the kernel takes over and saves off all this data into a datastructure
+     - Grabs the next process scheduled to run, restores *its* state
+       - its registers
+       - its stack
+       - its heap (ish)
+       - state of the program
+       - anything else
+       - start it running again
+   - Each process gets to pretend that it lives in its own little world
+   - Processes are *isolated*
+     - They don't share memory
+     - They don't share registers
+     - They don't share state
+ - A fork makes an entirely new process
+   - One one hand this new process can't really interfere with the parent process
+   - You write one program and it bifurcates in its behavior depending on PID
+   - This is the oldest way to handle when you needed multiple processes
+   - This is still used sometimes!
+ - A thread *doesn't* make a whole new process (per se)
+   - When a process makes "threads", they're like half-processes
+   - To the kernel they're like processes in that they have their own registers
+   - They need to be scheduled
+   - They can act independently of each other
+   - But they're *not* like separate processes because they share memory and state
+   - If I fork, then each process gets separate copies of every variable and of all the memory
+   - If I create threads, we all see the literally same variables
+** Making threads, passing in functions, and waiting for them to finish
+   - Basic threading concepts: Creation, management, and synchronization
+   - Relevant examples:
+     - [[../../concurrency-tutorial/thread-examples/thread1.c][Basic Thread Creation]] - Simple demonstration of pthread_create()
+     - [[../../concurrency-tutorial/thread-examples/thread1commented.c][Basic Thread Creation (Commented)]] - With detailed explanations
+     - [[../../concurrency-tutorial/commented-examples/03-basic-threads/01-thread-basics.c][Thread Basics]] - Comprehensive example of thread creation
+     - [[../../concurrency-tutorial/thread-examples/thread2.c][Thread with Arguments]] - Passing data to threads
+     - [[../../concurrency-tutorial/commented-examples/03-basic-threads/02-thread-arguments.c][Thread Argument Passing]] - Detailed explanation of passing arguments
+     - [[../../concurrency-tutorial/thread-examples/threadResult.c][Thread Return Values]] - Getting data back from threads
+     - [[../../concurrency-tutorial/commented-examples/03-basic-threads/03-thread-return.c][Thread Return Values (Detailed)]] - Comprehensive example of thread return values
+
+** Race conditions
+   - Understanding concurrency issues with shared data
+   - Relevant examples:
+     - [[../../winter2025/lecture9/threads1.c][Simple Race Condition]] - Classroom demonstration of race conditions
+     - [[../../concurrency-tutorial/thread-examples/threads2.c][Multiple Thread Race]] - More complex race condition example
+     - [[../../lecture10/badthreads.c][Buggy Threaded Program]] - Example with data corruption
+
+** Fixing race conditions with mutexes
+   - Thread synchronization using mutual exclusion
+   - Relevant examples:
+     - [[../../concurrency-tutorial/thread-examples/threads3.c][Mutex Protected Counter]] - Using mutexes to prevent race conditions
+     - [[../../concurrency-tutorial/thread-examples/threads3commented.c][Mutex Protected Counter (Commented)]] - With detailed explanations
+     - [[../../concurrency-tutorial/commented-examples/04-thread-synchronization/01-mutex-basics.c][Mutex Basics]] - Comprehensive mutex usage example
+     - [[../../concurrency-tutorial/synchronization-examples/threadmutex.c][Thread with Mutex]] - Another mutex implementation example
+     - [[../../winter2025/lecture9/threadmutex.c][Classroom Mutex Example]] - Simple classroom demonstration
+     - [[../../concurrency-tutorial/commented-examples/04-thread-synchronization/03-deadlock.c][Deadlock Example]] - Common pitfalls with mutex usage
+
+** Fixing race conditions with semaphores
+   - Thread synchronization using counting semaphores
+   - Relevant examples:
+     - [[../../concurrency-tutorial/synchronization-examples/sem1.c][Basic Semaphore]] - Simple semaphore usage
+     - [[../../concurrency-tutorial/synchronization-examples/sem1commented.c][Basic Semaphore (Commented)]] - With detailed explanations
+     - [[../../concurrency-tutorial/synchronization-examples/sem2.c][Multiple Semaphores]] - More complex semaphore patterns
+     - [[../../concurrency-tutorial/synchronization-examples/mutSem.c][Mutex vs Semaphore]] - Comparing mutex and semaphore usage
+     - [[../../concurrency-tutorial/synchronization-examples/philo1.c][Dining Philosophers]] - Classic synchronization problem
+
+** Sketch for your assignment: splitting up work
+   - Practical patterns for work distribution between threads
+   - Relevant examples:
+     - [[../../concurrency-tutorial/commented-examples/04-thread-synchronization/02-condition-variables.c][Condition Variables]] - Coordinating work between threads
+     - [[../../concurrency-tutorial/synchronization-examples/philo5.c][Advanced Synchronization]] - Complex synchronization pattern

@@ -1,0 +1,40 @@
+* Agenda
+** What does it mean to fork?
+   - Basic concept: Process duplication in the operating system
+   - Relevant examples:
+     - [[../../concurrency-tutorial/fork-examples/fork1.c][Basic Fork Example]] - Simple demonstration of fork() creating two processes
+     - [[../../concurrency-tutorial/fork-examples/fork1commented.c][Basic Fork (Commented)]] - With detailed explanations
+
+** Examples of forking
+   - Multiple process creation patterns
+   - Relevant examples:
+     - [[../../concurrency-tutorial/fork-examples/fork2.c][Fork with Parent/Child Identification]] - Demonstrating how to tell processes apart
+     - [[../../concurrency-tutorial/fork-examples/pid1.c][Process ID Example]] - Showing PID access in parent and child
+     - [[../../lecture9/in-class/fork1.c][Basic Fork]] - Simple classroom example
+     - [[../../lecture9/in-class/fork2.c][Multiple Forks]] - Creating more complex process trees
+     - [[../../lecture9/in-class/fork5.c][Fork with Variables]] - Showing how variables behave after fork
+
+** How do you synchronize forking?
+   - Preventing zombie processes and race conditions
+   - Relevant examples:
+     - [[../../concurrency-tutorial/fork-examples/fork3.c][Fork with Wait]] - Basic synchronization using wait()
+     - [[../../concurrency-tutorial/fork-examples/pid2.c][Process with Synchronized Output]] - Ensuring parent waits for child
+     - [[../../lecture9/in-class/fork3.c][Fork with Error Handling]] - Properly handling synchronization errors
+
+** How do you check the exit conditions?
+   - Handling process termination and status
+   - Relevant examples:
+     - [[../../concurrency-tutorial/fork-examples/fork4.c][Fork with Exit Status]] - Retrieving raw exit status
+     - [[../../concurrency-tutorial/fork-examples/fork5.c][Fork with User Input Exit]] - Exit status based on user input
+     - [[../../concurrency-tutorial/fork-examples/pid3.c][Exit Status Checking]] - Properly using WEXITSTATUS macro
+     - [[../../concurrency-tutorial/fork-examples/pid4.c][Exit Status with Bit Manipulation]] - Showing common errors in exit status handling
+
+** How do you synchronize data between forked processes?
+   - Inter-process communication techniques
+   - Relevant examples:
+     - [[../../concurrency-tutorial/ipc-examples/pipe1.c][Simple Pipe]] - Basic unidirectional communication
+     - [[../../concurrency-tutorial/ipc-examples/namedPipesServer1.c][Named Pipes Server]] - Bidirectional communication with FIFOs
+     - [[../../concurrency-tutorial/ipc-examples/namedPipesClient1.c][Named Pipes Client]] - Client side of FIFO communication
+     - [[../../concurrency-tutorial/ipc-examples/sharedMemprod.c][Shared Memory Producer]] - Sharing memory between processes
+     - [[../../concurrency-tutorial/ipc-examples/sharedMemcons.c][Shared Memory Consumer]] - Reading from shared memory
+     - [[../../lecture9/in-class/pipe1.c][Simple Pipe Example]] - Classroom pipe demonstration

@@ -632,9 +632,480 @@ int main() {
 #+end_src
 
 ** Sockets
-Sockets provide network and inter-process communication. They can be used for processes on the same machine or across different machines.
+Sockets provide network and inter-process communication. They can be used for processes on the same machine (Unix domain sockets) or across different machines (Internet sockets).
 
-Example (local Unix domain socket):
+*** Socket Types and Families
+- *Socket Families*:
+  - =AF_UNIX= (=AF_LOCAL=): Unix domain sockets for local IPC
+  - =AF_INET=: IPv4 Internet protocols
+  - =AF_INET6=: IPv6 Internet protocols
+  
+- *Socket Types*:
+  - =SOCK_STREAM=: TCP - reliable, connection-oriented, byte stream
+  - =SOCK_DGRAM=: UDP - unreliable, connectionless, datagrams
+
+*** TCP Socket Programming
+TCP provides reliable, ordered, error-checked delivery of a stream of bytes between applications running on hosts communicating via an IP network.
+
+**** Basic TCP Server
+#+begin_src c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8080
+#define BUFFER_SIZE 1024
+
+int main() {
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    char buffer[BUFFER_SIZE];
+    
+    // Create socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    // Set socket options (reuse address)
+    int opt = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, 
+                   &opt, sizeof(opt)) < 0) {
+        perror("setsockopt failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Setup server address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+    
+    // Bind socket to address
+    if (bind(server_fd, (struct sockaddr *)&server_addr, 
+             sizeof(server_addr)) < 0) {
+        perror("Bind failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Listen for connections (backlog of 5)
+    if (listen(server_fd, 5) < 0) {
+        perror("Listen failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Server listening on port %d\n", PORT);
+    
+    while (1) {
+        // Accept connection
+        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, 
+                          &client_len);
+        if (client_fd < 0) {
+            perror("Accept failed");
+            continue;
+        }
+        
+        printf("Client connected from %s:%d\n",
+               inet_ntoa(client_addr.sin_addr),
+               ntohs(client_addr.sin_port));
+        
+        // Read and echo data
+        while (1) {
+            memset(buffer, 0, BUFFER_SIZE);
+            int bytes_read = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+            
+            if (bytes_read <= 0) {
+                break;  // Client disconnected
+            }
+            
+            printf("Received: %s", buffer);
+            send(client_fd, buffer, bytes_read, 0);
+        }
+        
+        close(client_fd);
+        printf("Client disconnected\n");
+    }
+    
+    close(server_fd);
+    return 0;
+}
+#+end_src
+
+**** Basic TCP Client
+#+begin_src c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8080
+#define BUFFER_SIZE 1024
+
+int main() {
+    int sock = 0;
+    struct sockaddr_in server_addr;
+    char buffer[BUFFER_SIZE];
+    char input[BUFFER_SIZE];
+    
+    // Create socket
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    // Setup server address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    
+    // Convert IPv4 address from text to binary
+    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+        perror("Invalid address");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+    
+    // Connect to server
+    if (connect(sock, (struct sockaddr *)&server_addr, 
+                sizeof(server_addr)) < 0) {
+        perror("Connection failed");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Connected to server\n");
+    printf("Type messages (type 'quit' to exit):\n");
+    
+    while (1) {
+        printf("> ");
+        fgets(input, BUFFER_SIZE, stdin);
+        
+        if (strncmp(input, "quit", 4) == 0) {
+            break;
+        }
+        
+        // Send message
+        send(sock, input, strlen(input), 0);
+        
+        // Receive echo
+        memset(buffer, 0, BUFFER_SIZE);
+        int bytes_read = recv(sock, buffer, BUFFER_SIZE - 1, 0);
+        if (bytes_read > 0) {
+            printf("Server echo: %s", buffer);
+        }
+    }
+    
+    close(sock);
+    return 0;
+}
+#+end_src
+
+*** Handling Multiple Clients
+There are several approaches to handle multiple clients concurrently:
+
+**** 1. Multi-threaded Server
+Create a new thread for each client connection:
+
+#+begin_src c
+#include <pthread.h>
+
+void* handle_client(void* arg) {
+    int client_fd = *(int*)arg;
+    free(arg);
+    char buffer[BUFFER_SIZE];
+    
+    while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int bytes_read = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+        
+        if (bytes_read <= 0) {
+            break;
+        }
+        
+        // Process and respond
+        send(client_fd, buffer, bytes_read, 0);
+    }
+    
+    close(client_fd);
+    return NULL;
+}
+
+// In main server loop:
+while (1) {
+    int* client_fd_ptr = malloc(sizeof(int));
+    *client_fd_ptr = accept(server_fd, (struct sockaddr *)&client_addr, 
+                           &client_len);
+    
+    pthread_t thread;
+    pthread_create(&thread, NULL, handle_client, client_fd_ptr);
+    pthread_detach(thread);  // Let thread clean up when done
+}
+#+end_src
+
+**** 2. Using select() for I/O Multiplexing
+Handle multiple clients in a single process using =select()=:
+
+#+begin_src c
+#include <sys/select.h>
+
+fd_set master_fds, read_fds;
+int max_fd;
+
+// Initialize
+FD_ZERO(&master_fds);
+FD_SET(server_fd, &master_fds);
+max_fd = server_fd;
+
+while (1) {
+    read_fds = master_fds;  // Copy master set
+    
+    // Wait for activity on any socket
+    if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0) {
+        perror("select failed");
+        break;
+    }
+    
+    // Check for new connections
+    if (FD_ISSET(server_fd, &read_fds)) {
+        int new_fd = accept(server_fd, (struct sockaddr *)&client_addr, 
+                           &client_len);
+        if (new_fd >= 0) {
+            FD_SET(new_fd, &master_fds);
+            if (new_fd > max_fd) {
+                max_fd = new_fd;
+            }
+        }
+    }
+    
+    // Check each client for data
+    for (int fd = 0; fd <= max_fd; fd++) {
+        if (fd != server_fd && FD_ISSET(fd, &read_fds)) {
+            char buffer[BUFFER_SIZE];
+            int bytes_read = recv(fd, buffer, BUFFER_SIZE - 1, 0);
+            
+            if (bytes_read <= 0) {
+                // Client disconnected
+                close(fd);
+                FD_CLR(fd, &master_fds);
+            } else {
+                // Echo back to client
+                send(fd, buffer, bytes_read, 0);
+            }
+        }
+    }
+}
+#+end_src
+
+*** Advanced Socket Features
+
+**** Socket Options
+Common socket options using =setsockopt()=:
+
+#+begin_src c
+int opt = 1;
+
+// Allow socket reuse (avoid "Address already in use")
+setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+// Set send/receive timeouts
+struct timeval timeout;
+timeout.tv_sec = 5;  // 5 seconds
+timeout.tv_usec = 0;
+setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+setsockopt(server_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
+// Keep connections alive
+setsockopt(server_fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+#+end_src
+
+**** Non-blocking Sockets
+Make sockets non-blocking for asynchronous I/O:
+
+#+begin_src c
+#include <fcntl.h>
+
+// Method 1: Using fcntl
+int flags = fcntl(socket_fd, F_GETFL, 0);
+fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK);
+
+// Method 2: Using ioctl (Linux)
+#include <sys/ioctl.h>
+int nonblock = 1;
+ioctl(socket_fd, FIONBIO, &nonblock);
+#+end_src
+
+*** Application Protocols
+
+**** HTTP Server Example
+A simple HTTP server that serves static content:
+
+#+begin_src c
+void handle_http_request(int client_fd) {
+    char buffer[BUFFER_SIZE];
+    char response[BUFFER_SIZE];
+    
+    // Read HTTP request
+    recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+    
+    // Parse request (simplified - just check if GET)
+    if (strncmp(buffer, "GET", 3) == 0) {
+        char *path = strtok(buffer + 4, " ");
+        
+        if (strcmp(path, "/") == 0) {
+            // Serve index page
+            char *content = "<html><body><h1>Welcome!</h1></body></html>";
+            snprintf(response, BUFFER_SIZE,
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: text/html\r\n"
+                    "Content-Length: %zu\r\n"
+                    "Connection: close\r\n"
+                    "\r\n"
+                    "%s", strlen(content), content);
+        } else {
+            // 404 Not Found
+            char *content = "<html><body><h1>404 Not Found</h1></body></html>";
+            snprintf(response, BUFFER_SIZE,
+                    "HTTP/1.1 404 Not Found\r\n"
+                    "Content-Type: text/html\r\n"
+                    "Content-Length: %zu\r\n"
+                    "Connection: close\r\n"
+                    "\r\n"
+                    "%s", strlen(content), content);
+        }
+        
+        send(client_fd, response, strlen(response), 0);
+    }
+}
+#+end_src
+
+**** File Transfer Protocol
+Example of transferring files over sockets:
+
+Server (sends file):
+#+begin_src c
+void send_file(int client_fd, const char *filename) {
+    int file_fd = open(filename, O_RDONLY);
+    if (file_fd < 0) {
+        char *error = "ERROR: File not found\n";
+        send(client_fd, error, strlen(error), 0);
+        return;
+    }
+    
+    // Get file size
+    struct stat file_stat;
+    fstat(file_fd, &file_stat);
+    
+    // Send file size first
+    size_t file_size = file_stat.st_size;
+    send(client_fd, &file_size, sizeof(file_size), 0);
+    
+    // Send file contents
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_read;
+    
+    while ((bytes_read = read(file_fd, buffer, BUFFER_SIZE)) > 0) {
+        send(client_fd, buffer, bytes_read, 0);
+    }
+    
+    close(file_fd);
+}
+#+end_src
+
+Client (receives file):
+#+begin_src c
+void receive_file(int server_fd, const char *filename) {
+    // Receive file size
+    size_t file_size;
+    recv(server_fd, &file_size, sizeof(file_size), 0);
+    
+    // Create output file
+    int file_fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    
+    // Receive file contents
+    char buffer[BUFFER_SIZE];
+    size_t total_received = 0;
+    
+    while (total_received < file_size) {
+        ssize_t bytes_received = recv(server_fd, buffer, BUFFER_SIZE, 0);
+        if (bytes_received <= 0) break;
+        
+        write(file_fd, buffer, bytes_received);
+        total_received += bytes_received;
+        
+        // Progress indicator
+        printf("\rReceived: %zu/%zu bytes (%.1f%%)", 
+               total_received, file_size, 
+               (double)total_received / file_size * 100);
+        fflush(stdout);
+    }
+    printf("\n");
+    
+    close(file_fd);
+}
+#+end_src
+
+*** Chat Application Example
+A multi-client chat server using select():
+
+#+begin_src c
+typedef struct {
+    int socket;
+    char nickname[32];
+    int active;
+} Client;
+
+Client clients[MAX_CLIENTS];
+
+void broadcast_message(char *message, int sender_socket) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i].active && clients[i].socket != sender_socket) {
+            send(clients[i].socket, message, strlen(message), 0);
+        }
+    }
+}
+
+void handle_chat_message(int client_index) {
+    char buffer[BUFFER_SIZE];
+    char message[BUFFER_SIZE + 64];
+    
+    int bytes_read = recv(clients[client_index].socket, buffer, 
+                         BUFFER_SIZE - 1, 0);
+    
+    if (bytes_read <= 0) {
+        // Client disconnected
+        if (clients[client_index].active) {
+            snprintf(message, sizeof(message), 
+                    "%s has left the chat\n", 
+                    clients[client_index].nickname);
+            broadcast_message(message, -1);
+            
+            close(clients[client_index].socket);
+            clients[client_index].active = 0;
+        }
+        return;
+    }
+    
+    buffer[bytes_read] = '\0';
+    
+    // Format and broadcast message
+    snprintf(message, sizeof(message), "[%s]: %s", 
+             clients[client_index].nickname, buffer);
+    broadcast_message(message, clients[client_index].socket);
+}
+#+end_src
+
+*** Unix Domain Sockets
+For local inter-process communication:
+
 #+begin_src c
 // Server code
 #include <stdio.h>
@@ -676,6 +1147,163 @@ int main() {
     close(client_fd);
     close(server_fd);
     return 0;
+}
+#+end_src
+
+*** Socket Programming Best Practices
+1. **Error Handling**: Always check return values from socket functions
+2. **Resource Management**: Close sockets when done
+3. **Buffer Management**: Be careful with buffer sizes and null termination
+4. **Protocol Design**: Design clear message formats and delimiters
+5. **Security**: Validate all input, use encryption for sensitive data
+6. **Scalability**: Consider using epoll (Linux) or kqueue (BSD) for thousands of connections
+7. **Timeouts**: Set appropriate timeouts to avoid hanging connections
+8. **Signal Handling**: Handle SIGPIPE for broken connections
+
+*** Essential Patterns for Client-Server Applications
+
+**** Interactive Text-Based Protocol
+Many applications use a simple request-response pattern where the server sends prompts and the client responds:
+
+#+begin_src c
+// Server side - sending prompts and reading responses
+void interact_with_client(int client_fd) {
+    char buffer[1024];
+    
+    // Send a prompt
+    const char *prompt = "Enter your choice (1-5): ";
+    send(client_fd, prompt, strlen(prompt), 0);
+    
+    // Read response
+    int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_read > 0) {
+        buffer[bytes_read] = '\0';
+        // Process the response
+        int choice = atoi(buffer);
+        // Handle the choice...
+    }
+}
+
+// Client side - reading prompts and sending responses
+void interact_with_server(int server_fd) {
+    char buffer[1024];
+    char input[1024];
+    
+    while (1) {
+        // Read prompt from server
+        int bytes_read = recv(server_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_read <= 0) break;
+        
+        buffer[bytes_read] = '\0';
+        printf("%s", buffer);  // Display prompt
+        
+        // Get user input and send to server
+        if (fgets(input, sizeof(input), stdin)) {
+            send(server_fd, input, strlen(input), 0);
+        }
+    }
+}
+#+end_src
+
+**** Handling Line-Based Input
+When working with text protocols, properly handling newlines is crucial:
+
+#+begin_src c
+// Remove trailing newline from fgets input
+char *line = fgets(buffer, sizeof(buffer), stdin);
+if (line) {
+    size_t len = strlen(line);
+    if (len > 0 && line[len-1] == '\n') {
+        line[len-1] = '\0';  // Remove newline
+    }
+}
+
+// Server side - clean up received input
+int bytes = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+if (bytes > 0) {
+    buffer[bytes] = '\0';
+    // Remove trailing newline if present
+    if (bytes > 0 && buffer[bytes-1] == '\n') {
+        buffer[bytes-1] = '\0';
+    }
+}
+#+end_src
+
+**** Multi-Client Server with Threads
+Simple pattern for handling multiple clients concurrently:
+
+#+begin_src c
+// Client data structure
+typedef struct {
+    int socket;
+    // Add any per-client state here
+} ClientData;
+
+// Thread function to handle one client
+void* handle_client_thread(void* arg) {
+    ClientData *client = (ClientData*)arg;
+    
+    // Handle all interactions with this client
+    // ... your protocol implementation ...
+    
+    // Cleanup
+    close(client->socket);
+    free(client);
+    return NULL;
+}
+
+// Main server loop
+int main() {
+    int server_fd = /* create and setup server socket */;
+    
+    while (1) {
+        struct sockaddr_in client_addr;
+        socklen_t addr_len = sizeof(client_addr);
+        
+        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
+        if (client_fd < 0) {
+            perror("accept");
+            continue;
+        }
+        
+        // Create client data
+        ClientData *client = malloc(sizeof(ClientData));
+        client->socket = client_fd;
+        
+        // Create thread to handle client
+        pthread_t thread;
+        pthread_create(&thread, NULL, handle_client_thread, client);
+        pthread_detach(thread);  // Don't need to join
+    }
+}
+#+end_src
+
+**** Common Socket Errors and Solutions
+
+**Address Already in Use**
+When restarting a server quickly:
+#+begin_src c
+int opt = 1;
+setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#+end_src
+
+**Broken Pipe**
+When writing to a disconnected socket:
+#+begin_src c
+// Ignore SIGPIPE globally
+signal(SIGPIPE, SIG_IGN);
+
+// Or use MSG_NOSIGNAL flag
+send(socket, buffer, length, MSG_NOSIGNAL);
+#+end_src
+
+**Connection Refused**
+Client trying to connect when server isn't running:
+#+begin_src c
+if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (errno == ECONNREFUSED) {
+        fprintf(stderr, "Server is not running on port %d\n", port);
+    }
 }
 #+end_src
 

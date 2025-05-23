@@ -75,6 +75,29 @@ This document lists all the original examples in this tutorial with brief descri
 - **sharedMemprod.c** - Producer process that writes to shared memory
 - **sharedMemcons.c** - Consumer process that reads from shared memory
 
+## Socket Examples (socket-intro and exercises)
+
+### Basic TCP Sockets
+
+- **socket-intro/firstsocket.c** - Basic TCP server that sends a greeting message
+- **socket-intro/echoserver.c** - Simple TCP echo server (single client)
+- **socket-intro/webby.c** - Basic HTTP server demonstrating web protocols
+
+### Advanced Socket Programming
+
+- **ipc-lecture/echoserver.c** - Multi-threaded echo server handling multiple clients
+- **ipc-lecture/echoclient.c** - Echo client with signal handling
+- **ipc-lecture/fileserver.c** - File transfer server
+- **ipc-lecture/fileclient.c** - File transfer client
+
+### Socket Exercises
+
+- **exercises/05-sockets/exercise1.c** - Basic TCP echo server skeleton
+- **exercises/05-sockets/exercise2.c** - UDP echo server skeleton
+- **exercises/05-sockets/exercise3.c** - Multi-client server skeleton
+- **exercises/05-sockets/exercise4.c** - File transfer application skeleton
+- **exercises/05-sockets/exercise5.c** - Chat room server skeleton
+
 ## Summary of Key Concepts
 
 1. **Process Management**: Fork, process hierarchy, process IDs, waiting for processes
@@ -82,5 +105,6 @@ This document lists all the original examples in this tutorial with brief descri
 3. **Synchronization Primitives**: Mutexes, semaphores, condition variables
 4. **Concurrency Problems**: Race conditions, deadlocks, dining philosophers
 5. **Inter-Process Communication**: Pipes, named pipes, shared memory
+6. **Network Programming**: TCP/UDP sockets, client-server architecture, multi-client handling
 
 These examples provide a solid foundation for understanding concurrency in Unix-like systems through practical implementations of key concepts.

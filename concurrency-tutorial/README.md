@@ -75,13 +75,40 @@ For beginners, we recommend following this learning sequence:
 
 1. Start with the `concurrencyGuide.org` document for theoretical background
 2. Browse through the `EXAMPLE_INDEX.md` to understand what concepts each example demonstrates
-3. Explore the commented examples in this order:
+3. **NEW: Complete the hands-on exercises** in the `exercises/` directory:
+   - Basic processes (`exercises/01-basic-processes/`)
+   - Thread introduction (`exercises/02-threads-intro/`)
+   - Synchronization concepts (`exercises/03-synchronization/`)
+   - Inter-process communication (`exercises/04-ipc/`)
+   - Socket programming (`exercises/05-sockets/`)
+4. Explore the commented examples in this order:
    - Basic processes (`01-basic-processes/`)
    - Advanced processes (`02-advanced-processes/`)
    - Basic threads (`03-basic-threads/`)
    - Thread synchronization (`04-thread-synchronization/`)
    - Inter-process communication (`05-ipc/`)
-4. Refer to the original examples for additional variants and techniques
+5. Refer to the original examples for additional variants and techniques
+
+## Hands-On Exercises
+
+The tutorial now includes a comprehensive set of **hands-on programming exercises** in the `exercises/` directory. These exercises provide:
+
+- **Progressive difficulty**: From beginner to advanced concepts
+- **Step-by-step instructions**: Clear requirements and hints
+- **Complete solutions**: With detailed explanations and alternatives
+- **Automatic testing**: Makefiles and test scripts for easy compilation
+- **Common pitfalls**: Coverage of typical mistakes and debugging tips
+
+### Exercise Structure
+
+- `exercises/01-basic-processes/` - Process creation, coordination, and hierarchies
+- `exercises/02-threads-intro/` - Thread basics, arguments, and return values  
+- `exercises/03-synchronization/` - Mutexes, condition variables, race conditions
+- `exercises/04-ipc/` - Pipes, shared memory, and communication patterns
+- `exercises/05-sockets/` - TCP/UDP sockets, client-server programming
+- `exercises/solutions/` - Complete working solutions with detailed explanations
+
+Start with the exercises to get hands-on experience, then refer to the example code for additional techniques and patterns.
 
 ## Troubleshooting
 
@@ -107,6 +134,11 @@ If you encounter build issues:
   - Named pipes (FIFOs)
   - Shared memory
   - Unix domain sockets
+- Network programming:
+  - TCP/IP sockets
+  - Client-server architecture
+  - Multi-client servers
+  - Socket I/O multiplexing
 
 ## License
 

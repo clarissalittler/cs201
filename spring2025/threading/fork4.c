@@ -16,13 +16,13 @@ int main(){
     int result;
     printf("I'm the parent!\n");
     wait(&result);
-    printf("My child returned: %d\n",result);
+    // wexitstatus(r) ==> (r >> 8) & 255
+    printf("My child returned: %d\n",WEXITSTATUS(result));
   }
   else{
     printf("I'm the child!\n");
+    return 2;
   }
-  // this is the first line the child sees
-  printf("This message should be printed by parent and child\n");
-  
+
   return 0;
 }
