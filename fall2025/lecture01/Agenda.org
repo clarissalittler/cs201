@@ -1,0 +1,41 @@
+* Agenda
+ + cslinux.pcc.edu
+   + stopgap: https://www.onlinegdb.com/
+ + The point of this class
+   + What is "systems programming"
+   + What is an operating system, really?
+   + Learning C
+   + Learning x86-64
+   + Mechanics of this class
+ + Writing C programs
+   + slight differences
+     + struct
+     + no bool
+   + bigger differences
+     + printf
+     + scanf
+ + Bit-munging and the representation of numbers
+ + 2's complement:
+   for all bits 0 - 30
+   b31 .. b1 b0
+
+   $b_{31}*-2^{31} + \Sum_0^{30} b_{i} * 2^i$
+ 
+
+   b_{31} * -2^{31} + b_{30} * 2^{30} + ...
+
+   if I have n bits, what is the largest number that can be represented by those bits?
+
+   111
+
+   2^n - 1
+
+   the largest number I can represent with the first 31 bits of the integer is
+   2^{31} - 1
+
+
+
+
+
+
+ 
