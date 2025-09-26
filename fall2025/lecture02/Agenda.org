@@ -1,0 +1,78 @@
+* Agenda
+ + Changing our bit-munger to work on floating point
+ + Experimentally play with floating point
+ + Talking through the IEE754 standard
+ + Time to work on assignments (and such)
+
+
+ IEEE 754 says that for a 32 bit float we can break it down into:
+
+ 1 sign bit, 8 exponent bits, 23 significand/mantissa bits
+
+ |b| = interpretation of the bits b as a bit string
+
+ e.g. |110| = 6
+
+ (-1^|s|) * (2^(|e| - 127)) * (1 + sum of the mantissa bits as negative powers of 2)
+
+ 11100...0
+
+ 2^-1 + 2^-2 + 2^-3 + 0 ... + 0
+
+ (-1^0) * (2^(127 - 127)) * (1 + 0)
+
+ 1 * 1 * 1 = 1
+
+ WEIRD EXCEPTIONS
+
+ if the exponent is all 1s and the mantissa is all 0s, then it's +/- infinity
+
+ if the exponent is all 1s and the mantissa is not all 0s, then it's NAN
+
+ if the exponent is all 0s then we're in tiny number territory:
+
+ (-1^|s|) * 2^-126 * (the sum of the mantissa bits as negative powers of 2)
+
+ why? because we want to gracefully approach 0
+
+
+ the cardinality of the set of all natural numbers?
+ |{0,1,2,3...}| = aleph_0 i.e. the countable infinity
+
+ the cardinality of the set of *real* numbers?
+ |real numbers| = c = aleph_0 ^ aleph_0
+* Stacks
+
+A stack is a data structure (so a struct) with three operations
+
+#+begin_src c
+  #include "stdio.h"
+  #include "stdlib.h"
+
+  struct Stack {
+    // your definition here!
+    // but probably an array and a current length
+    // choose a finite length of array as the max size
+  };
+
+  void push(struct Stack *s, int i){
+    // this puts the integer at the top of the stack
+    // (the end of the array)
+  }
+
+  int pop(struct Stack *s){
+    // remove the integer at the top of the stack
+    // (i.e. the end of array)
+    // and return it
+  }
+
+  int length(struct Stack s){
+    // return the length of the stack
+  }
+
+  void printStack(struct Stack s){
+  }
+
+  int main(){
+  }
+#+end_src
