@@ -1,0 +1,70 @@
+* Agenda
+ + Printing hex
+ + Reviewing how to read hex
+ + Check the sizeof for more types
+ + Pointer arithmetic review
+ + Pointer casting
+   + Bigger
+   + Smaller?
+ + Byte order tests!
+ + Back to integers
+   + Two's complement redux
+     + Two's complement:
+       + b31 .. b0
+       + | b31 .. b0 | =
+           -b31*2^31 + b30*2^30 + b29*2^29 + ... b0 * 2^0
+         this is a lot like how you normally read binary, except the most significant bit has a negative weight
+       + unsigned of 1 byte
+         + 0111 1111 = 127
+         + 1111 1111 = 255
+         + 1000 0000 = 128
+       + 2's complement style for 1 byte
+         + 0111 1111 = 64 + 32 + 16 + 8 + 4 + 2 + 1 = 96 + 24 + 7 = 127
+         + 1111 1111 = -128 + 127 = -1
+         + 1000 0000 = -128
+
+     + How big of numbers can we represent for int?
+       + unsigned style
+         + 0 -> 2^32 - 1
+       + in two's complement (signed)?
+         + -2^31 -> 2^31 - 1
+     + What happens if you add too much?
+       + unsigned
+         0111 1111 = 127
+       + 0000 0001 = 1
+       = 1000 0000 = 128
+       + signed
+                1
+         0111 1111 = 127
+       + 0000 0001 = 1
+       = 1000 0000 = -128
+ + The ancient past: y2k
+ + The horrifying future: y2038
+     + 0111 1111 1111 1111 1111 1111 1111 1111
+ + Compilers: what do they do
+
+
+ + Why 2's complement?
+   + Short answer: it's easier to implement in hardware than having a sign bit
+   + Example:
+     + 1111 1111 = -1
+     + 0000 0001 = 1
+       1111 1111
+     + 0000 0001
+     = 0000 0000
+
+     1000 0000 = -128
+   + 0111 1111 = 127
+   = 1111 1111 = -1
+
+        1  11   
+     1111 1110 = -2
+   + 1111 1110 = -2
+   = 1111 1100 = -4
+
+SIGN BIT VERSION (not how hardware works)
+
+   1000 0001 = -1
+   0000 0001 = 1
+
+   
