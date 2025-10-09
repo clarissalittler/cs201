@@ -1,0 +1,75 @@
+* Agenda
+** Questions about the assignment?
+** Questions about any material so far?
+** Assembly and processors!
+*** Materials and resources
+My own scuffed assembly guide with lots of examples of whole programs in assembly
+https://tildegit.org/left_adjoint/cs201/src/branch/main/assemblyGuide.org
+
+Should also read this book:
+https://tildegit.org/left_adjoint/cs201/raw/branch/main/diveintosystems.epub
+
+specifically chapters 6 and 7
+
+chapter 6 is a brief introduction to the concept of assembly
+
+chapter 7 is a detailed exposition of x86-64 assembly
+
+Assembly assignment is due in a little under 4 weeks
+*** Conceptually
+ + The most foundational part of a computer is its processor
+ + How do you instruct a processor?
+ + At the level of a processor, there are no programming languages
+ + There are no words or variables or anything that high level
+ + There are only numbers
+ + A processor takes a specific pattern of bit-sequences that are the instructions
+ + The instructions are the atomic units of computation
+ + Most instructions take *a* cpu cycle/clock cycle to finish (with a biiiig asterisk on most)
+ + All modern CPUs have a /clock/
+   + oscillator that drives the electric signals to all happen synchronously
+ + /The/ instruction set of a processor
+   + Processor architectures (i.e. families of design that are all compatible with each other) each have their own instruction set
+   + x86/IA32 (little endian)
+   + x86-64 the modern 64 bit version x86
+   + arm64
+   + riscv (open hardware)
+ + Asking people to write bare instructions isn't really feasible
+   + sequence of pure numbers aren't user friendly
+   + a-ha! invent a "high level" language that is human readable and translated directly to instructions
+     + assembly languages
+       + human readable shorthand for the instruction set
+       + assembly languages aren't /entirely/ well-defined
+       + they're defined by their "assembler"
+         + the program that turns assembly language into instructions
+       + In this class, we'll be using the gnu assembler (which is in something called AT&T syntax)
+ 
+
+*** How to export code with -S
+*** How to look at object code
+*** What's the pipeline?
+**** Compiler -> assembler -> linker
+ + Compiler generates assembly
+ + assembler takes _that_ assembly and turns it into a set of instructions
+ + but a set of instructions isn't inherently an executable!
+   + the operating system has a lot more boilerplate to make it an executable
+   + you need to link in all the library code that has also been compiled and assembled
+** Writing a first assembly program
+ + Registers!
+   + The scratchpad of the CPU
+   + This is where most computations will take place
+   + Adding, multiplying, dividing, &c.
+   + All this happens mostly in the registers
+   + What makes a register special?
+   + It is a kind of volatile memory that can be read and written to in a single clock cycle
+   + x86-64 has 16 of them, each that can hold 64 bits
+     + 128 bytes of data /that's all/
+     + but blazing fast to access
+     + registers always start with a % in AT&T syntax
+     + some registers have special uses
+     + some you can do whatever you want with (i.e. r8-r16)
+*** Writing the worst possible program
+*** Writing a program that doesn't segfault
+*** Exit codes: the secrets of the ages!
+*** Exit codes: a very convenient output until we have printing!
+*** Adding and subtracting numbers
+*** Global variables
