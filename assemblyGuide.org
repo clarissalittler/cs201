@@ -15,7 +15,7 @@ When we say "assembly", though, what we're actually talking about are the human-
 
 Different assemblers allow for different syntaxes for writing assembly and have different features, some of which are far more convenient than others.
 
-In this class, we're specifically going to use the gnu assembler, written as =as=[fn:1] on the command line, which uses a particular style of syntax called "AT&T" syntax. Now, AT&T syntax is a little weird and is easy to mess up, but it's also what oldschool linux/unix tools are based on and is the syntax you might be expected to know in future classes. So that constrains our curriculum a bit. 
+In this class, we're specifically going to use the gnu assembler, written as =as= on the command line, which uses a particular style of syntax called "AT&T" syntax. Now, AT&T syntax is a little weird and is easy to mess up, but it's also what oldschool linux/unix tools are based on and is the syntax you might be expected to know in future classes. So that constrains our curriculum a bit. 
 ** Why learn it?
 Okay and obvious question is "why bother learning assembly?". I mean, we have compilers, right? What's the actual thing that it does for us?
 
@@ -100,22 +100,22 @@ TBD
  + =.rodata= for initialized data you don't want to modify (global constants)
 * Example programs
 ** A first program
-This is a simple program that returns an exit code 0f -1 when you run it. You can check the exit code of the program with =echo $?= at the command line.
+This is a simple program that returns an exit code of -1 when you run it. You can check the exit code of the program with =echo $?= at the command line.
 
 #+begin_src asm
 
-          .text           ; Indicates the start of the code section
-          .global _start  ; Declares the entry point of the program for the linker
+          .text           # Indicates the start of the code section
+          .global _start  # Declares the entry point of the program for the linker
 
-  _start:         ; Program entry point
-          mov $60,%rax    ; Move the syscall number for exit (60) into the rax register
-                          ; On Linux x86_64, syscall 60 is the exit system call
+  _start:         # Program entry point
+          mov $60,%rax    # Move the syscall number for exit (60) into the rax register
+                          # On Linux x86_64, syscall 60 is the exit system call
         
-          mov $-1,%rdi    ; Move the exit status code (-1) into the rdi register
-                          ; -1 typically indicates an error or unsuccessful termination
+          mov $-1,%rdi    # Move the exit status code (-1) into the rdi register
+                          # -1 typically indicates an error or unsuccessful termination
         
-          syscall         ; Invoke the system call
-                          ; This will immediately terminate the program with the specified exit status
+          syscall         # Invoke the system call
+                          # This will immediately terminate the program with the specified exit status
 
 #+end_src
 
@@ -143,7 +143,7 @@ If you /don't/ properly exit the program you'll see a segfault as the program at
           syscall
 #+end_src
 ** cmp and jmp
-Now assembly doesn't have if-statements like you're used to. Instead you have to do a =cmp= instruction and then different kinds of /jump/ based on the result of the =cmp=. Jumps need to take an address of where to go next, generally in the form of a label. You can make lables by just writing a name and then a =:=.
+Now assembly doesn't have if-statements like you're used to. Instead you have to do a =cmp= instruction and then different kinds of /jump/ based on the result of the =cmp=. Jumps need to take an address of where to go next, generally in the form of a label. You can make labels by just writing a name and then a =:=.
 
 We can summarize this in the following table where we assume that we've just done =cmp a,b= (I myself get confused about this basically *all* the time, I'm half certain I've got this table backwards /right now/)
 
@@ -153,7 +153,7 @@ We can summarize this in the following table where we assume that we've just don
 | je  | jump if a = b                         |
 | jne | jump if a != b                        |
 | jg  | jump if b greater than a              |
-| jge | jump if b greather than or equal to a |
+| jge | jump if b greater than or equal to a  |
 
 
 #+begin_src asm
@@ -167,7 +167,7 @@ We can summarize this in the following table where we assume that we've just don
 
           # Compare the values in rax and rbx
           cmp %rbx,%rax   # Compare rax to rbx 
-                          # Note: cmp does arg1 - arg2 internally
+                          # Note: cmp %rbx,%rax does rax - rbx internally
                           # Flags are set based on this subtraction
 
           # Conditional jump based on the comparison
@@ -261,7 +261,7 @@ Writng =#f= means jump forward to the next label with that name =#= and =#b= mea
 #+end_src
 
 ** Using global variables
- We can make global variables by putting them in the =.data= section of the array. We access those variables with rip-relative addressing!
+ We can make global variables by putting them in the =.data= section of the program. We access those variables with rip-relative addressing!
 
  Now this requires a bit of explaining:
  + =%rip= holds the address of the next instruction to be executed
@@ -271,6 +271,36 @@ Writng =#f= means jump forward to the next label with that name =#= and =#b= mea
  + the executable is built with that /offset/ in mind and uses *that* to find the data in memory because the one thing your executable does know at all times is what the instruction pointer (rip) is pointing to!
 
 Here are some examples of how this looks:
+
+#+begin_src asm
+  # Data section: Declares initialized static data
+          .section .data
+  num1:   .long 200    # Declares a 32-bit integer variable named 'num1' with initial value 200
+
+  # Code section begins
+
+          .section .text
+          .global _start       # Makes the _start label visible to the linker
+
+  _start:
+          # Load the value of num1 into %rbx
+          # RIP-relative addressing is used to get the memory location of num1
+          mov num1(%rip),%rbx         
+
+          # Add 10 to the value stored in %rbx
+          addl $10,%rbx         # Adds 10 to the current value of num1
+
+          # Prepare arguments for system exit
+          # Move the new value of num1 into %rdi (first argument for exit syscall)
+          mov num1(%rip),%rdi
+
+          # Set up syscall for program exit
+          mov $60,%rax            # 60 is the syscall number for exit
+          syscall                 # Invoke the system call to exit the program
+#+end_src
+
+
+And here's a version that uses the "load-effective address" instruction with explicit dereferencing
 #+begin_src asm
   # Data section: Declares initialized static data
           .section .data
@@ -284,7 +314,7 @@ Here are some examples of how this looks:
   _start:
           # Load the address of num1 into %rbx
           # RIP-relative addressing is used to get the memory location of num1
-          mov num1(%rip),%rbx          # Put the address of num1 into the %rbx register
+          lea num1(%rip),%rbx          # Put the address of num1 into the %rbx register
 
           # Add 10 to the value stored at the memory location pointed to by %rbx
           # The parentheses () mean "value at this memory address"
@@ -292,14 +322,14 @@ Here are some examples of how this looks:
 
           # Prepare arguments for system exit
           # Move the new value of num1 into %rdi (first argument for exit syscall)
-          mov num1,%rdi
+          mov num1(%rip),%rdi
 
           # Set up syscall for program exit
           mov $60,%rax            # 60 is the syscall number for exit
           syscall                 # Invoke the system call to exit the program
-
-
 #+end_src
+
+
 
 and here's how you'd make an array of ints and sum all of their elements. Please note the description of how to use the =lea= (load effective address) instruction. This instruction is basically how you do pointer arithmetic in assembly!
 #+begin_src asm
@@ -461,7 +491,7 @@ Now here's an echo program that reads in a string and writes it back out again:
   _start:
           ## Reading input from stdin
           mov $0,%rax             # System call number for read (0)
-          mov $1,%rdi             # File descriptor for stdin (standard input)
+          mov $0,%rdi             # File descriptor for stdin (standard input)
           lea buff(%rip),%rsi     # Load effective address of buffer into source index
           mov $128,%rdx           # Maximum number of bytes to read (buffer size)
           syscall                 # Invoke the system call to read input
@@ -471,7 +501,7 @@ Now here's an echo program that reads in a string and writes it back out again:
           mov %rax,%rdx           # Move the byte count to the length parameter
           mov $1,%rax             # System call number for write (1)
           lea buff(%rip),%rsi     # Point to the same buffer we read into
-          mov $0,%rdi             # File descriptor for stdout (standard output)
+          mov $1,%rdi             # File descriptor for stdout (standard output)
           syscall                 # Invoke the system call to write output
 
           ## Exit the program cleanly
@@ -482,6 +512,7 @@ Now here's an echo program that reads in a string and writes it back out again:
 
 Nice and simple! So the =.skip= directive is interesting because /technically/ it's different than if we'd said =.zero 128=, but it doesn't *have* to be. If you try and test this out you might find that the buffer is just filled with 0s anyway, but you can't rely on that.
 ** Functions and stacks
+*** Function examples
 As summarized above, functions are really just labels that we jump to with specific /calling conventions/ that give us an ordered way to pass arguments into functions, establish scope for local variables, and then make sure to set things up correctly in case we call /other/ functions inside our functions
 
 Here's a tiny "function" that just demonstrates using ret and call and passing in arguments via registers. It doesn't handle the stack at all!
@@ -518,7 +549,10 @@ Here's a tiny "function" that just demonstrates using ret and call and passing i
 
 #+end_src
 
-and here's a demonstration of how to properly handle the stack!
+*** What is the stack?
+Okay, so we need to spend a bit of time talking about the /stack/ in program execution. You've probably already heard of the stack before: it's where data you allocate that doesn't go on the *heap*, but we haven't yet explained why we call the stack, /a stack/.
+
+Now we're ready to demonstrate how to properly handle the stack!
 #+begin_src asm
           .text                   # Start of the code section
           .global _start          # Make _start symbol globally visible for the linker
@@ -588,6 +622,7 @@ and here's a demonstration of how to properly handle the stack!
           # Invoke system call to exit
           syscall
 #+end_src
+
 ** readInt, writeInt, and loading in functions
 Okay now we're getting to a point where we want to be able to split our code between multiple files.
 
@@ -841,6 +876,6 @@ Although at this point it's kind of annoying that we're checking the exit code e
 You can include this just like the =readInt= function by putting the integer you want to print in =%rdi=. This code is fun because it allocates a buffer on the stack locally!
 
 * Footnotes
-[fn:2] There are special registers for vector operations and floating point operations but we're going to just use the basic ones that old "integer-like" data 
+[fn:2] There are special registers for vector operations and floating point operations but we're going to just use the basic ones that hold "integer-like" data rather than more complicated data
 
 [fn:1] haha 
