@@ -1,0 +1,226 @@
+* Agenda
+** Where we left off: global variables
+ + A new section: =.section .data=
+ + This is where we declared global variables
+ + These globals have to have a size declared (not type)
+   + quad, long, word, byte
+     + 8 bytes, 4 bytes, 2 bytes, 1 bytes
+ + =%rip= relative addressing
+   + This weird thing where the assembler pre-calculates a relative "frame of reference" that at *runtime* gets used to find the variables
+     + why? Because where things are in memory can change every time a program is run
+ #+begin_src asm :tangle global1.s
+           .section .data
+   num:    .quad 10                # 64 bit integer (long)
+
+           .section .text
+           .global _start
+
+   _start: 
+           addq $10,num(%rip)
+           movq num(%rip), %rdi
+           movq $60, %rax
+           syscall
+           
+ #+end_src
+ + I say =.global _start= but I don't say =.global num=
+   + why?
+   + We have to use =.global= when we want the symbol to be seen outside of the this file 
+** lea: the secret to how pointers work
+  + =lea= load effective address
+  + This is the assembly instruction that corresponds to &var (and pointer arithmetic)
+ #+begin_src asm :tangle global2.s
+           .section .data
+   num:    .quad 10                # 64 bit integer (long)
+
+           .section .text
+           .global _start
+
+   _start:
+           lea num(%rip),%r9
+           # %r9 = &num
+           # what's the equivalent of *
+           addq $10,(%r9)
+           # *(%r9) = *(%r9) + 10
+           movq (%r9), %rdi
+           movq $60, %rax
+           syscall
+ #+end_src
+    
+** Arrays, assembly style
+ + An array is a global label that leads to multiple pieces of data
+ #+begin_src asm :tangle globalArray1.s
+           .section .data
+   arr:    .quad 1,2,3,4
+
+           .section .text
+           .global _start
+
+   _start:
+           lea arr(%rip),%r9
+           mov (%r9), %rdi         # *arr -> 1
+           mov $60, %rax
+           syscall
+ #+end_src
+ If we do our normal =lea= trick then we get the first element of the array, just like when you dereference the name of an array in C
+ + How do we get at the other elements?
+ #+begin_src asm :tangle globalArray2.s
+           .section .data
+   arr:    .quad 1,2,3,4
+
+           .section .text
+           .global _start
+
+   _start:
+           lea arr(%rip),%r9
+           mov $1,%rcx
+           mov (%r9,%rcx,8), %rdi
+           # *(%r9 + 1*8)
+           # In C you'd just say *(%r9 + 1)
+           mov $60, %rax
+           syscall
+ #+end_src
+ + Let's write a for-loop that sums all the elements in the array
+   #+begin_src asm :tangle globalArray3.s
+             .section .data
+     arr:    .quad 1,2,3,4,5
+
+             .section .text
+             .global _start
+
+     _start:
+             lea arr(%rip),%r8
+             ## choose %r9 as our accumulator
+             mov $0,%r9
+             mov $0,%rcx             # %rcx holds the loop index (e.g. it is `i`)
+             ## time to start the loop
+     loopStart:
+             cmp $5,%rcx
+             jge loopEnd
+
+             add (%r8,%rcx,8),%r9
+             add $1,%rcx
+             
+             jmp loopStart
+     loopEnd:
+             mov %r9,%rdi
+             mov $60,%rax
+             syscall
+   #+end_src
+   
+** read and write syscalls
+*** First in C
+#+begin_src c :tangle readWrite1.c
+  #include "stdio.h"
+  #include "unistd.h"
+
+  int main(){
+
+    char hiThere[] = "Hey there, goofuses and goofuxen\n";
+    
+    write(1, hiThere, 33);
+    
+    return 0;
+  }
+#+end_src
+
+#+begin_src c :tangle readWrite2.c
+  #include "unistd.h"
+
+  int main(){
+    char buff[30];
+
+    int charsRead = read(0,buff,30);
+    write(1,buff,charsRead);
+    
+    return 0;
+  }
+#+end_src
+
+*** Then in assembly
+#+begin_src asm :tangle readWriteASM1.s
+          .section .data
+  hiThere: .ascii "Hey there, goofuses and goofuxen\n"
+
+          .section .text
+          .global _start
+
+          ## writing is a system call of 1
+          ## calling convention:
+          ## First argument goes into rdi
+          ## Put the FD into %rdi
+          ## next argument goes into rsi
+          ## address of the buffer goes in %rsi
+          ## next argument after that goes into rdx
+          ## length goes in %rdx
+  _start:
+          mov $1,%rdi
+          lea hiThere(%rip),%rsi
+          mov $33,%rdx
+          mov $1,%rax
+          syscall
+
+          mov $60,%rax
+          mov $0,%rdi
+          syscall
+#+end_src
+
+#+begin_src asm :tangle readWriteASM2.s
+          .section .bss
+  buff:   .skip 100
+
+          .section .text
+          .global _start
+
+  _start: 
+          mov $0,%rdi
+          lea buff(%rip),%rsi
+          mov $100,%rdx
+          mov $0,%rax
+          syscall
+          ## we've read in bytes
+          ## now %rax has inside it the number of bytes read
+          mov $1,%rdi
+          lea buff(%rip),%rsi
+          mov %rax,%rdx
+          mov $1,%rax
+          syscall
+
+          mov $60,%rax
+          mov $0,%rdi
+          syscall
+#+end_src
+
+** Functions (maybe?)
+ At the very least let's talk about the calling convention
+
+ + arguments are always passed in a specific order
+   + %rdi
+   + %rsi
+   + %rdx
+   + %rcx
+   + %r8
+   + %r9
+ + output should always be put in %rax
+
+   #+begin_src asm :tangle firstFunc.s
+             .section .text
+             .global _start
+
+             ## silly add takes the argument in %rdi
+             ## and the argument in %rsi
+             ## and adds them together in %rax
+     sillyAdd:       
+             mov $0,%rax
+             add %rdi,%rax
+             add %rsi,%rax
+             ret
+
+     _start:
+             mov $10,%rdi
+             mov $20,%rsi
+             call sillyAdd
+
+             mov %rax,%rdi
+             mov $60,%rax
+             syscall
+   #+end_src

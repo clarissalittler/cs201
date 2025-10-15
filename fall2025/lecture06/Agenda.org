@@ -1,0 +1,53 @@
+* Agenda
+** Let's talk about discussion 3 quick
+ + Posits: alternative floating-point standard
+ + In principle, much simpler hardware implementation for the same level of accuracy
+ + The accuracy is more evenly spread across the space
+   + Reminder: you have to pick a finite subset of the real numbers to represent
+     + Breadcrumbs
+   + How you pick them matters!
+   + in IEE754 (i.e. the normal floating point standard) the gap between breadcrumbs is HUGE for bigger numbers and absurdly tiny between small numbers
+   + Posits has a more uniform distribution
+ + This will probably never be implemented in your CPU
+ + Buuuut maybe the GPU!
+** Review of the end of last time
+ A very tiny assembly program
+** compare, jump, and labels
+** making a tiny loop
+** global variables
+** RIP in peace
+#+begin_example
+        .section .data
+num1:    .quad 0  <--- num gets assigned to an address, you don't know which address at runtime
+num2:    .quad 1
+
+        .section .text
+        .global _start 
+
+_start:
+        mov $1,%rcx <---- %rip = 4
+
+loop:                           
+        cmp $11,%rcx <---- %rip = 5
+        jge finish   <-----%rip = 6
+        add %rcx,(rip - 7) <---- %rip = 7
+        add $1,%rcx <----- %rip = 8
+        jmp loop    <----- %rip = 9
+        
+finish:
+        mov (rip - 10),%rdi <----- %rip = 10
+        mov $60,%rax       <----- %rip = 11
+        syscall            <----- %rip = 12
+
+#+end_example
+at runtime:
+num1 = 0x000005
+num2 = 0x00000C
+
+how do we find it?
+
+well at the first instruction
+add %rcx,num(%rip) (rip = 0x00000F)
+we know that this is 10 bytes later than where the variable is going to live
+
+so when I need to find num I subtract 10 from 0x00000F
