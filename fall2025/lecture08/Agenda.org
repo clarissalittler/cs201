@@ -1,0 +1,216 @@
+* Agenda
+** Administrivia
+ Coding assignment 2 is due two weeks from Sunday
+
+ We should be covering everything you need for it by the end of today
+
+ The next couple of discussions are a little fluffier because I want to give folks a chance to really read and try out assembly
+
+ I'll start grading the quizzes, while they're autograded I have to manually approve the grade release.
+
+ If you're not happy with how you did, just try it again
+
+ I give unlimited attempts on the quizzes
+
+ (also pardon me tonight if I'm a little low energy, I have what the children call The Big Eeepy)
+
+ ((the children do in fact say that))
+
+ (I taught middle for years) 
+
+ Next week we'll be starting processes, signals, forking, &c.
+
+ We'll be then heading into a short unit on threading!
+** What are local variables?
+Global variables
+#+begin_src asm
+          .section .data
+  var:    .long 400
+          ## this really means
+          ## that we're setting aside 32 bits
+          ## and then putting the bit pattern
+          ## that corresponds to 400
+          ## 256 + 128 +
+          ## 384 + 16
+          ## 000...11010000
+#+end_src
+Local variables are declared and used inside a function
+
+Often call this allocating "on the stack"
+** The /stack/ (as opposed to the heap)
+Each process (~ a running program) has allocated space by the OS to run. This space includes
+ + the stack (the highest part of the address space)
+ + the heap <-- this is what was used in early programming for dynamic allocation (these days it's the mmap syscall being used by malloc) 
+ + its data sections (.data, .bss, .rodata)
+ + the actual instructions that correspond to the executable (lowest part of the address space)
+
+The stack and the heap are two things that can change in size during the program:
+
+The stack grows "downwards" from high addresses to low addresses, the heap grows upwards from low addresses to high addresses. If they actually meet in the middle then the program would crash.
+
+Typically from a "stack overflow" (not just a website)
+
+ The stack is where allocation of local variables in a function happens. When the function *ends* the chunk of the stack used by the function is returned.
+
+ In other words, you pop the stack of everything you had placed onto it.
+
+ This stack does in fact have a push and pop operation. These are actual *instructions* in x86-64 (and any other architecture that has a stack (which I believe is all of them))
+** Example of push and pop
+#+begin_src asm :tangle pushpop1.s
+          .section .text
+          .global _start
+
+  _start:
+          push $10
+          pop %rdi
+
+          mov $60,%rax
+          syscall          
+#+end_src
+
+** How local variables on the stack work
+To use local variables we're going to make use of /two/ new registers:
+ + =%rsp= : the stack pointer
+ + =%rbp= : the base pointer
+
+Every time you call a function that uses its own local variables, a new stack frame gets made.
+
+For every stack frame:
+ (secret %rip)
+rbp ->  "bottom" of the frame for the current function
+   ..
+   ..
+   ..
+   variables go in here
+rsp -> "top" of the frame for the current function
+
+rsp is automatically modified by push and pop
+
+To make a new frame without ruining the previous function's local variables, we have to
+ 1. save the old base pointer by /pushing/ it
+ 2. take the current stack pointer, and that address over to the base pointer
+ 3. set the new stack pointer to the old stack pointer minus how much new space we need (must be a multiple of 16)
+ 4. now we can use the space between the new base pointer and the new stack pointer as our local variables
+
+To clean up when we leave a function, we have to
+ 1. restore the old stack pointer by copying over the current base pointer to it
+ 2. restore the old base pointer by popping into rbp
+ 3. congrats, we can exit the function now
+
+#+begin_src asm :tangle stackfunk1.s
+          .section .text
+          .global _start
+
+  sillyFunk:
+          ## this function is going to declare two local variables
+          ## then put 1 and 2 in the local variables
+          ## it will add the values in these variables into %rax and then return
+          ## to allocate the local variables
+          push %rbp               # old base pointer is aved
+          mov %rsp,%rbp           # copy old top of the frame to be the new bottom of the frame
+          sub $16,%rsp            # move the new top of the frame down by 16 bytes
+          movq $1,-8(%rbp)
+          movq $2,-16(%rbp)
+          mov $0,%rax
+          add -8(%rbp),%rax
+          add -16(%rbp),%rax
+
+          ## cleanup time
+          mov %rbp,%rsp
+          pop %rbp
+          ret
+          
+  _start:
+          call sillyFunk
+          mov %rax,%rdi
+          mov $60,%rax
+          syscall
+#+end_src
+
+corresponding C code:
+#+begin_src c 
+  long sillyfunk(){
+    long num1;
+    long num2;
+
+    num1 = 1;
+    num2 = 2;
+
+    return (num1 + num2);
+  }
+
+  int main(){
+    return sillyfunk();
+  }
+#+end_src
+
+** 16 byte alignment
+** Base pointer, stack pointer
+** Calling external functions
+#+begin_src asm :tangle echoInt.s
+          .section .text
+          .extern readInt,writeInt
+          .global _start
+          
+  _start:
+          call readInt
+          ## the integer read from stdin
+          ## is in %rax
+          ## we put that in %rdi
+          ## and call writeInt to print
+          mov %rax,%rdi
+          call writeInt
+
+          mov $0,%rdi
+          mov $60,%rax
+          syscall
+#+end_src
+
+
+** Recursion
+ Why do some programmers have anxiety around recursion?
+
+ Notice: every time we call a function, we allocate a new stack frame.
+
+ Imagine if a naive implementation of an algorithm involves hundreds or thousands of recursive calls: each one of those will allocate another whole stack frame.
+
+ The stack is usually very small, these days ~4MB by default on linux which is a lot bigger than it used to be but still relatively small
+
+ It's possible to "overflow" the stack by calling a recursive function too many times, where because it never technically "returns" all the prior stack frames stick around
+
+ #+begin_src c :tangle overflowPractice.c 
+   #include "stdio.h"
+
+   int counter = 0;
+
+   int badRec(int n){
+     int stuff = 1;
+     int moreStuff = 2;
+     counter++;
+     if(n == 0){
+       return 0;
+     }
+     else{
+       printf("%d\n",counter);
+       return badRec(n+1)+stuff+moreStuff;
+     }
+   }
+
+   int main(){
+     badRec(1000);
+
+     return 0;
+   }
+ #+end_src
+ 
+ badRec(1000) ->
+ makes a new stack frame with two variables, and also pushes the rip and rbp for a total of 32 bytes
+ then calls badRec(999) ->
+ makes a new stack frame that takes 32 bytes
+ then calls badRec(998)
+
+ doesn't pop any of these frames until you get to badRec(0)
+ 
+** ????
+(I don't know I'm very tired)
+** Work time???
