@@ -1,0 +1,35 @@
+* Agenda
+** Assembly roundup
+ + covered discussion 4
+   + discussionDiscussion.c/.s
+ + Windows!
+   + Windows on x86-64
+     + Same instruction set!
+     + Because the instruction set is, well, "set" by the processor
+     + How it looks is going to be different
+     + Calling convention!
+     + Same instructions, same semantics to the instructions
+     + Different conventions for using instructions, how to pass arguments, how to link together a function/program, what the executable format looks like, &c.
+   + If you're on MacOS/Recent Apple Hardware
+     + You're probably running unix calling conventions /on top of the ARM instruction set/ (I think the calling conventions are essentially the same, modulo different names for things)
+ + The compiler/interpreter is the thing that makes sure your programming language gets translated to the right assembly and the right calling conventions and right executable format
+   + One language, different compilers for each OS and architecture combination
+** What is a process?
+ The operating system level unit of "a program". We'll see two kinds of concurrency: one where we make separate processes, one where we make separate /threads/ 
+** "threads of execution"
+Whenever I say/you see "thread of execution" that basically refers to the actual thing running on a core on the chip
+** How do you make a separate process?
+*** Fork
+*** Distinguishing between child and parent
+*** Waiting for a child to be done
+** Threads
+The thing about threads is that when you make new threads, you do *not* clone everything
+
+A thread gets its registers (and thus its own %rip) but it shares the address space with all the the other threads made by the same process
+*** A brief aside on function pointers and casting pointers
+*** Difference between threads and processes
+*** What's shared and what isn't
+*** Making threads
+*** Waiting for threads to end
+*** Race conditions
+*** Mutexes
