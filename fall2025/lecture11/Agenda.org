@@ -1,0 +1,26 @@
+* Agenda 
+** Examples of function pointers
+ Function pointers are how you accomplish "higher-order functions" in C and C++.
+
+ What's a higher-order function?
+
+ Higher-order functions are functions that take other functions as arguments.
+
+ Tend to show up as an encapsulation feature like map/fold/reduce style functions or, in our case, when we're dealing with intializing threads.
+
+ You pass to the thread start function the function that the thread should run.
+
+ 
+
+** Map and fold functions
+** Casting to and from void
+** Threads
+*** Making a thread and joining it
+*** Passing arguments to a thread
+*** Returning data from a thread
+** Causing race conditions
+** Using a mutex to prevent them
+** Passing a struct
+** Parallel processing
+** Semaphores
+** Dining philosophers
