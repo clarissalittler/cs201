@@ -1,0 +1,66 @@
+* Agenda
+** Covering modules 7 and 8 of the course site today
+** Exceptions
+The general mechanism by which the operating system interrupts normal control flow for various reasons
+*** Hardware
+**** Interrupts
+Every key I press causes an interrupt. Really most things that involve data coming in cause an interrupt [fn:1]
+
+Interrupts are handled by the operating system with a special table that maps the interrupt that comes in to low-level code that handles that interrupt
+*** Software
+**** Faults
+like our friend the segmentation fault (so sometimes serious errors)
+
+but sometimes it's a page fault, which is actually an "error" that just says "hey this value isn't cached so go get it from RAM"
+**** Traps
+**** Aborts
+IIRC divide by zero is an abort (for integers)
+** Processes
+*** What is in a process?
+What all goes into a process? What data is associated with it?
+
+A process is an /operating system/ level construct. In other words, what data is stored bundled together as a process is a OS level decision not something that the architecture of the computer decides.
+
+ The process data structure includes things like:
+ + the actual code to be executed
+ + the state of the all the registers (this is saved when a context switch happens)
+ + the file handles of all the files the program had access too
+   + (these are all actually just integers)
+ + mapped memory
+*** Scheduling processes?
+The scheduler schedules
+
+In other words, it's the part of the OS that makes sure every process gets a turn.
+*** Context switches
+A context switch is what happens when you need to swap out the giant data structures that correspond to a process.
+
+You have a lot of stuff to record and save and switch in and out. 
+*** Physical vs. virtual memory spaces
+Virtual memory is how a computer multiplexes the limited physical memory: i.e. each process gets its own "virtual" address space that is, in some sense, unrelated to the physical layout of where things are.
+
+Why? Each process needs to effectively think it's the only one running in memory. This is the principle of memory separation/segmentation. 
+*** Swapping yourself to death
+Once there's no set of programs running on the available cores that are cycled through that fit into RAM together at once, then everything grinds to a halt
+** Signals 
+*** Not quite like exceptions, but how the kernel handles a lot of exceptions
+*** Common signals
+**** SIGINT Ctrl-C
+**** SIGFPE Divide by zero
+**** SIGKILL 
+**** SIGSEGV (segmentation fault)
+**** SIGALRM
+**** SIGSTOP
+**** SIGSTP (Ctrl-Z)
+(wait, didn't we already do this one?)
+*** How to kill effectively
+**** Killing from the command line
+**** Killing from a program
+**** User-defined signals
+**** Overriding existing signals
+**** Blocking signals
+**** State modified by signals (volatile sig_atomic_t)
+*** Incremental game with fork
+
+* Footnotes
+
+[fn:1] The truth is more complicated than saying "all input involves interrupts" but to first approximation think of it as when signals come in external to the cpu, some kind of interrupt needs to happen 
