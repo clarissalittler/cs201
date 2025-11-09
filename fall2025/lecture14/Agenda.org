@@ -1,0 +1,30 @@
+* Agenda
+Gonna get started at 18:05 (look I'm already sharing and I've got everything just in emacs so this should be nice)
+
+[Also, thanks for bearing with me tonight, I don't know how many people are going to watch live vs. watch later but if you're not sure how to do threading things for your assignment I'd highly recommend watching this for more practice and ideas]
+** Threads review
+ - The basics
+ - Passing arguments
+ - Mutexes to protect resources
+** Building some things with threads
+*** Silly arrays example
+*** Agents taking action
+*** Re-doing our incremental game
+(fixed, just silly)
+*** [for later] Agents with a /shared state/
+*** So how exactly does the assignment work?
+ Your next assignment is basically just to do some kind of operation in parallel on a big array (and by big I mean it should hundreds of thousands or millions of elements) that you make with malloc
+
+ You should start with a set number of threads (you can pick, but it should fixed)
+
+ e.g. 10 threads, no matter how big the array is
+
+ each thread should take a *chunk* of the array at a time, and that chunk size should be a constant not related to the size of the array
+
+ i.e. don't divide the number of elements by the number of threads to get a "chunk size"
+
+ instead, have this be a constant (like 1000) and all the threads just keep processing the array in 1000 element "chunks" until you've reached the end
+
+ If you WANT to simplify you can make the array size and chunk size divide evenly
+
+ then each thread is going to use *the* mutex not to protect the array, but to protect the *counter* that's used to assign each array to the next 1000 element chunk
