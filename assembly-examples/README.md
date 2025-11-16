@@ -11,6 +11,68 @@ This directory contains a collection of x86-64 AT&T syntax assembly language exa
 - **[05-io](05-io/)** - Input/output operations
 - **[06-advanced](06-advanced/)** - More complex assembly concepts
 
+## Three-Tier Learning System
+
+Each key example is available in **three versions** to support different learning needs:
+
+### 1. **Bare Version** (`filename.s`)
+- **Purpose**: Reference and practice
+- **Style**: Minimal comments, focuses on the code itself
+- **Best for**: Quick reference, experienced programmers, practicing assembly
+
+**Example:** `01-hello-world.s`
+```assembly
+mov $1, %rax        # 1 is the syscall number of write
+mov $1, %rdi        # the file descriptor
+```
+
+### 2. **Guided Version** (`filenameGuided.s`) ⭐ **Start Here**
+- **Purpose**: Learning and understanding
+- **Style**: Moderate, focused comments explaining what and why
+- **Length**: ~50-100 lines for typical examples
+- **Best for**: First-time learners, understanding concepts, quick comprehension
+
+**Example:** `01-hello-worldGuided.s`
+```assembly
+# SYSTEM CALL 1: write(fd=1, buf=hello2, count=14)
+# Prints our message to standard output
+
+mov $1, %rax            # syscall number: 1 = write
+mov $1, %rdi            # arg1: file descriptor (1 = stdout)
+lea hello2(%rip), %rsi  # arg2: address of string (RIP-relative)
+```
+
+### 3. **Deep-Dive Version** (`filenamecommented.s`)
+- **Purpose**: Comprehensive understanding and reference
+- **Style**: Exhaustive explanations with diagrams, alternatives, pitfalls
+- **Length**: 200-500+ lines with detailed pedagogy
+- **Best for**: Deep understanding, teaching, troubleshooting, mastery
+
+**Example:** `01-hello-worldcommented.s` (317 lines of detailed explanations)
+
+## How to Use This System
+
+**For Beginners:**
+1. Start with **QUICKSTART.md** (30-minute introduction)
+2. Read the **Guided** versions as you work through examples
+3. Consult **Deep-Dive** versions when you need deeper understanding
+4. Use **Bare** versions for practice and quick reference
+
+**For Quick Learners:**
+1. Skim the **Guided** version to understand the concept
+2. Practice with the **Bare** version
+3. Check **Deep-Dive** if you get stuck
+
+**For Instructors:**
+- **Guided**: Use in lectures for concept introduction
+- **Deep-Dive**: Provide as supplementary reading material
+- **Bare**: Use for assignments and exams
+
+**File Naming Convention:**
+- `filename.s` - Bare (minimal comments)
+- `filenameGuided.s` - Guided (moderate, focused comments)
+- `filenamecommented.s` - Deep-Dive (comprehensive documentation)
+
 ## Example Index
 
 ### 01-basics - Basic Assembly Programs
