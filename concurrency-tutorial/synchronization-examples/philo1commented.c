@@ -131,3 +131,75 @@ int main() {
 
     return 0;
 }
+
+/*
+ * ============================================================================
+ * EXPECTED OUTPUT AND TESTING
+ * ============================================================================
+ *
+ * TO COMPILE AND RUN:
+ * gcc philo1.c -o philo1 -lpthread
+ * ./philo1
+ *
+ * EXPECTED BEHAVIOR:
+ * This program will DEADLOCK! It will not terminate normally.
+ *
+ * TYPICAL OUTPUT (before deadlock):
+ * Philosopher 0 is thinking.
+ * Philosopher 1 is thinking.
+ * Philosopher 2 is thinking.
+ * Philosopher 3 is thinking.
+ * Philosopher 4 is thinking.
+ * Philosopher 0 picked up utensil 0 (left).
+ * Philosopher 1 picked up utensil 1 (left).
+ * Philosopher 2 picked up utensil 2 (left).
+ * Philosopher 3 picked up utensil 3 (left).
+ * Philosopher 4 picked up utensil 4 (left).
+ * [PROGRAM HANGS HERE - DEADLOCKED]
+ *
+ * WHAT HAPPENS:
+ * 1. All 5 philosophers pick up their left utensil
+ * 2. All try to pick up their right utensil
+ * 3. But each right utensil is someone else's left utensil
+ * 4. Everyone waits forever - DEADLOCK!
+ *
+ * VISUALIZATION OF DEADLOCK STATE:
+ *      Utensil 0 - held by Philosopher 0, wanted by Philosopher 4
+ *      Utensil 1 - held by Philosopher 1, wanted by Philosopher 0
+ *      Utensil 2 - held by Philosopher 2, wanted by Philosopher 1
+ *      Utensil 3 - held by Philosopher 3, wanted by Philosopher 2
+ *      Utensil 4 - held by Philosopher 4, wanted by Philosopher 3
+ *
+ * CIRCULAR WAIT CONDITION:
+ * P0 waits for P4 waits for P3 waits for P2 waits for P1 waits for P0
+ * (This forms a cycle - the definition of deadlock!)
+ *
+ * TO EXIT THE DEADLOCKED PROGRAM:
+ * Press Ctrl+C to send SIGINT and kill the process
+ *
+ * TESTING:
+ * $ ./philo1
+ * [Wait a few seconds... it will hang]
+ * [Press Ctrl+C]
+ * ^C
+ * $
+ *
+ * LEARNING POINT:
+ * This demonstrates why simply acquiring locks in the same order for all
+ * threads is not sufficient if the order can create circular dependencies.
+ *
+ * SOLUTIONS:
+ * See the other philosopher examples for different solutions:
+ * - philo2.c: Randomized resource acquisition
+ * - philo3.c: Resource hierarchy (break circular wait)
+ * - philo4.c: Semaphore-based approach
+ * - philo5.c: Resource manager (Dijkstra's solution)
+ *
+ * DEADLOCK CONDITIONS (all 4 must be present):
+ * 1. Mutual exclusion - ✓ (mutexes can't be shared)
+ * 2. Hold and wait - ✓ (holding left, waiting for right)
+ * 3. No preemption - ✓ (can't forcibly take utensils)
+ * 4. Circular wait - ✓ (P0→P1→P2→P3→P4→P0)
+ *
+ * Breaking ANY of these conditions prevents deadlock.
+ */

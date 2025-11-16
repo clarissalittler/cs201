@@ -337,3 +337,68 @@ _start:
 #   call fun        # Compute result
 #   mov %rax,%rdi   # Set up for writeInt
 #   call writeInt   # Display result
+#
+# ============================================================================
+# EXPECTED OUTPUT AND TESTING
+# ============================================================================
+#
+# TO ASSEMBLE, LINK, AND RUN:
+# as 02-basic-function.s -o 02-basic-function.o
+# ld 02-basic-function.o -o 02-basic-function
+# ./02-basic-function
+# echo $?
+#
+# EXPECTED OUTPUT:
+# (No visible output - program doesn't print anything)
+#
+# EXPECTED EXIT CODE:
+# $ echo $?
+# 15
+#
+# WHY 15?
+# The function computes: (a + b) * 3
+# Where: a = 2, b = 3
+# Calculation: (2 + 3) * 3 = 5 * 3 = 15
+# Result is returned in %rax and used as exit code
+#
+# STEP-BY-STEP TRACE:
+# 1. _start sets up: %rdi = 2, %rsi = 3
+# 2. Calls fun
+# 3. fun executes:
+#    - Initialize %rax = 0
+#    - Add %rdi (2): %rax = 2
+#    - Add %rsi (3): %rax = 5
+#    - Multiply by 3: %rax = 15
+#    - Return
+# 4. _start moves %rax to %rdi for exit syscall
+# 5. Program exits with code 15
+#
+# DEBUGGING WITH GDB:
+# gdb ./02-basic-function
+# (gdb) break fun
+# (gdb) run
+# (gdb) info registers rdi rsi    # Should show 2 and 3
+# (gdb) step                       # Step through function
+# (gdb) info registers rax         # Watch accumulator change
+# (gdb) finish                     # Run until return
+# (gdb) print $rax                 # Should be 15
+#
+# EXPERIMENT:
+# 1. Change the multiplier from 3 to 5:
+#    Replace "imul $3,%rax" with "imul $5,%rax"
+#    Result: (2 + 3) * 5 = 25
+#    $ echo $?
+#    25
+#
+# 2. Change input values:
+#    Replace "mov $2,%rdi" with "mov $10,%rdi"
+#    Replace "mov $3,%rsi" with "mov $5,%rsi"
+#    Result: (10 + 5) * 3 = 45
+#    $ echo $?
+#    45
+#
+# 3. Change to subtraction:
+#    Replace second "add" with "sub %rsi,%rax"
+#    Result: (2 - 3) * 3 = -1 * 3 = -3
+#    $ echo $?
+#    253  (because -3 in 8-bit unsigned is 253)

@@ -55,9 +55,80 @@ But in this chunk of the course you're going to be /writing/ assembly, which mea
  + =%r8= – =%r15=: additional general-purpose registers
  + =%rip= (special case, you won't use it except in rip-relative addressing)
 ** Floating point registers
-TBD
+ x86-64 has specialized registers for floating-point arithmetic. In modern x86-64 systems, floating-point operations typically use the SSE/SSE2 instruction set rather than the older x87 FPU stack-based approach.
+
+ SSE/SSE2 Floating Point Registers:
+ + =%xmm0= – =%xmm15=: 128-bit registers used for scalar and packed floating-point operations
+   + Each can hold:
+     - One double-precision (64-bit) float
+     - One single-precision (32-bit) float
+     - Two double-precision floats (packed)
+     - Four single-precision floats (packed)
+
+ Common floating-point instructions:
+ + =movss= / =movsd=: Move scalar single/double precision values
+ + =addss= / =addsd=: Add scalar single/double precision
+ + =subss= / =subsd=: Subtract scalar single/double precision
+ + =mulss= / =mulsd=: Multiply scalar single/double precision
+ + =divss= / =divsd=: Divide scalar single/double precision
+ + =ucomiss= / =ucomisd=: Compare (unordered) single/double precision
+
+ Example:
+ #+begin_src asm
+   # Add two double-precision floats
+   movsd value1(%rip), %xmm0   # Load first float into %xmm0
+   addsd value2(%rip), %xmm0   # Add second float to %xmm0
+   movsd %xmm0, result(%rip)   # Store result
+ #+end_src
+
+ Calling convention for floating-point:
+ + First 8 floating-point arguments are passed in =%xmm0= – =%xmm7=
+ + Floating-point return values go in =%xmm0=
+ + All =%xmm= registers are caller-saved (must be preserved by caller if needed)
+
 ** Vector registers
-TBD
+ x86-64 supports various SIMD (Single Instruction, Multiple Data) extensions for parallel processing:
+
+ SSE/SSE2 Registers (already mentioned above):
+ + =%xmm0= – =%xmm15=: 128-bit registers
+ + Can process multiple data elements in parallel
+ + Example: Add 4 floats or 2 doubles simultaneously
+
+ AVX (Advanced Vector Extensions) Registers:
+ + =%ymm0= – =%ymm15=: 256-bit registers
+ + Lower 128 bits overlap with corresponding =%xmm= registers
+ + Can process:
+     - 8 single-precision floats
+     - 4 double-precision floats
+     - Various integer types in parallel
+
+ AVX-512 Registers (on supported CPUs):
+ + =%zmm0= – =%zmm31=: 512-bit registers
+ + Lower 256 bits overlap with =%ymm= registers
+ + Can process:
+     - 16 single-precision floats
+     - 8 double-precision floats
+     - Up to 64 bytes of integer data in parallel
+ + Additional mask registers =%k0= – =%k7= for conditional operations
+
+ Common use cases:
+ + High-performance computing
+ + Graphics and image processing
+ + Scientific computations
+ + Machine learning operations
+ + Audio/video encoding
+
+ Example AVX-512 usage (see assembly-examples/06-advanced/01-avx512.s):
+ #+begin_src asm
+   # Add 16 single-precision floats in parallel
+   vmovaps array1(%rip), %zmm0     # Load 16 floats
+   vmovaps array2(%rip), %zmm1     # Load 16 floats
+   vaddps %zmm0, %zmm1, %zmm2      # Add them all at once
+   vmovaps %zmm2, result(%rip)     # Store result
+ #+end_src
+
+ Note: Vector instructions require CPU support. Check with =cpuid= instruction or =/proc/cpuinfo= on Linux.
+ Most modern x86-64 CPUs support at least SSE2, many support AVX2, and newer server/workstation CPUs support AVX-512.
 ** Calling convention reference
  + Functions must return values via =%rax=
  + Arguments are passed into functions via the registers (presented in order):

@@ -312,22 +312,61 @@ _start:
 #   cmp $0,%rcx
 #   jge .loop          # Continue while %rcx >= 0
 
+# ============================================================================
+# EXPECTED OUTPUT AND TESTING
+# ============================================================================
+
 # TO ASSEMBLE, LINK, AND RUN:
 # as 01-for-loop.s -o 01-for-loop.o
 # ld 01-for-loop.o -o 01-for-loop
 # ./01-for-loop
-# echo $?                      # Should display 55
+# echo $?
+
+# EXPECTED OUTPUT:
+# (No visible output - program doesn't print anything)
+
+# EXPECTED EXIT CODE:
+# $ echo $?
+# 55
 #
-# DEBUGGING TIPS:
-# Use gdb to trace execution:
+# WHY 55?
+# The program computes: 0² + 1² + 2² + 3² + 4² + 5²
+# = 0 + 1 + 4 + 9 + 16 + 25
+# = 55
+#
+# STEP-BY-STEP TRACE:
+# Iteration 0: sum = 0 + (0×0) = 0
+# Iteration 1: sum = 0 + (1×1) = 1
+# Iteration 2: sum = 1 + (2×2) = 5
+# Iteration 3: sum = 5 + (3×3) = 14
+# Iteration 4: sum = 14 + (4×4) = 30
+# Iteration 5: sum = 30 + (5×5) = 55
+# Loop exits when rcx = 6 (not less than 6)
+
+# DEBUGGING WITH GDB:
 # gdb ./01-for-loop
 # (gdb) break _start
 # (gdb) run
-# (gdb) info registers rcx rax rbx  # View register values
-# (gdb) stepi                        # Step one instruction
-# (gdb) continue                     # Continue to next breakpoint
-#
+# (gdb) display /d $rcx     # Show counter each step
+# (gdb) display /d $rax     # Show accumulator each step
+# (gdb) display /d $rbx     # Show square each step
+# (gdb) while $rcx < 6
+#   > stepi
+#   > stepi
+#   > stepi
+#   > stepi
+#   > end
+# Watch the values change with each iteration!
+
 # EXPERIMENT:
-# Change "cmp $6,%rcx" to "cmp $10,%rcx" to sum squares 0..9
-# Result: 0² + 1² + ... + 9² = 285 -> exit code will be 285 % 256 = 29
-# (Exit codes are only 8 bits, so values wrap around)
+# 1. Change "cmp $6,%rcx" to "cmp $10,%rcx" to sum squares 0..9
+#    Result: 0² + 1² + ... + 9² = 285
+#    BUT: exit codes are only 8 bits (0-255), so 285 % 256 = 29
+#    $ echo $?
+#    29
+#
+# 2. Change to sum cubes instead of squares:
+#    Replace "imul %rcx,%rbx" with two imul instructions:
+#    imul %rcx,%rbx
+#    imul %rcx,%rbx
+#    Result for 0³+1³+2³+3³+4³+5³ = 225 (exit code 225)

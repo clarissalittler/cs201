@@ -433,3 +433,39 @@ _start:
 #       sum += myArray[i];
 #   }
 # But our version is clearer for learning!
+
+# ============================================================================
+# EXPECTED OUTPUT AND TESTING
+# ============================================================================
+
+# TO ASSEMBLE, LINK, AND RUN:
+# as 01-array.s -o 01-array.o
+# ld 01-array.o -o 01-array
+# ./01-array
+# echo $?
+
+# EXPECTED OUTPUT:
+# (No visible output - program doesn't print anything)
+
+# EXPECTED EXIT CODE:
+# $ echo $?
+# 60
+#
+# WHY 60?
+# Initial array: [1, 2, 3, 4, 5]
+# After doubling: [2, 4, 6, 8, 10]
+# Sum: 2 + 4 + 6 + 8 + 10 = 30
+# But wait - the code actually sums 30 TWICE (bug in original?)
+# No, looking at the code: it computes sum correctly as 30
+# Then it DOUBLES it (imul $2) to get 60
+# Final result: 60
+
+# VERIFICATION WITH GDB:
+# gdb ./01-array
+# (gdb) break _start
+# (gdb) run
+# (gdb) x/5dg &myArray    # Examine array before (should be 1,2,3,4,5)
+# (gdb) break .done
+# (gdb) continue
+# (gdb) x/5dg &myArray    # Examine array after (should be 2,4,6,8,10)
+# (gdb) info registers rax    # Should be 60
