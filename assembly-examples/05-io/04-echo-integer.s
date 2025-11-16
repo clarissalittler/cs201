@@ -19,7 +19,7 @@ msg3len = . - msg3
         
 _start:
         mov $1,%rax
-        mov $0,%rdi
+        mov $1,%rdi             # file descriptor 1 = stdout
         lea msg1(%rip),%rsi     # load message address
         mov $msg1len,%rdx
         syscall
@@ -31,9 +31,9 @@ _start:
         ## things are returned into (calling conv)
         
         push %rax               # whoops better save rax quick
-        
+
         mov $1,%rax
-        mov $0,%rdi
+        mov $1,%rdi             # file descriptor 1 = stdout
         lea msg2(%rip),%rsi     # load message address
         mov $msg2len,%rdx
         syscall
@@ -43,7 +43,7 @@ _start:
         call writeInt
 
         mov $1,%rax
-        mov $0,%rdi
+        mov $1,%rdi             # file descriptor 1 = stdout
         lea msg3(%rip),%rsi     # load message address
         mov $msg3len,%rdx
         syscall

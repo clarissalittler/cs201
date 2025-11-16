@@ -1,98 +1,58 @@
-/**
- * @file hello_world.c
- * @brief A fundamental "Hello, World!" program in C.
- * @details
- * This program serves as a basic introduction to the C programming language.
- * It demonstrates several core concepts:
- *
- * 1.  **Preprocessor Directives (`#include`)**:
- *     - The line `#include <stdio.h>` is a preprocessor directive.
- *     - The preprocessor runs *before* the actual compilation.
- *     - `#include` tells the preprocessor to copy the contents of the specified
- *       file (in this case, `stdio.h`) into this source file.
- *     - `stdio.h` stands for "Standard Input/Output Header". It contains
- *       declarations for standard functions like `printf` (used for printing
- *       output to the console) and `scanf` (used for reading input).
- *     - We need to include `stdio.h` because our program uses the `printf` function.
- *
- * 2.  **The `main` Function**:
- *     - Every C program must have a function named `main`.
- *     - This `main` function is the **entry point** of the program – execution
- *       always begins here when the program is run.
- *     - `int main()` declares the `main` function.
- *       - `int`: This specifies the **return type** of the function. `main`
- *         returns an integer value to the operating system (or the calling process)
- *         to indicate whether the program executed successfully or encountered an error.
- *         A return value of `0` typically signifies success.
- *       - `main`: This is the required name for the entry point function.
- *       - `()`: These parentheses indicate that this function (in this simple form)
- *         takes no arguments (inputs). More complex programs might have
- *         `int main(int argc, char *argv[])` to receive command-line arguments.
- *
- * 3.  **Function Body (`{ ... }`)**:
- *     - The curly braces `{` and `}` define the **body** of the `main` function.
- *     - All the code that belongs to the `main` function is placed between these braces.
- *     - This block of code is executed sequentially, line by line.
- *
- * 4.  **Statements and Semicolons (`;`)**:
- *     - Lines of code like `printf(...)` and `return 0` are called **statements**.
- *     - Most statements in C must end with a semicolon `;`. The semicolon acts
- *       as a statement terminator, telling the compiler where one instruction ends
- *       and the next might begin.
- *
- * 5.  **Standard Output (`printf`)**:
- *     - `printf` is a standard library function (declared in `stdio.h`).
- *     - Its primary purpose is to "print formatted" output to the **standard output stream**,
- *       which is typically the console or terminal window.
- *     - `"Hello world!\n"` is a **string literal** – a sequence of characters
- *       enclosed in double quotes. This is the text that `printf` will display.
- *     - `\n` is an **escape sequence** that represents a **newline character**.
- *       When `printf` encounters `\n`, it moves the cursor to the beginning
- *       of the next line on the output device.
- *
- * 6.  **Return Statement (`return 0;`)**:
- *     - The `return` statement is used to exit the current function and optionally
- *       send a value back to the caller.
- *     - In the `main` function, `return 0;` terminates the program and returns the
- *       integer value `0` to the operating system.
- *     - As mentioned before, a return value of `0` conventionally indicates that
- *       the program completed successfully without any errors. Non-zero values
- *       are typically used to signal different types of errors.
- *
- * 7.  **Compilation and Execution**:
- *     - This text file (`.c` file) is human-readable **source code**.
- *     - To run it, you first need a C **compiler** (like GCC or Clang).
- *     - The compiler translates the source code into machine-readable **executable code**.
- *     - The compilation process typically involves:
- *       a. Preprocessing (`#include` directives are handled).
- *       b. Compilation (source code to assembly code).
- *       c. Assembly (assembly code to object code - machine code).
- *       d. Linking (combining object code with library code, like the code for `printf`,
- *          to create the final executable file).
- *     - Once compiled, you can run the resulting executable file from your terminal.
- */
+// PEDAGOGICAL PURPOSE:
+// This is a minimal "Hello World" program in C that demonstrates
+// the absolute basics of C programming structure.
+// Key learning objectives:
+// 1. Understanding the basic structure of a C program
+// 2. Introduction to the stdio.h library and printf function
+// 3. Understanding the main() function as the entry point
+// 4. Return values and program exit codes
+// 5. String literals and escape sequences (\n for newline)
+// 6. The minimal elements needed for a working C program
 
-// Include the Standard Input/Output library header file.
-// This line is processed by the preprocessor before compilation.
-// It gives us access to standard functions like printf().
-#include <stdio.h>
+#include <stdio.h>      // PREPROCESSOR DIRECTIVE: Include standard input/output library
+                        // This provides the printf() function
+                        // Without this, the compiler wouldn't know what printf is
+                        // stdio.h contains declarations for I/O functions like printf, scanf, etc.
 
-// The main function - the starting point of execution for every C program.
-// 'int' indicates that this function will return an integer value to the operating system.
-// '()' indicates that this function takes no input arguments in this specific form.
-int main() { // The opening curly brace marks the beginning of the main function's code block.
+int main(){             // MAIN FUNCTION: The entry point of every C program
+                        // When you run the program, execution starts here
+                        // "int" means this function returns an integer to the OS
+                        // By convention, 0 means success, non-zero means error
+                        // The empty parentheses () mean no command-line arguments are expected
+                        // Could also write: int main(int argc, char *argv[]) for arguments
 
-  // Call the printf function (Print Formatted) from the stdio library.
-  // It's used to display output on the console (standard output).
-  // The text within the double quotes "..." is called a string literal.
-  // "Hello world!" is the string that will be printed.
-  // '\n' is an escape sequence representing a newline character. It moves the
-  // cursor to the next line after printing the text.
-  printf("Hello world!\n");
+  printf("Hello world!\n");  // PRINTF: Print formatted output to stdout (the terminal)
+                             // "Hello world!" is a string literal
+                             // String literals are stored in read-only memory
+                             // \n is an ESCAPE SEQUENCE that means newline
+                             // This moves the cursor to the next line after printing
+                             // Without \n, the shell prompt would appear on the same line
+                             // The exclamation mark adds emphasis to the message
 
-  // Return 0 from the main function.
-  // This indicates to the operating system that the program executed successfully.
-  // A non-zero return value typically signals an error occurred.
-  return 0;
+  return 0;             // RETURN STATEMENT: Exit the program and report success
+                        // The value 0 is returned to the operating system
+                        // The OS uses this to determine if the program succeeded
+                        // You can check this in the shell with: echo $?
+                        // This is the exit code/status of the program
+                        // Non-zero values (1, 2, etc.) indicate different types of errors
+}
 
-} // The closing curly brace marks the end of the main function's code block.
+// TO COMPILE AND RUN:
+// gcc hello.c -o hello     # Compile to create executable named "hello"
+// ./hello                  # Run the program
+// echo $?                  # Check the exit status (should be 0)
+
+// WHAT HAPPENS WHEN THIS RUNS:
+// 1. OS loads the program into memory
+// 2. C runtime calls main()
+// 3. printf writes "Hello world!\n" to stdout (file descriptor 1)
+// 4. main() returns 0
+// 5. C runtime calls exit(0)
+// 6. Program terminates with exit status 0
+
+// WHY THIS PROGRAM IS IMPORTANT:
+// - It's the traditional first program in any language
+// - Demonstrates the minimum viable C program structure
+// - Shows the relationship between source code and execution
+// - Introduces fundamental concepts: functions, libraries, return values
+// - Serves as a template for more complex programs

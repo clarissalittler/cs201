@@ -1,103 +1,138 @@
-/**
- * @file endianness_demonstration.c
- * @brief Demonstrates how to inspect the individual bytes of an integer in memory.
- *
- * ## Tutorial: Understanding the Concepts
- *
- * This program illustrates several fundamental C concepts related to memory
- * manipulation and data representation:
- *
- * 1.  **Data Representation:** Computers store data, including integers, in binary format
- *     in memory. An `int` typically occupies multiple bytes (often 4 bytes or 32 bits
- *     on many modern systems).
- *
- * 2.  **Memory Addresses:** Every variable stored in memory has a unique address. The `&`
- *     (address-of) operator retrieves this memory address. In this code, `&n` gives
- *     the starting memory address where the integer `n` is stored.
- *
- * 3.  **Pointers:** A pointer is a variable that stores a memory address. Pointers have
- *     a type that indicates what kind of data resides at the address they point to
- *     (e.g., `int*` points to an integer, `char*` points to a character/byte).
- *
- * 4.  **Pointer Casting:** Sometimes, we need to treat a memory location as if it
- *     contains a different type of data than originally declared. This is done via
- *     casting. Here, `(unsigned char*) &n` tells the compiler: "Take the address
- *     of the integer `n` (which is of type `int*`), but treat it as an address
- *     pointing to an `unsigned char` (a single byte)". This is key to examining
- *     the integer byte by byte. We use `unsigned char` because it's guaranteed
- *     to be exactly 1 byte and avoids potential sign-extension issues when printing.
- *
- * 5.  **Pointer Arithmetic:** When you add an integer `i` to a pointer `p` (`p + i`),
- *     the address is incremented by `i * sizeof(*p)` bytes, where `sizeof(*p)` is
- *     the size of the data type the pointer points to. Since `c` is an `unsigned char*`,
- *     `sizeof(*c)` is 1. Therefore, `c + i` increments the address by exactly `i` bytes,
- *     allowing us to move sequentially through the bytes of the original integer `n`.
- *
- * 6.  **Dereferencing:** The `*` (dereference) operator retrieves the value stored at
- *     the memory address a pointer points to. `*(c + i)` accesses the byte value
- *     at the memory location pointed to by `c + i`.
- *
- * 7.  **`sizeof` Operator:** `sizeof(type)` or `sizeof(variable)` returns the size (in bytes)
- *     of a data type or variable. `sizeof(typeof(n))` gets the size of whatever type `n`
- *     is (in this case, `int`), ensuring the loop runs for the correct number of bytes.
- *
- * 8.  **Endianness:** This program powerfully demonstrates **endianness**, which refers to
- *     the order in which bytes of a multi-byte data type (like `int`) are stored in
- *     memory.
- *     *   **Little-Endian:** The least significant byte (LSB) is stored at the lowest
- *         memory address. (e.g., Intel x86/x64). For `0x89ABCDEF`, memory would look like:
- *         Address: Low -> High
- *         Content: EF CD AB 89
- *         Output: Byte 0: ef, Byte 1: cd, Byte 2: ab, Byte 3: 89
- *     *   **Big-Endian:** The most significant byte (MSB) is stored at the lowest
- *         memory address. (e.g., older PowerPC, network byte order). For `0x89ABCDEF`,
- *         memory would look like:
- *         Address: Low -> High
- *         Content: 89 AB CD EF
- *         Output: Byte 0: 89, Byte 1: ab, Byte 2: cd, Byte 3: ef
- *
- *     The output of this program will differ depending on the architecture of the
- *     machine it's run on, revealing its endianness.
- */
+// PEDAGOGICAL PURPOSE:
+// This program demonstrates endianness (byte order) in computer memory.
+// It shows how multi-byte integers are stored in memory on different systems.
+// Key learning objectives:
+// 1. Understanding little-endian vs big-endian byte ordering
+// 2. How to examine individual bytes of a multi-byte data type
+// 3. Pointer type casting (int* to unsigned char*)
+// 4. Memory layout of integers
+// 5. Using sizeof and typeof operators
+// 6. Hexadecimal representation and byte-level manipulation
 
-#include <stdio.h> // Include standard input/output library for printf function
-#include <stdlib.h> // Include standard library (though not strictly needed for this specific example)
+#include <stdio.h>      // STANDARD I/O: For printf function
+#include <stdlib.h>     // STANDARD LIBRARY: General utilities
 
-int main() {
-  // Declare an integer variable 'n' and initialize it with a hexadecimal value.
-  // 0x89ABCDEF is a 32-bit integer value.
-  // In binary, this would be represented across 4 bytes.
-  int n = 0x89ABCDEF;
+int main(){
 
-  // Declare a pointer 'c' of type 'unsigned char*'.
-  // '&n' gets the memory address of the integer 'n'. The type of &n is 'int*'.
-  // '(unsigned char*)' casts this 'int*' address to an 'unsigned char*' address.
-  // This makes 'c' point to the *first byte* of the memory location where 'n' is stored.
-  // We use 'unsigned char*' because a 'char' is typically 1 byte, allowing us
-  // to access the integer's memory byte by byte. 'unsigned' prevents sign issues.
-  unsigned char* c = (unsigned char*) &n;
+  int n = 0x89ABCDEF;   // INITIALIZE INTEGER: A specific hex value for testing
+                        // 0x prefix indicates hexadecimal notation
+                        // This number has distinct bytes: 89, AB, CD, EF
+                        // In binary: 10001001 10101011 11001101 11101111
+                        // We chose this value so each byte is visibly different
+                        // This makes it easy to see the byte order in memory
 
-  // Print the value of n and its size in bytes for context.
-  printf("Integer n = 0x%X (%d bytes)\n", n, (int)sizeof(n));
-  printf("Memory address of n: %p\n", (void*)&n); // Print the starting address
-  printf("------------------------------------\n");
+  unsigned char* c = (unsigned char*) &n;  // POINTER TO BYTES: Create byte-level view
+                                            // &n gets the address of n
+                                            // (unsigned char*) casts int pointer to byte pointer
+                                            // WHY unsigned char?
+                                            // - char is 1 byte, perfect for examining individual bytes
+                                            // - unsigned ensures values 0-255 (no negative values)
+                                            // - This allows us to "peek" at each byte of the int
+                                            //
+                                            // IMPORTANT CONCEPT - TYPE PUNNING:
+                                            // We're viewing the same memory location as different types
+                                            // The int n occupies 4 bytes in memory
+                                            // c points to the first byte of those 4 bytes
+                                            // c+1 points to the second byte, etc.
 
-  // Loop through each byte of the integer 'n'.
-  // 'sizeof(typeof(n))' calculates the size of the variable 'n' in bytes (typically 4 for an int).
-  // 'typeof(n)' gets the type of 'n' (which is 'int'). Using typeof makes the code
-  // more robust if the type of 'n' were to change later.
-  // The loop runs from i = 0 up to (but not including) the total number of bytes in 'n'.
-  for (int i = 0; i < sizeof(typeof(n)); i++) {
-    // 'c' points to the first byte of 'n'.
-    // 'c + i' performs pointer arithmetic. Since 'c' is a pointer to a 1-byte type ('unsigned char'),
-    // 'c + i' calculates the memory address of the i-th byte (0-indexed) relative to the start of 'n'.
-    // '*(c + i)' dereferences this pointer, retrieving the actual value (the single byte)
-    // stored at that memory location.
-    // 'printf' then displays the byte index 'i' and the value of that byte in hexadecimal format ('%x').
-    // The output order of these bytes depends on the system's endianness.
-    printf("The %d th byte of n (at address %p) is: 0x%x \n", i, (void*)(c + i), *(c + i));
+  for(int i=0; i<sizeof(typeof(n)); i++){  // LOOP THROUGH EACH BYTE: Iterate over all bytes
+                                            // typeof(n) gets the type of n (which is int)
+                                            // sizeof(typeof(n)) gets size in bytes (typically 4)
+                                            // Could also write: sizeof(int) or sizeof(n)
+                                            //
+                                            // WHY typeof?
+                                            // - More generic: works even if we change n's type
+                                            // - typeof is a GCC extension (not standard C)
+                                            // - Standard C would use: sizeof(n)
+
+    printf("The %d th byte of n is: %x \n",i,*(c+i));  // PRINT EACH BYTE
+                                                        // i is the byte index (0, 1, 2, 3)
+                                                        // c+i is pointer arithmetic: address of i-th byte
+                                                        // *(c+i) dereferences to get the byte value
+                                                        // %x formats as hexadecimal (lowercase)
+                                                        // %X would give uppercase hex
+                                                        //
+                                                        // POINTER ARITHMETIC:
+                                                        // c points to first byte at address, say, 0x1000
+                                                        // c+0 = 0x1000 (first byte)
+                                                        // c+1 = 0x1001 (second byte)
+                                                        // c+2 = 0x1002 (third byte)
+                                                        // c+3 = 0x1003 (fourth byte)
+                                                        //
+                                                        // Since c is unsigned char*, adding 1 advances 1 byte
+                                                        // If c were int*, adding 1 would advance 4 bytes!
   }
 
-  // Indicate successful program execution by returning 0.
-  return 0;
+  return 0;             // SUCCESS: Exit with status 0
 }
+
+// EXPECTED OUTPUT (on x86-64 Linux, which is little-endian):
+// The 0 th byte of n is: ef
+// The 1 th byte of n is: cd
+// The 2 th byte of n is: ab
+// The 3 th byte of n is: 89
+
+// BYTE ORDER EXPLANATION:
+//
+// LITTLE-ENDIAN (x86, x86-64, ARM in little-endian mode):
+//   - Least significant byte (LSB) stored at lowest address
+//   - 0x89ABCDEF stored as: EF CD AB 89
+//   - Byte 0 (lowest address): EF (least significant)
+//   - Byte 3 (highest address): 89 (most significant)
+//   - Think: "little end" (least significant) comes first
+//
+// BIG-ENDIAN (SPARC, PowerPC, network byte order):
+//   - Most significant byte (MSB) stored at lowest address
+//   - 0x89ABCDEF stored as: 89 AB CD EF
+//   - Byte 0 (lowest address): 89 (most significant)
+//   - Byte 3 (highest address): EF (least significant)
+//   - Think: "big end" (most significant) comes first
+//   - This matches how we write numbers: left-to-right, big to small
+
+// MEMORY DIAGRAM (Little-Endian):
+//
+// Address:    0x1000  0x1001  0x1002  0x1003
+// Byte:          EF      CD      AB      89
+// Index:       c+0     c+1     c+2     c+3
+// Significance: LSB                    MSB
+
+// WHY DOES ENDIANNESS MATTER?
+//
+// 1. NETWORK COMMUNICATION:
+//    - Network protocols use big-endian (network byte order)
+//    - Must convert when sending/receiving on little-endian systems
+//    - Functions: htonl() (host to network long), ntohl() (network to host long)
+//
+// 2. FILE FORMATS:
+//    - Different systems may store data differently
+//    - File formats must specify byte order
+//    - BMP files: little-endian
+//    - JPEG files: big-endian
+//
+// 3. BINARY DATA EXCHANGE:
+//    - Sending binary data between different architectures
+//    - Must agree on byte order or convert appropriately
+//
+// 4. LOW-LEVEL DEBUGGING:
+//    - Understanding memory dumps
+//    - Reverse engineering
+//    - Hardware interfacing
+
+// KEY CONCEPTS DEMONSTRATED:
+//
+// 1. POINTER CASTING: Viewing memory as different types
+// 2. POINTER ARITHMETIC: Navigating through memory
+// 3. BYTE-LEVEL ACCESS: Reading individual bytes
+// 4. HEXADECIMAL: Compact representation of binary data
+// 5. ENDIANNESS: Byte ordering in multi-byte values
+
+// TO COMPILE AND RUN:
+// gcc byteorder.c -o byteorder
+// ./byteorder
+
+// EXPERIMENT:
+// Try different values for n:
+// - 0x12345678 (each byte is 12, 34, 56, 78)
+// - 0x00000001 (mostly zeros, only LSB set)
+// - 0xFF000000 (only MSB set)
+// This helps visualize how bytes are arranged in memory

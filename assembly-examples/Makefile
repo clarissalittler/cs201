@@ -57,8 +57,8 @@ advanced: io_functions
 	cd 06-advanced && \
 	as 01-avx512.s -o avx512.o && ld avx512.o -o avx512 && \
 	as 03-floating-point.s -o floating-point.o && ld floating-point.o -o floating-point && \
-	as 02-multiplication-division.s -o multiplication-division.o && ld multiplication-division.o -o multiplication-division && \
-	as 04-stack-manipulation.s -o stack-manipulation.o && ld stack-manipulation.o -o stack-manipulation
+	as 02-multiplication-division.s -o multiplication-division.o && ld multiplication-division.o ../05-io/writeInt.o -o multiplication-division && \
+	as 04-stack-manipulation.s -o stack-manipulation.o && ld stack-manipulation.o ../05-io/readInt.o ../05-io/writeInt.o -o stack-manipulation
 
 # Clean all built files
 clean:

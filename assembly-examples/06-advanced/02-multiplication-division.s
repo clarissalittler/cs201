@@ -4,7 +4,7 @@ var2:	.quad 0
 	
 	.section .text
 	.global _start
-	.extern write_int
+	.extern writeInt
 
 _start:
 	mov $10000000000, %rax
@@ -16,9 +16,9 @@ _start:
 	mov %rdx,var1(%rip)
 	mov %rax,var2(%rip)
 	mov var1(%rip),%rdi
-	call write_int
+	call writeInt
 	mov var2(%rip),%rdi
-	call write_int
+	call writeInt
 	
 	mov $60,%rax
 	mov $0,%rdi
