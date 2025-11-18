@@ -469,3 +469,61 @@ _start:
 //    read(0, "Hello\n", 128) = 6
 //    write(1, "Hello\n", 6) = 6
 //    exit(0) = ?
+//
+// ===========================================================================
+// EXPECTED OUTPUT AND TESTING
+// ===========================================================================
+//
+// TO ASSEMBLE, LINK, AND RUN:
+// as 01-echo.s -o 01-echo.o
+// ld 01-echo.o -o 01-echo
+// ./01-echo
+//
+// EXPECTED BEHAVIOR:
+// The program waits for input. Type something and press Enter.
+// It will echo back exactly what you typed.
+//
+// EXAMPLE SESSION:
+// $ ./01-echo
+// Hello, World!       <- You type this and press Enter
+// Hello, World!       <- Program echoes it back
+// $ echo $?
+// 0
+//
+// ANOTHER EXAMPLE:
+// $ ./01-echo
+// Testing 123         <- You type this
+// Testing 123         <- Echoed back
+// $
+//
+// NOTES:
+// - The newline you press (Enter) is included in both input and output
+// - Maximum input: 128 characters (buffer size)
+// - If you type more than 128 chars, only first 128 are read
+// - Try: echo "Test input" | ./01-echo
+//   Output: Test input
+//
+// EXIT CODE:
+// $ echo $?
+// 0                   (Always exits successfully)
+//
+// TRACE WITH STRACE:
+// $ strace ./01-echo
+// ...
+// read(0, "Hello\n", 128) = 6
+// write(1, "Hello\n", 6) = 6
+// exit(0) = ?
+//
+// TESTING EDGE CASES:
+// 1. Empty input (just press Enter):
+//    $ ./01-echo
+//    [Enter]
+//    [blank line echoed]
+//
+// 2. Long input (>128 chars):
+//    Only first 128 characters are read and echoed
+//
+// 3. Binary input (Ctrl+D sends EOF):
+//    $ ./01-echo
+//    [Ctrl+D]
+//    (program exits immediately, echoes nothing)

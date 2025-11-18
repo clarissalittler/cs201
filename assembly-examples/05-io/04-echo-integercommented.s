@@ -746,3 +746,64 @@ _start:
 //    - Trying to write to msg1, msg2, msg3
 //    - Result: segmentation fault (access violation)
 //    - Fix: don't modify read-only data
+//
+// ===========================================================================
+// EXPECTED OUTPUT AND TESTING
+// ===========================================================================
+//
+// TO ASSEMBLE, LINK, AND RUN:
+// (Assuming you have readInt.o and writeInt.o already assembled)
+//
+// as 04-echo-integer.s -o 04-echo-integer.o
+// ld 04-echo-integer.o readInt.o writeInt.o -o 04-echo-integer
+// ./04-echo-integer
+//
+// EXPECTED BEHAVIOR:
+// The program prompts for an integer, reads it, and echoes it back.
+//
+// EXAMPLE SESSION 1:
+// $ ./04-echo-integer
+// 42         <- You type this and press Enter
+// 42         <- Program echoes it back
+// $ echo $?
+// 0
+//
+// EXAMPLE SESSION 2:
+// $ ./04-echo-integer
+// -100       <- Negative number
+// -100       <- Echoed back
+// $
+//
+// EXAMPLE SESSION 3:
+// $ ./04-echo-integer
+// 0          <- Zero
+// 0          <- Echoed back
+// $
+//
+// NOTES:
+// - Reads one integer from standard input
+// - Handles positive and negative integers
+// - Typical range: -2^63 to 2^63-1 (64-bit signed)
+// - Non-numeric input may cause unexpected behavior
+//
+// EXIT CODE:
+// $ echo $?
+// 0          (Always successful if linking is correct)
+//
+// TESTING WITH PIPES:
+// $ echo "123" | ./04-echo-integer
+// 123
+//
+// $ echo "-456" | ./04-echo-integer
+// -456
+//
+// COMMON ISSUES:
+// 1. Undefined reference to readInt or writeInt
+//    Solution: Make sure you link with readInt.o and writeInt.o
+//
+// 2. Incorrect output for large numbers
+//    Check: Is the number within 64-bit signed range?
+//
+// 3. Garbage output
+//    Problem: Likely buffer or parsing issue in readInt
+//    Solution: Verify readInt implementation

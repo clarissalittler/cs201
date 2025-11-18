@@ -77,16 +77,16 @@ int main() {
 
 /**
  * EXPLANATION:
- * 
+ *
  * The key concept to understand is that fork() creates a completely new process
  * that is initially identical to the parent process. However, after fork(),
  * they are separate processes with their own memory, file descriptors, etc.
- * 
+ *
  * The most common usage pattern is:
  * 1. Call fork() to create a child process
  * 2. Use the return value to determine if we're in the parent or child
  * 3. Each process performs its specific tasks
- * 
+ *
  * Common gotchas:
  * - Variables set before the fork() are copied to both processes
  * - Changing a variable in one process does NOT affect the other process
@@ -95,4 +95,70 @@ int main() {
  *   adopted by the init process (PID 1)
  * - If the child exits but the parent doesn't call wait(), the child becomes a
  *   "zombie" process
+ */
+
+/**
+ * ============================================================================
+ * EXPECTED OUTPUT AND TESTING
+ * ============================================================================
+ *
+ * TO COMPILE AND RUN:
+ * gcc 01-fork-basics.c -o 01-fork-basics
+ * ./01-fork-basics
+ *
+ * EXPECTED OUTPUT (PIDs will vary):
+ * Before fork: I am process 12345
+ * CHILD: I am the child process (PID: 12346)
+ * CHILD: My parent is (PPID: 12345)
+ * PARENT: I am the parent process (PID: 12345)
+ * PARENT: My child is (PID: 12346)
+ * Process 12346 is exiting.
+ * Process 12345 is exiting.
+ *
+ * NOTE: The order of CHILD and PARENT messages may vary!
+ * Due to process scheduling, you might see:
+ *
+ * POSSIBLE VARIATION 1 (child first):
+ * Before fork: I am process 12345
+ * CHILD: I am the child process (PID: 12346)
+ * CHILD: My parent is (PPID: 12345)
+ * Process 12346 is exiting.
+ * PARENT: I am the parent process (PID: 12345)
+ * PARENT: My child is (PID: 12346)
+ * Process 12345 is exiting.
+ *
+ * POSSIBLE VARIATION 2 (parent first):
+ * Before fork: I am process 12345
+ * PARENT: I am the parent process (PID: 12345)
+ * PARENT: My child is (PID: 12346)
+ * CHILD: I am the child process (PID: 12346)
+ * CHILD: My parent is (PPID: 12345)
+ * Process 12345 is exiting.
+ * Process 12346 is exiting.
+ *
+ * KEY OBSERVATIONS:
+ * 1. "Before fork" message appears ONCE (only original process)
+ * 2. CHILD and PARENT messages appear ONCE each (two processes)
+ * 3. "is exiting" appears TWICE (both processes exit)
+ * 4. Child PID = Parent PID + 1 (usually, but not guaranteed)
+ * 5. Child's PPID = Parent's PID (always)
+ *
+ * VERIFICATION:
+ * Run the program multiple times:
+ * $ ./01-fork-basics
+ * $ ./01-fork-basics
+ * $ ./01-fork-basics
+ *
+ * Notice:
+ * - PIDs change each run
+ * - Message order may vary
+ * - But structure is always consistent
+ *
+ * TESTING WITH ps:
+ * In one terminal, modify the program to sleep:
+ * (Add: sleep(10); after fork())
+ *
+ * While running, in another terminal:
+ * $ ps -ef | grep 01-fork-basics
+ * Shows both parent and child processes running!
  */
