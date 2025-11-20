@@ -2,20 +2,22 @@
  * ============================================================================
  * Shared Memory - High-Performance IPC for Data Sharing
  * ============================================================================
- * 
+ *
  * This example demonstrates using System V shared memory for inter-process
  * communication. Shared memory provides a way for multiple processes to access
  * the same memory region, enabling high-performance data sharing.
- * 
+ *
  * Key concepts demonstrated:
  * - Creating and attaching shared memory segments
  * - Synchronizing access with semaphores
  * - Sharing structured data between processes
  * - Proper cleanup of shared memory resources
- * 
+ *
  * This file contains both producer and consumer functionality that can be
  * selected at runtime to demonstrate communication between separate processes.
  */
+
+#define _DEFAULT_SOURCE  /* For usleep() */
 
 #include <stdio.h>
 #include <stdlib.h>
