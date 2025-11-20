@@ -67,3 +67,16 @@ Cargo.lock
 
 
 **/.claude/settings.local.json
+
+# IPC example binaries (compiled for testing)
+concurrency-tutorial/commented-examples/05-ipc/01-pipes
+concurrency-tutorial/commented-examples/05-ipc/02-named-pipes
+concurrency-tutorial/commented-examples/05-ipc/03-shared-memory
+concurrency-tutorial/commented-examples/05-ipc/04-socket-ipc
+ipc-lecture/msgqReceiver1
+ipc-lecture/msgqSender1
+winter2025/lecture13/chat_server
+winter2025/lecture13/sharedMemcons
+winter2025/lecture13/sharedMemprod
+winter2025/lecture13/task_distributor
+winter2025/lecture13/worker
