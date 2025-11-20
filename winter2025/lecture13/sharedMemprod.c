@@ -23,6 +23,6 @@ int main(){
 
   munmap(shared, sizeof(struct sharedData));
   close(sharedFd);
-  shm_unlink(sharedName);
+  // Note: Consumer will unlink the shared memory
   return 0;
 }

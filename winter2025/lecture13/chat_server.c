@@ -12,9 +12,10 @@
 #define FIFO_CLIENT "fifo_client"
 #define BUFFER_SIZE 256
 
-int server_fd, client_fd;
+int server_fd = -1, client_fd = -1;
 
 void cleanup(int sig) {
+    (void)sig;  // Suppress unused parameter warning
     printf("\nCleaning up and exiting...\n");
     if (server_fd != -1) close(server_fd);
     if (client_fd != -1) close(client_fd);

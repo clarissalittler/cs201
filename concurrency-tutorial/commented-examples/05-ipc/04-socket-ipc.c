@@ -139,10 +139,10 @@ void run_server() {
         buffer[num_bytes] = '\0';
         
         printf("Server: Received message %d: \"%s\"\n", i, buffer);
-        
-        /* Prepare a response */
-        snprintf(response, MAX_RESPONSE_LEN, "Server response to \"%s\"", buffer);
-        
+
+        /* Prepare a response (limit buffer to avoid truncation) */
+        snprintf(response, MAX_RESPONSE_LEN, "Server response to \"%.200s\"", buffer);
+
         /* Send the response back to the client */
         if (send(client_fd, response, strlen(response), 0) == -1) {
             perror("send");
