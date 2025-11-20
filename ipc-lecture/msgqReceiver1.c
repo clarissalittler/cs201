@@ -12,7 +12,6 @@
 
 int main() {
     mqd_t mq;
-    struct mq_attr attr;
     char buffer[maxSize + 1];
     ssize_t bytes_read;
 
