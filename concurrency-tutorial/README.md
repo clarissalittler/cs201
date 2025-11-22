@@ -78,8 +78,6 @@ For beginners, we recommend following this learning sequence:
 3. **NEW: Complete the hands-on exercises** in the `exercises/` directory:
    - Basic processes (`exercises/01-basic-processes/`)
    - Thread introduction (`exercises/02-threads-intro/`)
-   - Synchronization concepts (`exercises/03-synchronization/`)
-   - Inter-process communication (`exercises/04-ipc/`)
    - Socket programming (`exercises/05-sockets/`)
 4. Explore the commented examples in this order:
    - Basic processes (`01-basic-processes/`)
@@ -102,9 +100,7 @@ The tutorial now includes a comprehensive set of **hands-on programming exercise
 ### Exercise Structure
 
 - `exercises/01-basic-processes/` - Process creation, coordination, and hierarchies
-- `exercises/02-threads-intro/` - Thread basics, arguments, and return values  
-- `exercises/03-synchronization/` - Mutexes, condition variables, race conditions
-- `exercises/04-ipc/` - Pipes, shared memory, and communication patterns
+- `exercises/02-threads-intro/` - Thread basics, arguments, and return values
 - `exercises/05-sockets/` - TCP/UDP sockets, client-server programming
 - `exercises/solutions/` - Complete working solutions with detailed explanations
 
