@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-const int numPhilosophers = 5
+#define numPhilosophers 5
 
 pthread_mutex_t utensils[numPhilosophers];
 
