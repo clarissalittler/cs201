@@ -1,0 +1,25 @@
+* Agenda
+** Files in Linux (with C)
+** Everything Is a File
+ + Directories are files
+ + Devices are files
+ + Terminal emulators are files
+ + stdin/stdout
+ + named pipes are files
+   + may need to say what a pipe is
+** File descriptors vs. FILE
+ A "file" is just a really general abstraction to Unix/Linux and the kernel already has a big table of these that it managers that already includes alllll the machinery of permissions, reading, writing, opening, closing, &c.
+
+ So why not reuse that as much as possible?
+
+ A file descriptor is *just* an integer, which is the index into this table in the kernel. 
+** Examples of opening, reading, writing, closing with FDs
+** Taking arguments on the command line: argv/argc
+** Write a fake cat
+** FILE api and how to open/close and read/write to files
+** simple linecounter
+** Detour into parsing CSVs
+** Directories and how to see what's in them
+** fstat: the function that retrieves data about files
+** Writing a simple version of ls
+** Make a line editor together
