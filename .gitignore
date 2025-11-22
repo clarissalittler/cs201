@@ -97,3 +97,39 @@ winter2025/lecture13/task_distributor
 winter2025/lecture13/worker
 winter2025/lecture13/fileserver
 winter2025/lecture13/fileclient
+
+# Exercise executables (no extensions)
+concurrency-tutorial/exercises/01-basic-processes/exercise[1-9]
+concurrency-tutorial/exercises/02-threads-intro/exercise[1-9]
+concurrency-tutorial/exercises/03-synchronization/exercise[1-9]
+concurrency-tutorial/exercises/04-ipc/exercise[1-9]
+concurrency-tutorial/exercises/04-ipc/exercise[1-9]_*
+concurrency-tutorial/exercises/05-sockets/exercise[1-9]
+
+# Solution executables (no extensions)
+concurrency-tutorial/exercises/solutions/*/exercise[1-9]_solution
+concurrency-tutorial/exercises/solutions/*/exercise[1-9]_*_solution
+
+# Lecture executables (all files without extensions in lecture dirs)
+# Matches files that don't contain a dot (no extension)
+fall2024/lecture*/*
+!fall2024/lecture*/*.*
+!fall2024/lecture*/*/
+fall2025/lecture*/*
+!fall2025/lecture*/*.*
+!fall2025/lecture*/*/
+fall2025/file-lecture/*
+!fall2025/file-lecture/*.*
+!fall2025/file-lecture/*/
+fall2025/pointerExtras/*
+!fall2025/pointerExtras/*.*
+!fall2025/pointerExtras/*/
+winter2025/lecture*/*
+!winter2025/lecture*/*.*
+!winter2025/lecture*/*/
+winter2025/finalproj/*
+!winter2025/finalproj/*.*
+!winter2025/finalproj/*/
+spring2025/*/*
+!spring2025/*/*.*
+!spring2025/*/*/
