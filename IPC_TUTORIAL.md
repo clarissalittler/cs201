@@ -962,262 +962,118 @@ Message queues provide a way to pass **structured messages** between processes. 
 ### Key Features
 
 - **Message Boundaries**: Each send creates a discrete message
-- **Type-Based Selection**: Retrieve messages by type/priority
+- **Priority-Based Retrieval**: Messages can have priorities
 - **Asynchronous**: Sender doesn't block waiting for receiver
 - **Persistent**: Messages remain in queue until explicitly retrieved
 - **Kernel-Managed**: Kernel maintains the queue
 
-### Two Flavors: System V vs POSIX
+### Modern Approach: POSIX Message Queues
 
-Linux supports two message queue APIs:
+**POSIX message queues** are the recommended approach for new code. They provide a clean, filesystem-like interface and integrate well with modern Linux systems.
 
-| Feature | System V | POSIX |
-|---------|----------|-------|
-| **Creation** | `msgget()` | `mq_open()` |
-| **Send** | `msgsnd()` | `mq_send()` |
-| **Receive** | `msgrcv()` | `mq_receive()` |
-| **Header** | `<sys/msg.h>` | `<mqueue.h>` |
-| **Linking** | Default | `-lrt` |
-| **Naming** | Integer keys | Filesystem-like paths |
+**Why use POSIX?**
+- ✅ Cleaner API with consistent naming
+- ✅ Built-in priority support
+- ✅ Filesystem-like paths (e.g., `/myqueue`)
+- ✅ Integrates with standard tools (`ls /dev/mqueue/`)
+- ✅ Better documentation and examples
 
-We'll focus on System V (more traditional) and briefly cover POSIX.
+**When you might see System V:** Legacy codebases, older textbooks, and some production systems still use the older System V API (`msgget()`, `msgsnd()`, etc.). We'll cover that briefly at the end of this section.
 
-### System V Message Queues
+### Basic Operations
 
-#### Creating a Message Queue
+POSIX message queues use a simple, filesystem-like interface:
+
+#### Creating/Opening a Queue
 
 ```c
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
+#include <mqueue.h>
+#include <fcntl.h>
 
-// Generate a unique key
-key_t key = ftok("/tmp/myfile", 'A');  // File must exist
+mqd_t mq;
+struct mq_attr attr;
 
-// Create or get message queue
-int msgid = msgget(key, IPC_CREAT | 0666);
-if (msgid == -1) {
-    perror("msgget");
+// Configure queue attributes
+attr.mq_flags = 0;
+attr.mq_maxmsg = 10;      // Max messages in queue
+attr.mq_msgsize = 256;    // Max message size (bytes)
+attr.mq_curmsgs = 0;      // Current number of messages
+
+// Create queue (filesystem-like path)
+mq = mq_open("/myqueue", O_CREAT | O_WRONLY, 0644, &attr);
+if (mq == (mqd_t)-1) {
+    perror("mq_open");
     return 1;
 }
 ```
-
-#### Message Structure
-
-Messages have a specific structure:
-
-```c
-struct message {
-    long msg_type;     // Message type (must be > 0)
-    char msg_text[100]; // Message data (can be any structure)
-};
-```
-
-The `msg_type` field is mandatory and must be positive. It allows selective message retrieval.
 
 #### Sending Messages
 
 ```c
-#include <string.h>
+const char *message = "Hello, POSIX Message Queue!";
+unsigned int priority = 5;  // Higher = higher priority (0-31)
 
-struct message msg;
-
-msg.msg_type = 1;  // Message type
-strcpy(msg.msg_text, "Hello, Message Queue!");
-
-// Send message
-// Size is the size of the data ONLY (excluding msg_type)
-if (msgsnd(msgid, &msg, sizeof(msg.msg_text), 0) == -1) {
-    perror("msgsnd");
+// Send message with priority
+if (mq_send(mq, message, strlen(message) + 1, priority) == -1) {
+    perror("mq_send");
     return 1;
 }
 ```
-
-**Important:** The size parameter should be `sizeof(message) - sizeof(long)`, or just the size of the data portion.
 
 #### Receiving Messages
 
 ```c
-struct message msg;
+char buffer[256];
+unsigned int received_priority;
+struct mq_attr attr;
 
-// Receive message of type 1
-// 0 flag means block until message arrives
-ssize_t bytes = msgrcv(msgid, &msg, sizeof(msg.msg_text), 1, 0);
+// Get queue attributes to know buffer size
+mq_getattr(mq, &attr);
 
+// Receive highest priority message
+ssize_t bytes = mq_receive(mq, buffer, attr.mq_msgsize, &received_priority);
 if (bytes == -1) {
-    perror("msgrcv");
+    perror("mq_receive");
     return 1;
 }
 
-printf("Received: %s\n", msg.msg_text);
+buffer[bytes] = '\0';
+printf("Received (priority %u): %s\n", received_priority, buffer);
 ```
 
-#### Message Type Filtering
-
-The `msgtyp` parameter in `msgrcv()` controls which message is retrieved:
-
-```c
-// msgrcv(msgid, &msg, size, msgtyp, flags)
-
-// Get first message of any type
-msgrcv(msgid, &msg, size, 0, 0);
-
-// Get first message of type 5
-msgrcv(msgid, &msg, size, 5, 0);
-
-// Get first message with type <= 5 (lowest type first)
-msgrcv(msgid, &msg, size, -5, 0);
-```
-
-### Complete Example: Priority Message System
+### Complete Example
 
 **Sender:**
 ```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-
-#define MAX_TEXT 100
-
-struct message {
-    long msg_type;
-    char msg_text[MAX_TEXT];
-};
-
-int main() {
-    key_t key;
-    int msgid;
-    struct message msg;
-
-    // Create unique key
-    key = ftok(".", 'M');
-
-    // Create message queue
-    msgid = msgget(key, IPC_CREAT | 0666);
-    if (msgid == -1) {
-        perror("msgget");
-        return 1;
-    }
-
-    printf("Message Queue created (ID: %d)\n", msgid);
-
-    // Send messages with different priorities
-    // Type 1 = Low priority
-    msg.msg_type = 1;
-    strcpy(msg.msg_text, "Low priority message");
-    msgsnd(msgid, &msg, strlen(msg.msg_text) + 1, 0);
-
-    // Type 2 = Medium priority
-    msg.msg_type = 2;
-    strcpy(msg.msg_text, "Medium priority message");
-    msgsnd(msgid, &msg, strlen(msg.msg_text) + 1, 0);
-
-    // Type 3 = High priority
-    msg.msg_type = 3;
-    strcpy(msg.msg_text, "High priority message");
-    msgsnd(msgid, &msg, strlen(msg.msg_text) + 1, 0);
-
-    printf("Sent 3 messages with different priorities\n");
-
-    return 0;
-}
-```
-
-**Receiver:**
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-
-#define MAX_TEXT 100
-
-struct message {
-    long msg_type;
-    char msg_text[MAX_TEXT];
-};
-
-int main() {
-    key_t key;
-    int msgid;
-    struct message msg;
-
-    key = ftok(".", 'M');
-    msgid = msgget(key, 0666);
-
-    if (msgid == -1) {
-        perror("msgget");
-        return 1;
-    }
-
-    printf("Receiving messages (high to low priority):\n");
-
-    // Receive high priority first (type 3)
-    msgrcv(msgid, &msg, MAX_TEXT, 3, 0);
-    printf("Priority 3: %s\n", msg.msg_text);
-
-    // Then medium (type 2)
-    msgrcv(msgid, &msg, MAX_TEXT, 2, 0);
-    printf("Priority 2: %s\n", msg.msg_text);
-
-    // Finally low (type 1)
-    msgrcv(msgid, &msg, MAX_TEXT, 1, 0);
-    printf("Priority 1: %s\n", msg.msg_text);
-
-    // Cleanup: remove message queue
-    msgctl(msgid, IPC_RMID, NULL);
-    printf("Message queue removed\n");
-
-    return 0;
-}
-```
-
-**Output:**
-```
-Priority 3: High priority message
-Priority 2: Medium priority message
-Priority 1: Low priority message
-```
-
-### POSIX Message Queues
-
-POSIX message queues offer a cleaner API:
-
-**Sender:**
-```c
 #include <mqueue.h>
-#include <string.h>
-#include <stdio.h>
+#include <fcntl.h>
 
 int main() {
     mqd_t mq;
     struct mq_attr attr;
-    char message[] = "Hello POSIX MQ!";
 
-    // Set queue attributes
+    // Configure queue
     attr.mq_flags = 0;
-    attr.mq_maxmsg = 10;      // Max messages in queue
-    attr.mq_msgsize = 100;    // Max message size
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = 256;
     attr.mq_curmsgs = 0;
 
-    // Open/create queue
-    mq = mq_open("/myqueue", O_CREAT | O_WRONLY, 0644, &attr);
+    // Create/open queue
+    mq = mq_open("/demo_queue", O_CREAT | O_WRONLY, 0644, &attr);
     if (mq == (mqd_t)-1) {
         perror("mq_open");
         return 1;
     }
 
-    // Send message (priority 0)
-    if (mq_send(mq, message, strlen(message) + 1, 0) == -1) {
-        perror("mq_send");
-        return 1;
-    }
+    // Send messages with different priorities
+    mq_send(mq, "Low priority task", 18, 1);
+    mq_send(mq, "Medium priority task", 21, 5);
+    mq_send(mq, "High priority task", 19, 10);
 
-    printf("Message sent\n");
+    printf("Sent 3 messages\n");
 
     mq_close(mq);
     return 0;
@@ -1226,78 +1082,128 @@ int main() {
 
 **Receiver:**
 ```c
-#include <mqueue.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <mqueue.h>
+#include <fcntl.h>
 
 int main() {
     mqd_t mq;
-    char buffer[100];
-    unsigned int prio;
+    char buffer[256];
+    unsigned int priority;
+    struct mq_attr attr;
 
     // Open existing queue
-    mq = mq_open("/myqueue", O_RDONLY);
+    mq = mq_open("/demo_queue", O_RDONLY);
     if (mq == (mqd_t)-1) {
         perror("mq_open");
         return 1;
     }
 
-    // Receive message
-    ssize_t bytes = mq_receive(mq, buffer, sizeof(buffer), &prio);
-    if (bytes == -1) {
-        perror("mq_receive");
-        return 1;
+    mq_getattr(mq, &attr);
+
+    printf("Receiving messages (highest priority first):\n");
+
+    // Receive all 3 messages (automatically sorted by priority)
+    for (int i = 0; i < 3; i++) {
+        ssize_t bytes = mq_receive(mq, buffer, attr.mq_msgsize, &priority);
+        buffer[bytes] = '\0';
+        printf("[Priority %u]: %s\n", priority, buffer);
     }
 
-    printf("Received (priority %u): %s\n", prio, buffer);
-
     mq_close(mq);
-    mq_unlink("/myqueue");  // Remove queue
+    mq_unlink("/demo_queue");  // Remove queue
 
     return 0;
 }
 ```
 
-**Compile POSIX version:**
+**Compile & Run:**
 ```bash
 gcc sender.c -o sender -lrt
 gcc receiver.c -o receiver -lrt
+
+./sender
+./receiver
+
+# Output:
+# [Priority 10]: High priority task
+# [Priority 5]: Medium priority task
+# [Priority 1]: Low priority task
 ```
 
 ### Managing Message Queues
 
-#### View Existing Queues
+#### View Queues
 
-**System V:**
 ```bash
-ipcs -q
-```
-
-**POSIX:**
-```bash
+# List all POSIX message queues
 ls -l /dev/mqueue/
 ```
 
 #### Remove Queue
 
-**System V (in code):**
-```c
-msgctl(msgid, IPC_RMID, NULL);
-```
-
-**System V (command line):**
-```bash
-ipcrm -q <msgid>
-```
-
-**POSIX (in code):**
+**In code:**
 ```c
 mq_unlink("/myqueue");
 ```
 
-**POSIX (command line):**
+**Command line:**
 ```bash
 rm /dev/mqueue/myqueue
 ```
+
+#### Get Queue Info
+
+```c
+struct mq_attr attr;
+mq_getattr(mq, &attr);
+
+printf("Max messages: %ld\n", attr.mq_maxmsg);
+printf("Max message size: %ld\n", attr.mq_msgsize);
+printf("Current messages: %ld\n", attr.mq_curmsgs);
+```
+
+### Legacy Alternative: System V Message Queues
+
+You may encounter System V message queues in older codebases. The API is more complex:
+
+```c
+#include <sys/msg.h>
+#include <sys/ipc.h>
+
+// Create queue using integer key
+key_t key = ftok(".", 'Q');
+int msgid = msgget(key, IPC_CREAT | 0666);
+
+// Message must have type field
+struct {
+    long msg_type;  // Must be > 0
+    char text[100];
+} msg;
+
+// Send
+msg.msg_type = 1;
+msgsnd(msgid, &msg, sizeof(msg.text), 0);
+
+// Receive (size is WITHOUT msg_type field!)
+msgrcv(msgid, &msg, sizeof(msg.text), 1, 0);
+
+// Cleanup
+msgctl(msgid, IPC_RMID, NULL);
+```
+
+**Key Differences from POSIX:**
+
+| Aspect | System V | POSIX |
+|--------|----------|-------|
+| **Naming** | Integer keys via `ftok()` | Filesystem paths (`"/myqueue"`) |
+| **API** | `msgget()`, `msgsnd()`, `msgrcv()` | `mq_open()`, `mq_send()`, `mq_receive()` |
+| **Priority** | Manual via `msg_type` filtering | Built-in priority parameter |
+| **Management** | `ipcs -q`, `ipcrm -q` | `ls /dev/mqueue/`, `rm` |
+| **Linking** | Default | Requires `-lrt` |
+
+**When to use System V:** Only when maintaining legacy code or working with systems that don't support POSIX message queues.
 
 ### When to Use Message Queues
 
@@ -1519,17 +1425,20 @@ Process A Memory          Shared Memory          Process B Memory
 
 Both processes map the same physical memory into their address spaces.
 
-### Two APIs: System V vs POSIX
+### Modern Approach: POSIX Shared Memory
 
-| Feature | System V | POSIX |
-|---------|----------|-------|
-| **Create** | `shmget()` | `shm_open()` |
-| **Attach** | `shmat()` | `mmap()` |
-| **Detach** | `shmdt()` | `munmap()` |
-| **Remove** | `shmctl()` | `shm_unlink()` |
-| **Header** | `<sys/shm.h>` | `<sys/mman.h>` |
+**POSIX shared memory** uses `shm_open()` and `mmap()`, providing a cleaner interface that integrates well with standard file I/O concepts.
 
-### System V Shared Memory
+**Why use POSIX?**
+- ✅ Filesystem-like naming (`"/myshm"`)
+- ✅ Works with standard `mmap()` (also used for file mapping)
+- ✅ Consistent with POSIX standards
+- ✅ Easier cleanup with `shm_unlink()`
+- ✅ Visible in `/dev/shm/`
+
+**When you might see System V:** Legacy code often uses `shmget()`, `shmat()`, and related calls. We'll cover that briefly at the end.
+
+### Basic Operations
 
 #### Creating and Attaching Shared Memory
 
