@@ -384,6 +384,122 @@ int main() {
 
 **See the full commented example:** `concurrency-tutorial/commented-examples/05-ipc/01-pipes.c`
 
+### 🎯 Practice Exercise: Word Counter Pipeline
+
+**Challenge:** Create a program that counts words in a text file using pipes, similar to `cat file.txt | wc -w`.
+
+**Requirements:**
+- Parent process reads a file and writes to pipe
+- Child process reads from pipe and counts words
+- Print the total word count
+
+<details>
+<summary><b>💡 Solution</b></summary>
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <ctype.h>
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    int pipe_fd[2];
+
+    if (pipe(pipe_fd) == -1) {
+        perror("pipe");
+        return 1;
+    }
+
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        // Child: count words from pipe
+        close(pipe_fd[1]);  // Close write end
+
+        char buffer[4096];
+        int word_count = 0;
+        int in_word = 0;
+        ssize_t bytes_read;
+
+        while ((bytes_read = read(pipe_fd[0], buffer, sizeof(buffer))) > 0) {
+            for (ssize_t i = 0; i < bytes_read; i++) {
+                if (isspace(buffer[i])) {
+                    if (in_word) {
+                        word_count++;
+                        in_word = 0;
+                    }
+                } else {
+                    in_word = 1;
+                }
+            }
+        }
+
+        // Count last word if file doesn't end with whitespace
+        if (in_word) {
+            word_count++;
+        }
+
+        printf("Word count: %d\n", word_count);
+
+        close(pipe_fd[0]);
+        exit(0);
+
+    } else {
+        // Parent: read file and write to pipe
+        close(pipe_fd[0]);  // Close read end
+
+        FILE *file = fopen(argv[1], "r");
+        if (!file) {
+            perror("fopen");
+            close(pipe_fd[1]);
+            return 1;
+        }
+
+        char buffer[4096];
+        size_t bytes_read;
+
+        while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+            write(pipe_fd[1], buffer, bytes_read);
+        }
+
+        fclose(file);
+        close(pipe_fd[1]);  // Signal EOF to child
+
+        wait(NULL);
+    }
+
+    return 0;
+}
+```
+
+**How it works:**
+1. Parent opens the file and reads it in chunks
+2. Parent writes chunks to the pipe
+3. Child reads from pipe and counts words by detecting whitespace boundaries
+4. Parent closes write end when done, signaling EOF to child
+5. Child prints final count
+
+**Test it:**
+```bash
+gcc word_counter.c -o word_counter
+echo "Hello world from pipes!" > test.txt
+./word_counter test.txt
+# Output: Word count: 4
+```
+
+**Key Learning Points:**
+- Proper pipe end closure is critical
+- EOF detection (read returns 0) happens when all write ends close
+- Pipes are byte streams, not message streams
+</details>
+
 ---
 
 ## Named Pipes (FIFOs) - Persistent Pipes
@@ -681,6 +797,161 @@ rm /tmp/myfifo
 - High-frequency, low-latency messaging
 
 **See the full commented example:** `concurrency-tutorial/commented-examples/05-ipc/02-named-pipes.c`
+
+### 🎯 Practice Exercise: Temperature Monitor System
+
+**Challenge:** Build a temperature monitoring system where sensor processes send readings to a monitor process via a named pipe.
+
+**Requirements:**
+- Monitor process creates a FIFO and reads temperature data
+- Sensor processes send readings in format: "SensorID:Temperature"
+- Monitor logs all readings and alerts if temp > 80°C
+
+<details>
+<summary><b>💡 Solution</b></summary>
+
+**monitor.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+
+#define FIFO_PATH "/tmp/temp_fifo"
+
+int main() {
+    int fd;
+    char buffer[256];
+    ssize_t bytes_read;
+
+    // Create FIFO
+    if (mkfifo(FIFO_PATH, 0666) == -1 && errno != EEXIST) {
+        perror("mkfifo");
+        return 1;
+    }
+
+    printf("Temperature Monitor started. Waiting for sensors...\n");
+
+    // Open FIFO for reading
+    fd = open(FIFO_PATH, O_RDONLY);
+    if (fd == -1) {
+        perror("open");
+        return 1;
+    }
+
+    printf("Monitor active. Reading temperature data...\n");
+
+    // Read and process temperature readings
+    while ((bytes_read = read(fd, buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[bytes_read] = '\0';
+
+        // Parse sensor ID and temperature
+        char sensor_id[32];
+        float temperature;
+
+        if (sscanf(buffer, "%31[^:]:%f", sensor_id, &temperature) == 2) {
+            printf("[%s] Temperature: %.1f°C", sensor_id, temperature);
+
+            if (temperature > 80.0) {
+                printf(" ⚠️  HIGH TEMPERATURE ALERT!\n");
+            } else {
+                printf(" ✓\n");
+            }
+        }
+    }
+
+    close(fd);
+    unlink(FIFO_PATH);
+    printf("Monitor shutting down.\n");
+
+    return 0;
+}
+```
+
+**sensor.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
+
+#define FIFO_PATH "/tmp/temp_fifo"
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <sensor_id>\n", argv[0]);
+        return 1;
+    }
+
+    char *sensor_id = argv[1];
+    int fd;
+    char message[256];
+
+    printf("Sensor [%s] starting...\n", sensor_id);
+
+    // Seed random number generator
+    srand(time(NULL) + getpid());
+
+    // Send 5 temperature readings
+    for (int i = 0; i < 5; i++) {
+        // Generate random temperature between 60 and 100°C
+        float temperature = 60.0 + (rand() % 40);
+
+        // Format message
+        snprintf(message, sizeof(message), "%s:%.1f", sensor_id, temperature);
+
+        // Open FIFO for writing
+        fd = open(FIFO_PATH, O_WRONLY);
+        if (fd == -1) {
+            perror("open");
+            return 1;
+        }
+
+        // Send temperature reading
+        write(fd, message, strlen(message));
+        close(fd);
+
+        printf("Sensor [%s] sent: %.1f°C\n", sensor_id, temperature);
+        sleep(1);
+    }
+
+    printf("Sensor [%s] finished.\n", sensor_id);
+    return 0;
+}
+```
+
+**How to run:**
+```bash
+# Compile
+gcc monitor.c -o monitor
+gcc sensor.c -o sensor
+
+# Terminal 1: Start monitor
+./monitor
+
+# Terminal 2: Start sensor 1
+./sensor Kitchen
+
+# Terminal 3: Start sensor 2
+./sensor LivingRoom
+
+# Output example:
+# [Kitchen] Temperature: 73.0°C ✓
+# [LivingRoom] Temperature: 85.0°C ⚠️  HIGH TEMPERATURE ALERT!
+```
+
+**Key Learning Points:**
+- Multiple writers can write to the same FIFO
+- FIFO automatically serializes writes
+- Reader gets messages in order they were written
+- Each `open()` for writing blocks until reader is ready
+- Messages need a protocol (we used "ID:Temp" format)
+</details>
 
 ---
 
@@ -1044,6 +1315,181 @@ rm /dev/mqueue/myqueue
 - Very high message rates
 
 **See also:** `ipc-lecture/msgqSender1.c` and `ipc-lecture/msgqReceiver1.c`
+
+### 🎯 Practice Exercise: Task Queue with Priorities
+
+**Challenge:** Create a work queue system where a manager process sends tasks with priorities and worker processes fetch them based on priority.
+
+**Requirements:**
+- Manager sends tasks with priorities (1=low, 2=normal, 3=high)
+- Workers fetch highest priority task first
+- Use POSIX message queues for cleaner API
+
+<details>
+<summary><b>💡 Solution</b></summary>
+
+**manager.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mqueue.h>
+#include <fcntl.h>
+
+#define QUEUE_NAME "/task_queue"
+#define MAX_MSG_SIZE 256
+
+int main() {
+    mqd_t mq;
+    struct mq_attr attr;
+    char message[MAX_MSG_SIZE];
+
+    // Configure queue
+    attr.mq_flags = 0;
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = MAX_MSG_SIZE;
+    attr.mq_curmsgs = 0;
+
+    // Create queue
+    mq = mq_open(QUEUE_NAME, O_CREAT | O_WRONLY, 0644, &attr);
+    if (mq == (mqd_t)-1) {
+        perror("mq_open");
+        return 1;
+    }
+
+    printf("Task Manager: Sending tasks...\n");
+
+    // Send tasks with different priorities
+    const char *tasks[] = {
+        "Process invoice #1001",
+        "URGENT: Server maintenance",
+        "Generate weekly report",
+        "CRITICAL: Security patch",
+        "Update customer records"
+    };
+
+    unsigned int priorities[] = {2, 3, 1, 3, 2};
+
+    for (int i = 0; i < 5; i++) {
+        snprintf(message, MAX_MSG_SIZE, "Task %d: %s", i+1, tasks[i]);
+
+        if (mq_send(mq, message, strlen(message) + 1, priorities[i]) == -1) {
+            perror("mq_send");
+            continue;
+        }
+
+        printf("Sent (priority %u): %s\n", priorities[i], tasks[i]);
+        sleep(1);
+    }
+
+    printf("Manager: All tasks sent.\n");
+    mq_close(mq);
+
+    return 0;
+}
+```
+
+**worker.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mqueue.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#define QUEUE_NAME "/task_queue"
+#define MAX_MSG_SIZE 256
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <worker_id>\n", argv[0]);
+        return 1;
+    }
+
+    char *worker_id = argv[1];
+    mqd_t mq;
+    char buffer[MAX_MSG_SIZE];
+    unsigned int priority;
+    struct mq_attr attr;
+
+    // Open existing queue
+    mq = mq_open(QUEUE_NAME, O_RDONLY);
+    if (mq == (mqd_t)-1) {
+        perror("mq_open");
+        return 1;
+    }
+
+    // Get queue attributes
+    mq_getattr(mq, &attr);
+
+    printf("Worker [%s]: Ready to process tasks\n", worker_id);
+
+    // Process tasks until queue is empty
+    while (1) {
+        ssize_t bytes = mq_receive(mq, buffer, attr.mq_msgsize, &priority);
+
+        if (bytes == -1) {
+            break;  // Queue empty or error
+        }
+
+        buffer[bytes] = '\0';
+
+        printf("Worker [%s]: Processing (priority %u): %s\n",
+               worker_id, priority, buffer);
+
+        // Simulate work
+        sleep(2);
+
+        printf("Worker [%s]: Completed task\n", worker_id);
+    }
+
+    printf("Worker [%s]: No more tasks, shutting down\n", worker_id);
+
+    mq_close(mq);
+
+    // Last worker cleanup
+    if (strcmp(worker_id, "cleanup") == 0) {
+        mq_unlink(QUEUE_NAME);
+        printf("Queue cleaned up\n");
+    }
+
+    return 0;
+}
+```
+
+**How to run:**
+```bash
+# Compile (link with -lrt)
+gcc manager.c -o manager -lrt
+gcc worker.c -o worker -lrt
+
+# Terminal 1: Start manager (sends tasks)
+./manager
+
+# Terminal 2: Start worker 1
+./worker Worker1
+
+# Terminal 3: Start worker 2
+./worker Worker2
+
+# Cleanup (after workers finish)
+./worker cleanup
+
+# Expected output (workers get highest priority first):
+# Worker [Worker1]: Processing (priority 3): Task 2: URGENT: Server maintenance
+# Worker [Worker2]: Processing (priority 3): Task 4: CRITICAL: Security patch
+# Worker [Worker1]: Processing (priority 2): Task 1: Process invoice #1001
+# ...
+```
+
+**Key Learning Points:**
+- Higher priority numbers = higher priority (processed first)
+- POSIX MQ automatically handles priority ordering
+- Multiple consumers can read from same queue
+- Message boundaries are preserved
+- `-lrt` flag required for POSIX message queues
+</details>
 
 ---
 
@@ -1503,6 +1949,252 @@ rm /dev/shm/myshm
 - When processes are on different machines
 
 **See the full commented example:** `concurrency-tutorial/commented-examples/05-ipc/03-shared-memory.c`
+
+### 🎯 Practice Exercise: Image Processing with Shared Memory
+
+**Challenge:** Build a system where one process loads an image into shared memory and multiple worker processes apply filters concurrently.
+
+**Requirements:**
+- Main process creates shared memory for image data
+- Workers read from shared memory and write results
+- Use semaphores for synchronization
+- Simple grayscale conversion as the "filter"
+
+<details>
+<summary><b>💡 Solution</b></summary>
+
+**image_loader.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <semaphore.h>
+
+#define SHM_NAME "/image_data"
+#define SEM_NAME "/image_sem"
+#define IMAGE_SIZE 1024  // Simplified: 32x32 RGB image
+
+typedef struct {
+    unsigned char pixels[IMAGE_SIZE][3];  // RGB pixels
+    int width;
+    int height;
+    int ready;  // Flag: 1 when image is loaded
+} ImageData;
+
+int main() {
+    int shm_fd;
+    ImageData *img;
+    sem_t *sem;
+
+    // Create shared memory
+    shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open");
+        return 1;
+    }
+
+    // Set size
+    ftruncate(shm_fd, sizeof(ImageData));
+
+    // Map to memory
+    img = mmap(0, sizeof(ImageData), PROT_READ | PROT_WRITE,
+               MAP_SHARED, shm_fd, 0);
+    if (img == MAP_FAILED) {
+        perror("mmap");
+        return 1;
+    }
+
+    // Create semaphore
+    sem = sem_open(SEM_NAME, O_CREAT, 0644, 1);
+    if (sem == SEM_FAILED) {
+        perror("sem_open");
+        return 1;
+    }
+
+    // Initialize image (create test pattern)
+    printf("Loader: Creating test image...\n");
+
+    sem_wait(sem);  // Lock
+
+    img->width = 32;
+    img->height = 32;
+
+    // Create a simple gradient pattern
+    for (int i = 0; i < IMAGE_SIZE; i++) {
+        img->pixels[i][0] = (i * 255) / IMAGE_SIZE;  // R
+        img->pixels[i][1] = ((IMAGE_SIZE - i) * 255) / IMAGE_SIZE;  // G
+        img->pixels[i][2] = 128;  // B
+    }
+
+    img->ready = 1;  // Signal image is ready
+
+    sem_post(sem);  // Unlock
+
+    printf("Loader: Image loaded into shared memory\n");
+    printf("Loader: Size: %dx%d\n", img->width, img->height);
+    printf("Loader: Workers can now process the image\n");
+
+    // Keep running for workers to access
+    printf("Press Enter to cleanup...\n");
+    getchar();
+
+    // Cleanup
+    munmap(img, sizeof(ImageData));
+    close(shm_fd);
+    shm_unlink(SHM_NAME);
+    sem_close(sem);
+    sem_unlink(SEM_NAME);
+
+    printf("Loader: Cleaned up\n");
+
+    return 0;
+}
+```
+
+**filter_worker.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <semaphore.h>
+
+#define SHM_NAME "/image_data"
+#define SEM_NAME "/image_sem"
+#define IMAGE_SIZE 1024
+
+typedef struct {
+    unsigned char pixels[IMAGE_SIZE][3];
+    int width;
+    int height;
+    int ready;
+} ImageData;
+
+// Convert RGB to grayscale
+unsigned char to_grayscale(unsigned char r, unsigned char g, unsigned char b) {
+    return (unsigned char)(0.299 * r + 0.587 * g + 0.114 * b);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <worker_id>\n", argv[0]);
+        return 1;
+    }
+
+    char *worker_id = argv[1];
+    int shm_fd;
+    ImageData *img;
+    sem_t *sem;
+
+    printf("Worker [%s]: Starting...\n", worker_id);
+
+    // Open shared memory
+    shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open");
+        fprintf(stderr, "Worker: Make sure loader is running first!\n");
+        return 1;
+    }
+
+    // Map to memory
+    img = mmap(0, sizeof(ImageData), PROT_READ | PROT_WRITE,
+               MAP_SHARED, shm_fd, 0);
+    if (img == MAP_FAILED) {
+        perror("mmap");
+        return 1;
+    }
+
+    // Open semaphore
+    sem = sem_open(SEM_NAME, 0);
+    if (sem == SEM_FAILED) {
+        perror("sem_open");
+        return 1;
+    }
+
+    // Wait for image to be ready
+    while (!img->ready) {
+        printf("Worker [%s]: Waiting for image...\n", worker_id);
+        sleep(1);
+    }
+
+    printf("Worker [%s]: Image found, applying grayscale filter...\n", worker_id);
+
+    // Process pixels (each worker processes a portion)
+    sem_wait(sem);  // Lock
+
+    int start = (rand() % 4) * 256;  // Random section
+    int end = start + 256;
+
+    for (int i = start; i < end && i < IMAGE_SIZE; i++) {
+        unsigned char gray = to_grayscale(
+            img->pixels[i][0],
+            img->pixels[i][1],
+            img->pixels[i][2]
+        );
+
+        // Write back as grayscale
+        img->pixels[i][0] = gray;
+        img->pixels[i][1] = gray;
+        img->pixels[i][2] = gray;
+    }
+
+    sem_post(sem);  // Unlock
+
+    printf("Worker [%s]: Processed pixels %d-%d\n", worker_id, start, end);
+
+    // Calculate average brightness
+    int total_brightness = 0;
+    for (int i = 0; i < IMAGE_SIZE; i++) {
+        total_brightness += img->pixels[i][0];
+    }
+    int avg = total_brightness / IMAGE_SIZE;
+
+    printf("Worker [%s]: Average brightness: %d/255\n", worker_id, avg);
+
+    // Cleanup
+    munmap(img, sizeof(ImageData));
+    close(shm_fd);
+    sem_close(sem);
+
+    return 0;
+}
+```
+
+**How to run:**
+```bash
+# Compile (link with -lrt)
+gcc image_loader.c -o loader -lrt
+gcc filter_worker.c -o worker -lrt
+
+# Terminal 1: Start loader
+./loader
+
+# Terminal 2, 3, 4: Start workers
+./worker Worker1
+./worker Worker2
+./worker Worker3
+
+# Output:
+# Loader: Image loaded into shared memory
+# Worker [Worker1]: Processed pixels 256-512
+# Worker [Worker2]: Processed pixels 512-768
+# Worker [Worker3]: Processed pixels 0-256
+# Worker [Worker1]: Average brightness: 142/255
+```
+
+**Key Learning Points:**
+- Shared memory is perfect for large data structures
+- Semaphores prevent race conditions during access
+- Multiple processes can read simultaneously, but write access must be synchronized
+- POSIX shared memory (`shm_open`/`mmap`) is cleaner than System V
+- Data persists in shared memory until explicitly removed
+- Workers can process different sections concurrently for parallelism
+</details>
 
 ---
 
@@ -1978,6 +2670,273 @@ gcc server.c -o server -pthread
 - `ipc-lecture/echoserver.c` and `ipc-lecture/echoclient.c`
 - `concurrencyGuide.org` (Socket section)
 
+### 🎯 Practice Exercise: Simple Chat Server
+
+**Challenge:** Build a multi-client chat server where clients can send messages that are broadcast to all connected clients.
+
+**Requirements:**
+- Server accepts multiple clients using threads
+- Messages from one client are broadcast to all others
+- Clients can join with a nickname
+- Server displays join/leave notifications
+
+<details>
+<summary><b>💡 Solution</b></summary>
+
+**chat_server.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <arpa/inet.h>
+
+#define PORT 8888
+#define MAX_CLIENTS 10
+#define BUFFER_SIZE 1024
+
+typedef struct {
+    int socket;
+    char nickname[32];
+    int active;
+} Client;
+
+Client clients[MAX_CLIENTS];
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void broadcast_message(const char *message, int sender_socket) {
+    pthread_mutex_lock(&clients_mutex);
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i].active && clients[i].socket != sender_socket) {
+            send(clients[i].socket, message, strlen(message), 0);
+        }
+    }
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+void *handle_client(void *arg) {
+    int client_socket = *(int *)arg;
+    free(arg);
+
+    char buffer[BUFFER_SIZE];
+    char message[BUFFER_SIZE + 64];
+    int client_index = -1;
+
+    // Find slot for this client
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (!clients[i].active) {
+            clients[i].socket = client_socket;
+            clients[i].active = 1;
+            client_index = i;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+
+    // Get nickname
+    send(client_socket, "Enter your nickname: ", 21, 0);
+    ssize_t bytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+    if (bytes <= 0) {
+        close(client_socket);
+        return NULL;
+    }
+
+    buffer[bytes] = '\0';
+    // Remove newline
+    if (buffer[bytes - 1] == '\n') {
+        buffer[bytes - 1] = '\0';
+    }
+
+    strncpy(clients[client_index].nickname, buffer, 31);
+    clients[client_index].nickname[31] = '\0';
+
+    // Announce join
+    snprintf(message, sizeof(message), "*** %s has joined the chat ***\n",
+             clients[client_index].nickname);
+    printf("%s", message);
+    broadcast_message(message, client_socket);
+
+    // Handle messages
+    while ((bytes = recv(client_socket, buffer, BUFFER_SIZE - 1, 0)) > 0) {
+        buffer[bytes] = '\0';
+
+        // Format and broadcast message
+        snprintf(message, sizeof(message), "[%s]: %s",
+                 clients[client_index].nickname, buffer);
+        printf("%s", message);
+        broadcast_message(message, client_socket);
+    }
+
+    // Client disconnected
+    snprintf(message, sizeof(message), "*** %s has left the chat ***\n",
+             clients[client_index].nickname);
+    printf("%s", message);
+    broadcast_message(message, -1);
+
+    // Cleanup
+    pthread_mutex_lock(&clients_mutex);
+    clients[client_index].active = 0;
+    pthread_mutex_unlock(&clients_mutex);
+
+    close(client_socket);
+    return NULL;
+}
+
+int main() {
+    int server_fd, *client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    // Initialize clients
+    memset(clients, 0, sizeof(clients));
+
+    // Create socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    // Bind
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+
+    bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+
+    // Listen
+    listen(server_fd, 5);
+
+    printf("Chat Server started on port %d\n", PORT);
+    printf("Waiting for clients...\n");
+
+    while (1) {
+        client_fd = malloc(sizeof(int));
+        *client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
+
+        if (*client_fd < 0) {
+            free(client_fd);
+            continue;
+        }
+
+        printf("New connection from %s:%d\n",
+               inet_ntoa(client_addr.sin_addr),
+               ntohs(client_addr.sin_port));
+
+        pthread_t thread;
+        pthread_create(&thread, NULL, handle_client, client_fd);
+        pthread_detach(thread);
+    }
+
+    close(server_fd);
+    return 0;
+}
+```
+
+**chat_client.c:**
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <arpa/inet.h>
+
+#define BUFFER_SIZE 1024
+
+int sock_fd;
+
+void *receive_messages(void *arg) {
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes;
+
+    while ((bytes = recv(sock_fd, buffer, BUFFER_SIZE - 1, 0)) > 0) {
+        buffer[bytes] = '\0';
+        printf("%s", buffer);
+        fflush(stdout);
+    }
+
+    printf("\nDisconnected from server\n");
+    exit(0);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <server_ip>\n", argv[0]);
+        return 1;
+    }
+
+    struct sockaddr_in server_addr;
+    char buffer[BUFFER_SIZE];
+
+    // Create socket
+    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    // Connect to server
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(8888);
+    inet_pton(AF_INET, argv[1], &server_addr.sin_addr);
+
+    if (connect(sock_fd, (struct sockaddr *)&server_addr,
+                sizeof(server_addr)) < 0) {
+        perror("connect");
+        return 1;
+    }
+
+    printf("Connected to chat server!\n");
+
+    // Start receive thread
+    pthread_t recv_thread;
+    pthread_create(&recv_thread, NULL, receive_messages, NULL);
+    pthread_detach(recv_thread);
+
+    // Send messages
+    while (fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
+        send(sock_fd, buffer, strlen(buffer), 0);
+    }
+
+    close(sock_fd);
+    return 0;
+}
+```
+
+**How to run:**
+```bash
+# Compile
+gcc chat_server.c -o chat_server -pthread
+gcc chat_client.c -o chat_client -pthread
+
+# Terminal 1: Start server
+./chat_server
+
+# Terminal 2: Client 1
+./chat_client 127.0.0.1
+Enter your nickname: Alice
+
+# Terminal 3: Client 2
+./chat_client 127.0.0.1
+Enter your nickname: Bob
+
+# Now Alice and Bob can chat!
+# Alice: Hello!
+# [Alice]: Hello!
+# Bob: Hi Alice!
+# [Bob]: Hi Alice!
+```
+
+**Key Learning Points:**
+- Threads allow handling multiple clients concurrently
+- Mutex protects shared client list from race conditions
+- `broadcast_message()` sends to all clients except sender
+- Each client has a receive thread for incoming messages
+- Proper cleanup when clients disconnect
+- Server can run indefinitely, accepting new clients
+</details>
+
 ---
 
 ## Comparing IPC Mechanisms
@@ -2354,9 +3313,24 @@ man mmap
 ```
 
 #### Books
-- "Advanced Programming in the UNIX Environment" by W. Richard Stevens
-- "The Linux Programming Interface" by Michael Kerrisk
-- "Unix Network Programming" by W. Richard Stevens
+
+**"Advanced Programming in the UNIX Environment" by W. Richard Stevens & Stephen A. Rago**
+- Amazon: https://www.amazon.com/Advanced-Programming-UNIX-Environment-3rd/dp/0321637739
+- Publisher (Addison-Wesley): https://www.pearson.com/en-us/subject-catalog/p/advanced-programming-in-the-unix-environment/P200000000493
+- Often available at university libraries
+- Considered the "bible" of Unix systems programming
+
+**"The Linux Programming Interface" by Michael Kerrisk**
+- Amazon: https://www.amazon.com/Linux-Programming-Interface-System-Handbook/dp/1593272200
+- No Starch Press: https://nostarch.com/tlpi
+- Author's website with errata: https://man7.org/tlpi/
+- Comprehensive coverage of Linux/UNIX system programming
+
+**"Unix Network Programming" by W. Richard Stevens**
+- Volume 1 (Sockets): https://www.amazon.com/Unix-Network-Programming-Sockets-Networking/dp/0131411551
+- Volume 2 (IPC): https://www.amazon.com/UNIX-Network-Programming-Vol-Interprocess/dp/0130810819
+- Classic reference for network programming and IPC
+- Volume 2 specifically focuses on IPC mechanisms
 
 #### Online Resources
 - Linux man pages: https://man7.org/linux/man-pages/
