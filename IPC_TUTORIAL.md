@@ -1440,93 +1440,95 @@ Both processes map the same physical memory into their address spaces.
 
 ### Basic Operations
 
-#### Creating and Attaching Shared Memory
+POSIX shared memory uses `shm_open()` to create a shared memory object, then `mmap()` to map it into the process's address space.
+
+#### Creating Shared Memory
 
 ```c
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 
 int main() {
-    key_t key;
-    int shmid;
-    char *shared_data;
+    const char *name = "/myshm";  // Filesystem-like name
+    const int SIZE = 4096;
 
-    // Generate unique key
-    key = ftok(".", 'S');
-
-    // Create shared memory segment (1024 bytes)
-    shmid = shmget(key, 1024, IPC_CREAT | 0666);
-    if (shmid == -1) {
-        perror("shmget");
+    // 1. Create shared memory object
+    int shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open");
         return 1;
     }
 
-    printf("Shared memory created (ID: %d)\n", shmid);
+    // 2. Set size
+    ftruncate(shm_fd, SIZE);
 
-    // Attach shared memory to our address space
-    shared_data = (char *)shmat(shmid, NULL, 0);
-    if (shared_data == (char *)-1) {
-        perror("shmat");
+    // 3. Map into memory
+    void *ptr = mmap(0, SIZE, PROT_READ | PROT_WRITE,
+                     MAP_SHARED, shm_fd, 0);
+    if (ptr == MAP_FAILED) {
+        perror("mmap");
         return 1;
     }
 
-    printf("Attached at address: %p\n", (void *)shared_data);
+    // 4. Use like regular memory
+    sprintf((char *)ptr, "Hello from POSIX shared memory!");
+    printf("Wrote to shared memory\n");
 
-    // Use shared memory like regular memory
-    strcpy(shared_data, "Hello from shared memory!");
-    printf("Wrote: %s\n", shared_data);
-
-    // Detach from shared memory
-    shmdt(shared_data);
+    // 5. Cleanup
+    munmap(ptr, SIZE);
+    close(shm_fd);
 
     return 0;
 }
 ```
 
-#### Reading from Shared Memory (Another Process)
+#### Reading from Shared Memory
 
 ```c
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <stdio.h>
 
 int main() {
-    key_t key;
-    int shmid;
-    char *shared_data;
+    const char *name = "/myshm";
+    const int SIZE = 4096;
 
-    key = ftok(".", 'S');
-
-    // Get existing shared memory segment
-    shmid = shmget(key, 1024, 0666);
-    if (shmid == -1) {
-        perror("shmget");
+    // 1. Open existing shared memory
+    int shm_fd = shm_open(name, O_RDONLY, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open");
         return 1;
     }
 
-    // Attach shared memory
-    shared_data = (char *)shmat(shmid, NULL, 0);
-    if (shared_data == (char *)-1) {
-        perror("shmat");
+    // 2. Map into memory (read-only)
+    void *ptr = mmap(0, SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
+    if (ptr == MAP_FAILED) {
+        perror("mmap");
         return 1;
     }
 
-    sleep(1);  // Give writer time to write
+    // 3. Read from shared memory
+    printf("Read: %s\n", (char *)ptr);
 
-    // Read from shared memory
-    printf("Read: %s\n", shared_data);
-
-    // Detach and cleanup
-    shmdt(shared_data);
-    shmctl(shmid, IPC_RMID, NULL);  // Remove shared memory
+    // 4. Cleanup
+    munmap(ptr, SIZE);
+    close(shm_fd);
+    shm_unlink(name);  // Remove shared memory object
 
     return 0;
 }
+```
+
+**Compile with:**
+```bash
+gcc writer.c -o writer -lrt
+gcc reader.c -o reader -lrt
 ```
 
 ### The Synchronization Problem
@@ -1726,121 +1728,53 @@ int main() {
 }
 ```
 
-### POSIX Shared Memory
-
-POSIX shared memory uses `shm_open()` and `mmap()`:
-
-**Writer:**
-```c
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
-
-int main() {
-    const char *name = "/myshm";
-    const int SIZE = 4096;
-
-    // Create shared memory object
-    int shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
-    if (shm_fd == -1) {
-        perror("shm_open");
-        return 1;
-    }
-
-    // Set size
-    ftruncate(shm_fd, SIZE);
-
-    // Map it into memory
-    void *ptr = mmap(0, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if (ptr == MAP_FAILED) {
-        perror("mmap");
-        return 1;
-    }
-
-    // Write to shared memory
-    sprintf((char *)ptr, "Hello from POSIX shared memory!");
-
-    printf("Wrote to shared memory\n");
-
-    munmap(ptr, SIZE);
-    close(shm_fd);
-
-    return 0;
-}
-```
-
-**Reader:**
-```c
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-
-int main() {
-    const char *name = "/myshm";
-    const int SIZE = 4096;
-
-    // Open existing shared memory
-    int shm_fd = shm_open(name, O_RDONLY, 0666);
-    if (shm_fd == -1) {
-        perror("shm_open");
-        return 1;
-    }
-
-    // Map it into memory
-    void *ptr = mmap(0, SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
-    if (ptr == MAP_FAILED) {
-        perror("mmap");
-        return 1;
-    }
-
-    // Read from shared memory
-    printf("Read: %s\n", (char *)ptr);
-
-    // Cleanup
-    munmap(ptr, SIZE);
-    close(shm_fd);
-    shm_unlink(name);  // Remove shared memory object
-
-    return 0;
-}
-```
-
-**Compile POSIX version:**
-```bash
-gcc writer.c -o writer -lrt
-gcc reader.c -o reader -lrt
-```
-
 ### Managing Shared Memory
 
-#### View Shared Memory Segments
-
-**System V:**
 ```bash
-ipcs -m
-```
-
-**POSIX:**
-```bash
+# View POSIX shared memory
 ls -l /dev/shm/
-```
 
-#### Remove Shared Memory
-
-**System V:**
-```bash
-ipcrm -m <shmid>
-```
-
-**POSIX:**
-```bash
+# Remove shared memory
 rm /dev/shm/myshm
+
+# Or in code:
+shm_unlink("/myshm");
 ```
+
+### Legacy Alternative: System V Shared Memory
+
+You may encounter System V shared memory in older code. The API uses integer keys and separate attach/detach operations:
+
+```c
+#include <sys/shm.h>
+#include <sys/ipc.h>
+
+// Create using integer key
+key_t key = ftok(".", 'S');
+int shmid = shmget(key, 1024, IPC_CREAT | 0666);
+
+// Attach to address space
+char *ptr = (char *)shmat(shmid, NULL, 0);
+
+// Use normally
+strcpy(ptr, "Hello");
+
+// Detach and remove
+shmdt(ptr);
+shmctl(shmid, IPC_RMID, NULL);
+```
+
+**Key Differences from POSIX:**
+
+| Aspect | System V | POSIX |
+|--------|----------|-------|
+| **Naming** | Integer keys via `ftok()` | Filesystem paths (`"/myshm"`) |
+| **API** | `shmget()`, `shmat()`, `shmdt()` | `shm_open()`, `mmap()`, `munmap()` |
+| **Visibility** | `ipcs -m` | `ls /dev/shm/` |
+| **Cleanup** | `shmctl(IPC_RMID)` or `ipcrm -m` | `shm_unlink()` or `rm` |
+| **Integration** | Separate from file I/O | Uses standard `mmap()` |
+
+**When to use System V:** Only when maintaining legacy code or interfacing with older systems.
 
 ### When to Use Shared Memory
 
