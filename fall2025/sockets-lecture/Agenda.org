@@ -1,0 +1,80 @@
+* Agenda
+** Announcements
+ + I moved the course repo to github
+   + For technical reasons
+   + https://github.com/clarissalittler/cs201
+ + Final project directory is updated in the fall2025 folder
+ + sockets tutorials are up
+** How does a net work?
+ + Networks layers and what they mean
+   + I'm going to talk about the TCP/IP model of networks
+     + Application
+       + Things built on top of all the protocols that make the basic internet work
+       + HTTP (Hypertext transfer protocol)
+       + DNS
+	 + How your computer gets the real address for a domain name
+	 + This service needs to be reliable
+	 + Needs to be secure
+	 + It needs to be /fast/
+	 + Basically a distributed cache for the mapping between domain names and IP addresses across the world
+	   + Also needs to be super secure so people can't spoof domain names
+       + Gopher
+       + Gemini
+       + The Onion Router (TOR)
+       + Bittorrent
+       + DAT
+     + Transport
+       + How is data broken into pieces and sent?
+       + How do you guarantee data got to its destination?
+       + What if you just don't care?
+       + TCP (Transmission Control Protocol)
+	 + Makes sure every piece of data reaches its destination
+	 + IN THE ORDER IT WAS SENT
+       + UDP (User Datagram Protocol)
+	 + maybe it gets there, maybe it don't
+	 + maybe it's in the right order, don't maybe it
+     + Internet
+       + Routing
+	 + How packets move around
+	 + How does a packet get to the right place
+       + Addresses
+	 + IPv4
+	   + 32 bit addresses
+	     + 4 "octets" of a byte each
+	 + IPv6
+	   + 64 bit addresses
+	   + Running out of addresses!
+     + Network/Network access/Link
+       + The physical connection of computer to internet
+       + ethernet
+       + wi-fi
+ + Sockets
+   + Internet sockets
+     + Streaming
+     + UDP
+   + Network byte order
+     + 0x123456
+       + Little endian: 56 -> 34 -> 12
+       + Big endian: 12 -> 34 -> 56
+     + Network byte order is Big endian
+   + 
+ + Now we need to actually use sockets
+** Baby's first echo server
+ + (version with no error handling and only accepts *a* connection)
+ + making a socket
+   + surprise! it's a file 
+ + setting up the address
+   + the wooorst
+ + binding a socket
+   + int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+ + listening
+   + int listen(int sockfd, int backlog);
+ + accepting
+ + sending/receiving
+ + closing a socket
+** Connecting to it with netcat
+** Connecting to it with a custom client
+** Echo server, redone
+** Using threads to make an even better echo server
+** Sending a file
+** Our first HTTP server (brief overview)
