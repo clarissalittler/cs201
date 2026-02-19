@@ -54,81 +54,8 @@ But in this chunk of the course you're going to be /writing/ assembly, which mea
  + =%rsp=: stack pointer (points to top of the stack)
  + =%r8= – =%r15=: additional general-purpose registers
  + =%rip= (special case, you won't use it except in rip-relative addressing)
-** Floating point registers
- x86-64 has specialized registers for floating-point arithmetic. In modern x86-64 systems, floating-point operations typically use the SSE/SSE2 instruction set rather than the older x87 FPU stack-based approach.
+ For floating-point and vector/SIMD registers, see the reference section at the end of this document.
 
- SSE/SSE2 Floating Point Registers:
- + =%xmm0= – =%xmm15=: 128-bit registers used for scalar and packed floating-point operations
-   + Each can hold:
-     - One double-precision (64-bit) float
-     - One single-precision (32-bit) float
-     - Two double-precision floats (packed)
-     - Four single-precision floats (packed)
-
- Common floating-point instructions:
- + =movss= / =movsd=: Move scalar single/double precision values
- + =addss= / =addsd=: Add scalar single/double precision
- + =subss= / =subsd=: Subtract scalar single/double precision
- + =mulss= / =mulsd=: Multiply scalar single/double precision
- + =divss= / =divsd=: Divide scalar single/double precision
- + =ucomiss= / =ucomisd=: Compare (unordered) single/double precision
-
- Example:
- #+begin_src asm
-   # Add two double-precision floats
-   movsd value1(%rip), %xmm0   # Load first float into %xmm0
-   addsd value2(%rip), %xmm0   # Add second float to %xmm0
-   movsd %xmm0, result(%rip)   # Store result
- #+end_src
-
- Calling convention for floating-point:
- + First 8 floating-point arguments are passed in =%xmm0= – =%xmm7=
- + Floating-point return values go in =%xmm0=
- + All =%xmm= registers are caller-saved (must be preserved by caller if needed)
-
-** Vector registers
- x86-64 supports various SIMD (Single Instruction, Multiple Data) extensions for parallel processing:
-
- SSE/SSE2 Registers (already mentioned above):
- + =%xmm0= – =%xmm15=: 128-bit registers
- + Can process multiple data elements in parallel
- + Example: Add 4 floats or 2 doubles simultaneously
-
- AVX (Advanced Vector Extensions) Registers:
- + =%ymm0= – =%ymm15=: 256-bit registers
- + Lower 128 bits overlap with corresponding =%xmm= registers
- + Can process:
-     - 8 single-precision floats
-     - 4 double-precision floats
-     - Various integer types in parallel
-
- AVX-512 Registers (on supported CPUs):
- + =%zmm0= – =%zmm31=: 512-bit registers
- + Lower 256 bits overlap with =%ymm= registers
- + Can process:
-     - 16 single-precision floats
-     - 8 double-precision floats
-     - Up to 64 bytes of integer data in parallel
- + Additional mask registers =%k0= – =%k7= for conditional operations
-
- Common use cases:
- + High-performance computing
- + Graphics and image processing
- + Scientific computations
- + Machine learning operations
- + Audio/video encoding
-
- Example AVX-512 usage (see assembly-examples/06-advanced/01-avx512.s):
- #+begin_src asm
-   # Add 16 single-precision floats in parallel
-   vmovaps array1(%rip), %zmm0     # Load 16 floats
-   vmovaps array2(%rip), %zmm1     # Load 16 floats
-   vaddps %zmm0, %zmm1, %zmm2      # Add them all at once
-   vmovaps %zmm2, result(%rip)     # Store result
- #+end_src
-
- Note: Vector instructions require CPU support. Check with =cpuid= instruction or =/proc/cpuinfo= on Linux.
- Most modern x86-64 CPUs support at least SSE2, many support AVX2, and newer server/workstation CPUs support AVX-512.
 ** Calling convention reference
  + Functions must return values via =%rax=
  + Arguments are passed into functions via the registers (presented in order):
@@ -171,7 +98,7 @@ But in this chunk of the course you're going to be /writing/ assembly, which mea
  + =.rodata= for initialized data you don't want to modify (global constants)
 * Example programs
 ** A first program
-This is a simple program that returns an exit code of -1 when you run it. You can check the exit code of the program with =echo $?= at the command line.
+This is a simple program that exits with a status of -1 when you run it. You can check the exit code of the program with =echo $?= at the command line. Now here's something that trips people up: you'll actually see 255, not -1. That's because exit codes are unsigned bytes (0-255), and -1 in two's complement is 0xFF, which is 255.
 
 #+begin_src asm
 
@@ -216,7 +143,7 @@ If you /don't/ properly exit the program you'll see a segfault as the program at
 ** cmp and jmp
 Now assembly doesn't have if-statements like you're used to. Instead you have to do a =cmp= instruction and then different kinds of /jump/ based on the result of the =cmp=. Jumps need to take an address of where to go next, generally in the form of a label. You can make labels by just writing a name and then a =:=.
 
-We can summarize this in the following table where we assume that we've just done =cmp a,b= (I myself get confused about this basically *all* the time, I'm half certain I've got this table backwards /right now/)
+We can summarize this in the following table where we assume that we've just done =cmp a,b= (I always double-check this table when I need it, and you should too)
 
 | jmp | unconditional jump                    |
 | jl  | jump if b less than a                 |
@@ -307,11 +234,11 @@ Writng =#f= means jump forward to the next label with that name =#= and =#b= mea
       # rsi = message address (using RIP-relative addressing)
       # rdx = message length
       # rax = syscall number for write (1)
-      # rdi = file descriptor (0 = standard output)
+      # rdi = file descriptor (1 = standard output)
       lea msg1(%rip),%rsi
       mov $msg1len,%rdx
       mov $1,%rax
-      mov $0,%rdi
+      mov $1,%rdi
       syscall
       ret
 
@@ -324,7 +251,7 @@ Writng =#f= means jump forward to the next label with that name =#= and =#b= mea
       lea msg2(%rip),%rsi
       mov $msg2len,%rdx
       mov $1,%rax
-      mov $0,%rdi
+      mov $1,%rdi
       syscall
       ret
 
@@ -346,7 +273,7 @@ Here are some examples of how this looks:
 #+begin_src asm
   # Data section: Declares initialized static data
           .section .data
-  num1:   .long 200    # Declares a 32-bit integer variable named 'num1' with initial value 200
+  num1:   .quad 200    # Declares a 64-bit integer variable named 'num1' with initial value 200
 
   # Code section begins
 
@@ -356,14 +283,14 @@ Here are some examples of how this looks:
   _start:
           # Load the value of num1 into %rbx
           # RIP-relative addressing is used to get the memory location of num1
-          mov num1(%rip),%rbx         
+          mov num1(%rip),%rbx
 
           # Add 10 to the value stored in %rbx
-          addl $10,%rbx         # Adds 10 to the current value of num1
+          add $10,%rbx          # %rbx now holds 210
 
           # Prepare arguments for system exit
-          # Move the new value of num1 into %rdi (first argument for exit syscall)
-          mov num1(%rip),%rdi
+          # Move our computed result into %rdi (first argument for exit syscall)
+          mov %rbx,%rdi
 
           # Set up syscall for program exit
           mov $60,%rax            # 60 is the syscall number for exit
@@ -375,7 +302,7 @@ And here's a version that uses the "load-effective address" instruction with exp
 #+begin_src asm
   # Data section: Declares initialized static data
           .section .data
-  num1:   .long 200    # Declares a 32-bit integer variable named 'num1' with initial value 200
+  num1:   .quad 200    # Declares a 64-bit integer variable named 'num1' with initial value 200
 
   # Code section begins
 
@@ -389,7 +316,7 @@ And here's a version that uses the "load-effective address" instruction with exp
 
           # Add 10 to the value stored at the memory location pointed to by %rbx
           # The parentheses () mean "value at this memory address"
-          addl $10,(%rbx)         # Adds 10 to the current value of num1
+          addq $10,(%rbx)         # Adds 10 to the current value of num1
 
           # Prepare arguments for system exit
           # Move the new value of num1 into %rdi (first argument for exit syscall)
@@ -419,7 +346,7 @@ and here's how you'd make an array of ints and sum all of their elements. Please
   ###    lea (%rbx, %rcx, 8), %rax   -> %rax = %rbx + (%rcx * 8) (doesn't dereference!)
 
           .section .data
-  arr1:   .long 1,2,3,4     # Define an array of 4 integers
+  arr1:   .quad 1,2,3,4     # Define an array of 4 integers (64-bit each)
 
           .section .text
           .global _start
@@ -427,25 +354,25 @@ and here's how you'd make an array of ints and sum all of their elements. Please
   _start:
           # Load the base address of the array into %rbx
           # %rip-relative addressing ensures position-independent code
-          lea arr1(%rip),%rbx     
+          lea arr1(%rip),%rbx
 
           # Initialize loop counter (i) to 0
-          mov $0,%rcx             
+          mov $0,%rcx
 
           # Initialize sum to 0
-          mov $0,%rax             
+          mov $0,%rax
 
   loopBody:
           # Compare loop counter to array length (4)
-          cmp $4,%rcx             
+          cmp $4,%rcx
 
           # If i >= 4, exit loop
           jge done
 
           # Add current array element to sum
-          # (%rbx,%rcx,4) calculates the address of arr1[i]
-          # 4 is the size of each long (32-bit) element
-          add (%rbx,%rcx,4),%rax  
+          # (%rbx,%rcx,8) calculates the address of arr1[i]
+          # 8 is the size of each quad (64-bit) element
+          add (%rbx,%rcx,8),%rax  
 
           # Increment loop counter
           add $1,%rcx             
@@ -468,8 +395,8 @@ and here's a slight variation that explicitly loads the address into a register 
 #+begin_src asm
       # Data section: where we define our static data
       .section .data
-      # Define an array of 4 long integers (32-bit)
-      arr1:   .long 1,2,3,4
+      # Define an array of 4 integers (64-bit each)
+      arr1:   .quad 1,2,3,4
 
       # Code section where our program instructions live
       .section .text
@@ -494,8 +421,8 @@ and here's a slight variation that explicitly loads the address into a register 
 
       # Calculate address of current array element
       # lea calculates address without actually loading the value
-      # (%rbx,%rcx,4) means: base address + (index * 4-byte element size)
-      lea (%rbx,%rcx,4),%rdx  # %rdx now points to current array element
+      # (%rbx,%rcx,8) means: base address + (index * 8-byte element size)
+      lea (%rbx,%rcx,8),%rdx  # %rdx now points to current array element
 
       # Add current array element to sum
       # (%rdx) dereferences the pointer, getting the actual value
@@ -581,7 +508,7 @@ Now here's an echo program that reads in a string and writes it back out again:
           syscall                 # Terminate the program
 #+end_src
 
-Nice and simple! So the =.skip= directive is interesting because /technically/ it's different than if we'd said =.zero 128=, but it doesn't *have* to be. If you try and test this out you might find that the buffer is just filled with 0s anyway, but you can't rely on that.
+Nice and simple! Now you might notice we used =.skip 128= to allocate the buffer. In GNU as, =.skip N= and =.zero N= are actually equivalent: both emit N zero bytes. The =.bss= section is special, though, in that the OS guarantees it'll be zeroed out when your program starts, so either directive works fine here.
 ** Functions and stacks
 *** Function examples
 As summarized above, functions are really just labels that we jump to with specific /calling conventions/ that give us an ordered way to pass arguments into functions, establish scope for local variables, and then make sure to set things up correctly in case we call /other/ functions inside our functions
@@ -622,6 +549,22 @@ Here's a tiny "function" that just demonstrates using ret and call and passing i
 
 *** What is the stack?
 Okay, so we need to spend a bit of time talking about the /stack/ in program execution. You've probably already heard of the stack before: it's where data you allocate that doesn't go on the *heap*, but we haven't yet explained why we call the stack, /a stack/.
+
+A "stack" in the computer science sense is a last-in-first-out data structure. Think of a stack of plates in a cafeteria: you can only add plates to the top and take plates off the top. The two operations are =push= (put something on top) and =pop= (take the top thing off).
+
+The program stack works exactly like this. It's a region of memory, and the register =%rsp= (the "stack pointer") always points to the "top" of the stack. Now here's the part that trips people up: the stack grows /downward/, from high memory addresses to low memory addresses. So "pushing" something onto the stack actually /decreases/ =%rsp=. I know that's confusing, but it's just a convention baked into how x86 works and you'll have to live with it.
+
+Concretely, when you write =push %rax=, the processor:
+1. Subtracts 8 from =%rsp= (making room for 8 bytes)
+2. Stores the value of =%rax= at the new address in =%rsp=
+
+And =pop %rax= does the reverse:
+1. Loads the value at the address in =%rsp= into =%rax=
+2. Adds 8 to =%rsp= (reclaiming the space)
+
+So why do we need this for functions? Well, when you =call= a function, the processor automatically pushes the /return address/ (where to jump back to when the function is done) onto the stack. When the function executes =ret=, it pops that address and jumps back to it. Inside the function you might also need to save some registers and make room for local variables, and the stack gives you a nice orderly way to do all of that.
+
+The base pointer =%rbp= is used as a fixed reference point within a function's "stack frame" (the chunk of stack belonging to that particular function call). While =%rsp= moves around as you push and pop things, =%rbp= stays put for the duration of the function, so you can always find your local variables at fixed offsets like =-8(%rbp)= or =-16(%rbp)=.
 
 Now we're ready to demonstrate how to properly handle the stack!
 #+begin_src asm
@@ -715,7 +658,7 @@ It turns out this is already pretty simple! Here's a readInt function but note t
   #   - %rax: The resulting integer value
   parseInt:
   intRead:
-      movb (%rdi,%rcx,1), %r8b     # Load one byte from buffer[%rcx] into %r8b
+      movzbl (%rdi,%rcx,1), %r8d   # Load one byte from buffer[%rcx], zero-extended into %r8
       sub $'0', %r8                # Convert ASCII character to its numeric value
       imul $10, %rax               # Multiply accumulator (%rax) by 10 (shifting left in decimal)
       add %r8, %rax                # Add the numeric value of current digit to accumulator
@@ -730,6 +673,7 @@ It turns out this is already pretty simple! Here's a readInt function but note t
   # Returns:
   #   - %rax: The integer value read from input
   readInt:
+      push %rbx                    # Save callee-saved register
       # Prepare for syscall to read from stdin
       mov $0, %rax                 # Syscall number 0 (sys_read)
       mov $0, %rdi                 # File descriptor 0 (stdin)
@@ -747,6 +691,7 @@ It turns out this is already pretty simple! Here's a readInt function but note t
       mov %rbx, %rsi               # Move byte count to %rsi (number of characters to process)
 
       call parseInt                # Call parseInt to convert input string to integer
+      pop %rbx                     # Restore callee-saved register
       ret                          # Return from readInt with result in %rax
 #+end_src
 
@@ -945,6 +890,84 @@ Although at this point it's kind of annoying that we're checking the exit code e
 #+end_src
 
 You can include this just like the =readInt= function by putting the integer you want to print in =%rdi=. This code is fun because it allocates a buffer on the stack locally!
+
+* Floating point and vector registers (reference)
+You don't need these for the main assignments, but they're good to know about for the future and for your own reference.
+** Floating point registers
+ x86-64 has specialized registers for floating-point arithmetic. In modern x86-64 systems, floating-point operations typically use the SSE/SSE2 instruction set rather than the older x87 FPU stack-based approach.
+
+ SSE/SSE2 Floating Point Registers:
+ + =%xmm0= – =%xmm15=: 128-bit registers used for scalar and packed floating-point operations
+   + Each can hold:
+     - One double-precision (64-bit) float
+     - One single-precision (32-bit) float
+     - Two double-precision floats (packed)
+     - Four single-precision floats (packed)
+
+ Common floating-point instructions:
+ + =movss= / =movsd=: Move scalar single/double precision values
+ + =addss= / =addsd=: Add scalar single/double precision
+ + =subss= / =subsd=: Subtract scalar single/double precision
+ + =mulss= / =mulsd=: Multiply scalar single/double precision
+ + =divss= / =divsd=: Divide scalar single/double precision
+ + =ucomiss= / =ucomisd=: Compare (unordered) single/double precision
+
+ Example:
+ #+begin_src asm
+   # Add two double-precision floats
+   movsd value1(%rip), %xmm0   # Load first float into %xmm0
+   addsd value2(%rip), %xmm0   # Add second float to %xmm0
+   movsd %xmm0, result(%rip)   # Store result
+ #+end_src
+
+ Calling convention for floating-point:
+ + First 8 floating-point arguments are passed in =%xmm0= – =%xmm7=
+ + Floating-point return values go in =%xmm0=
+ + All =%xmm= registers are caller-saved (must be preserved by caller if needed)
+
+** Vector registers
+ x86-64 supports various SIMD (Single Instruction, Multiple Data) extensions for parallel processing:
+
+ SSE/SSE2 Registers (already mentioned above):
+ + =%xmm0= – =%xmm15=: 128-bit registers
+ + Can process multiple data elements in parallel
+ + Example: Add 4 floats or 2 doubles simultaneously
+
+ AVX (Advanced Vector Extensions) Registers:
+ + =%ymm0= – =%ymm15=: 256-bit registers
+ + Lower 128 bits overlap with corresponding =%xmm= registers
+ + Can process:
+     - 8 single-precision floats
+     - 4 double-precision floats
+     - Various integer types in parallel
+
+ AVX-512 Registers (on supported CPUs):
+ + =%zmm0= – =%zmm31=: 512-bit registers
+ + Lower 256 bits overlap with =%ymm= registers
+ + Can process:
+     - 16 single-precision floats
+     - 8 double-precision floats
+     - Up to 64 bytes of integer data in parallel
+ + Additional mask registers =%k0= – =%k7= for conditional operations
+
+ Common use cases:
+ + High-performance computing
+ + Graphics and image processing
+ + Scientific computations
+ + Machine learning operations
+ + Audio/video encoding
+
+ Example AVX-512 usage (see assembly-examples/06-advanced/01-avx512.s):
+ #+begin_src asm
+   # Add 16 single-precision floats in parallel
+   vmovaps array1(%rip), %zmm0     # Load 16 floats
+   vmovaps array2(%rip), %zmm1     # Load 16 floats
+   vaddps %zmm0, %zmm1, %zmm2      # Add them all at once
+   vmovaps %zmm2, result(%rip)     # Store result
+ #+end_src
+
+ Note: Vector instructions require CPU support. Check with =cpuid= instruction or =/proc/cpuinfo= on Linux.
+ Most modern x86-64 CPUs support at least SSE2, many support AVX2, and newer server/workstation CPUs support AVX-512.
 
 * Footnotes
 [fn:2] There are special registers for vector operations and floating point operations but we're going to just use the basic ones that hold "integer-like" data rather than more complicated data
