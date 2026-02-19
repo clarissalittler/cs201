@@ -15,6 +15,10 @@ EXECUTABLES = $(C_EXECUTABLES) $(S_EXECUTABLES)
 # Default target: build all executables
 all: $(EXECUTABLES)
 
+# cursing.c depends on ncurses symbols.
+cursing: cursing.c
+	$(CC) $(CFLAGS) $< -o $@ -lncurses
+
 # Pattern rule: compile C files
 %: %.c
 	$(CC) $(CFLAGS) $< -o $@

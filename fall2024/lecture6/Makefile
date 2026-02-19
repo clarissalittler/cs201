@@ -1,5 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g
+AS = as
+LD = ld
 
 # C source files (excluding commented versions)
 C_SOURCES = $(filter-out %commented.c, $(wildcard *.c))
@@ -21,7 +23,9 @@ all: $(EXECUTABLES)
 
 # Pattern rule: compile assembly files
 %: %.s
-	$(CC) $(CFLAGS) $< -o $@
+	$(AS) $< -o $@.o
+	$(LD) $@.o -o $@
+	rm -f $@.o
 
 # Clean up compiled files
 clean:

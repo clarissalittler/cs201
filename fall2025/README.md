@@ -232,7 +232,7 @@ less bitmunger1commented.c
 - `/concurrency-tutorial/` - In-depth concurrency examples and exercises
 - `/assembly-examples/` - Organized collection of assembly examples
 - `/file-intro/` - More file operation examples
-- `/socket-intro/` - Network programming basics
+- `/socket-examples/` - Network programming basics
 - `/deadlock-lecture/` - Deadlock examples and prevention
 
 ### Other Semesters

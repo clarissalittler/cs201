@@ -82,8 +82,8 @@
 
 int main() {
     // TODO: Define constants
-    // const int NUM_WORKERS = 3;
-    // const int NUM_TASKS = 10;
+    const int NUM_WORKERS = 3;
+    const int NUM_TASKS = 10;
     
     // TODO: Declare thread array
     // pthread_t workers[NUM_WORKERS];

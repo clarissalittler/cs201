@@ -30,7 +30,7 @@ int main(){
 
   //thing = 0xFFFFFFFF;
   //printf("Here's a thing: %d\n",myMax("10",20));
-  printf("Here's a thing: %d\n",size2(5.0));
+  printf("Here's a thing: %zu\n",size2(5.0));
   
   return 0;
 }

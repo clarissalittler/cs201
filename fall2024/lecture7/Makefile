@@ -2,7 +2,7 @@
 .SUFFIXES:
 
 # Variables
-ASM_FILES := $(wildcard *.s)
+ASM_FILES := $(filter-out %commented.s, $(wildcard *.s))
 OBJ_FILES := $(ASM_FILES:.s=.o)
 EXECUTABLES := $(ASM_FILES:.s=)
 

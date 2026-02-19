@@ -18,9 +18,9 @@ int main(){
   p1.x = 5.0;  // Set the x-coordinate of p1 to 5.0
   p1.y = 10;  // Set the y-coordinate of p1 to 10
 
-  // Create a pointer to a double called "dubstep" and make it point to the memory location of p1
-  double* dubstep = &p1; 
-  // Notice that "p1" is treated as a pointer to the first element of the structure which is p1.x
+  // Create a pointer to a double called "dubstep" and make it point to p1.x
+  double* dubstep = &p1.x; 
+  // Since p1.x and p1.y are adjacent doubles, pointer arithmetic can read both fields
   printf("This is (hopefully) p1.x %f\n",*dubstep); // Print the value of the x-coordinate of p1, which is accessed using the pointer "dubstep"
   printf("This is (hopefully) p1.y %f\n",*(dubstep + 1)); // Print the value of the y-coordinate of p1, by incrementing the pointer "dubstep" to access the next element of the structure
 

@@ -36,7 +36,7 @@ cs201/
 ├── ipc-lecture/          # IPC mechanisms
 ├── deadlock-lecture/     # Deadlock examples
 ├── file-intro/           # File I/O introduction
-├── socket-intro/         # Socket programming intro
+├── socket-examples/      # Socket programming examples
 └── rust-intro/           # Rust language introduction
 ```
 

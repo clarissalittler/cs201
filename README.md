@@ -88,7 +88,7 @@ Introduction to file operations in C:
 - Error handling
 - Directory operations
 
-#### `socket-intro/`
+#### `socket-examples/`
 Network programming with sockets:
 - TCP/IP socket programming
 - Client-server architecture

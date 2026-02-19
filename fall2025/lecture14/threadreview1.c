@@ -19,7 +19,7 @@ void* threadWorker(void* arg){
   
   // unlike with signals when we HAD to use the write syscall
   // printf and scanf are generally thread safe
-  printf(msg);
+  printf("%s", msg);
   
   return NULL; // you can sorta not do this, relying on an implicit return 0; (because 0 is also the null pointer)
 }

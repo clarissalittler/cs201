@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -91,7 +93,12 @@ int main() {
         }
         
         // Sleep for a random time (0.5 to 2 seconds)
-        usleep((rand() % 1500000) + 500000);
+        int delay_us = (rand() % 1500000) + 500000;
+        struct timespec delay = {
+            .tv_sec = delay_us / 1000000,
+            .tv_nsec = (delay_us % 1000000) * 1000L
+        };
+        nanosleep(&delay, NULL);
     }
     
     // Clean up

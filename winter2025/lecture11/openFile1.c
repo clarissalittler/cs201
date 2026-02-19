@@ -33,7 +33,7 @@ int echoFile(char* fName, bool showSize){
 
   close(fd);
 
-
+  return 0;
 }
 
 int main(int argc, char* argv[]){

@@ -19,7 +19,7 @@ void* threadWorker(void* arg){
   temp = counter;
   counter++;
   pthread_mutex_unlock(&mut);
-  printf(msgs[temp]);
+  printf("%s", msgs[temp]);
   
   return NULL;
 }

@@ -73,7 +73,7 @@ file-io:
 
 sockets:
 	@echo "Building socket examples..."
-	@$(MAKE) -C socket-intro
+	@$(MAKE) -C socket-examples
 
 rust:
 	@echo "Building Rust examples..."
@@ -154,7 +154,7 @@ clean-all: clean
 	@$(MAKE) -C ipc-lecture clean 2>/dev/null || true
 	@$(MAKE) -C deadlock-lecture clean 2>/dev/null || true
 	@$(MAKE) -C file-intro clean 2>/dev/null || true
-	@$(MAKE) -C socket-intro clean 2>/dev/null || true
+	@$(MAKE) -C socket-examples clean 2>/dev/null || true
 	@echo "Cleaning all lectures..."
 	@for dir in fall2024/lecture* fall2025/lecture* fall2025/file-lecture fall2025/pointerExtras winter2025/lecture* winter2025/finalproj spring2025/*; do \
 		if [ -d "$$dir" ] && [ -f "$$dir/Makefile" ]; then \

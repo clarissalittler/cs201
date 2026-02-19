@@ -15,7 +15,7 @@ int main(){
   p1.x = 5.0;
   p1.y = 10;
 
-  double* dubstep = &p1;
+  double* dubstep = &p1.x;
   printf("This is (hopefully) p1.x %f\n",*dubstep);
   printf("This is (hopefully) p1.y %f\n",*(dubstep + 1));
   

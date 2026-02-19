@@ -72,9 +72,9 @@
 
 int main() {
     // TODO: Define constants
-    // const int NUM_THREADS = 5;
-    // const int INCREMENTS_PER_THREAD = 1000;
-    // const int EXPECTED_TOTAL = NUM_THREADS * INCREMENTS_PER_THREAD;
+    const int NUM_THREADS = 5;
+    const int INCREMENTS_PER_THREAD = 1000;
+    const int EXPECTED_TOTAL = NUM_THREADS * INCREMENTS_PER_THREAD;
     
     // TODO: Declare thread array
     // pthread_t threads[NUM_THREADS];

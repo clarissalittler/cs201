@@ -161,7 +161,7 @@ void *handle_client(void *arg) {
         if (strlen(buffer) == 0) continue;
 
         // Format and broadcast
-        char message[BUFFER_SIZE + 64];
+        char message[BUFFER_SIZE + 80];
         snprintf(message, sizeof(message), "[%s] %s\n", prefix, buffer);
         printf("%s", message);  // Log to server console
         broadcast(message, client_fd);

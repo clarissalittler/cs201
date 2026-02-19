@@ -26,7 +26,7 @@ void cleanup(int signum){
 void printMenu(){
   printf("Money %d\nGen1: %d\nGen2: %d\nGen3: %d\n",
 	 income,gen1,gen2,gen3);
-  printf(menuString);
+  printf("%s", menuString);
 }
 
 // now the heartbeat is a threadworker
