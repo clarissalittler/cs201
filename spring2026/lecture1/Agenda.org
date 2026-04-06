@@ -1,0 +1,104 @@
+* Agenda
+** Uhh hi?
+Wow, hey, we're all here. I'm slightly surprised by this!
+** What is this class?
+My own admixture of:
+ + C
+ + Assembly (x86-64)
+ + Concurrency
+ + OS Theory and Practice
+** What you need to do
+ + Quizzes
+ + Discussions
+ + Coding assignments
+** Resources
+ Please use the git repos! They have a bunch of useful stuff!
+
+ Including the textbook for the class and some optional books as well that I just think are neat.
+
+ The class repo will contain all the "Agenda" files/notes for each lecture and all the code we work on each day.
+** Miscellany
+ I try to start 5 minutes after 10, give a break after each 50 minutes, and take no more than 2 (-ish) hours out of the period. 
+** Topics du jour
+*** C: What's different?
+ + No pass by reference
+   + 
+ + No bools (technically)
+ + No nullptr
+ + scanf/printf
+*** Bitwise and bit manipulation operations
+ + &
+
+ x y | x & y  
+ 1 1 | 1
+ 1 0 | 0
+ 0 1 | 0
+ 0 0 | 0
+
+  10101101
+& 11001001
+= 10001001
+ 
+ + |
+
+x y | x | y
+1 1 | 1
+1 0 | 1
+0 1 | 1
+0 0 | 0
+   
+    10101101
+( | 11001001
+  = 11101101
+   
+ + ^
+x y | x ^ y
+1 1 | 0
+1 0 | 1
+0 1 | 1
+0 0 | 0
+   
+ + <<
+   shift left
+   takes a bitstring and moves it to the left, padding with 0s
+   (extra data falls off the edge)
+   10101001 << 1
+   01010010
+   
+ + >>
+   shift right
+   takes a bitstring and move it to the right, padding with 0s
+
+ + ~
+
+ x | ~ x
+ 1 | 0
+ 0 | 1
+ 
+*** Peeking inside an integer
+ twos-complement:
+
+ Normally a string of n-bits (unsigned) encodes a number like
+
+ $\Sum_{i=0}^{n-1} b_i * 2^i$
+
+ 11111111
+ 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2 + 2^1 + 2^0
+ = 128 + 127 = 255
+
+ (sum of the first i powers of 2 is 2^{i+1}-1)
+
+ in two's complement:
+ -2^7 + 2^6 + 2^5 ... + 2^0
+= -128 + 127 = -1 
+
+All ones in two's complement always becomes (-2^n + 2^n - 1 = -1)
+
+to turn a positive number into its negative equivalent in two's complement you substract 1 and then invert all the bits
+
+0111 = 7
+----> 0110 -> 1001 = -7
+-8 + 0 + 0 + 1 = -7
+
+
+*** Preview of floats
