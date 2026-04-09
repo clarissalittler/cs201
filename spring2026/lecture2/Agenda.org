@@ -1,0 +1,52 @@
+* Agenda
+** Before we return to floats
+ + hex codes and how we see pointers
+   + 0 -- F (0 -- 15)
+   + RGBa
+     + red (8 bits) (0-255)
+     + green (8 bits) (0-255)
+     + blue (8 bits) (0-255)
+     + transparency (8 bits) (0-255)
+   + 256 = 2^8 = 2^4 * 2^4 = 16 * 16
+   + two hex-digits = 0-255
+   + #8765AF
+   + 
+ + checking out byte order (endianess)
+** Floats/IEE754 more formally
+ + Floating point redux:
+   + (I'm going to explain all of this in the 32 bit version)
+   + 1 bit sign
+   + 8 bits exponent
+   + 23 bits fractional
+ + In the normal case:
+   + (-1)^s * (2^(e - 127)) * (1 + f)
+   + rational binary
+     + 1010 -> 1*2^-1 + 0*2^-2 + 1*2^-3 + 0*2^-4
+       = 1/2 + 1/8 = 5/8
+   + 0 10000001 1010...0
+   + (-1)^0 * 2^(129 - 127) * (1 + 1/2 + 1/8)
+     = 4 * (13/8) = 13/2 = 6.5
+ + printing more digits of our floating point numbers
+ + how to read the bits of a float in IEE754
+ + edge cases
+   + exponent is all 1s
+     + all 1s but no fractional => +/- inf
+     + all 1s but there is a fractional => nan
+   + exponent is all 0s
+     + exponent gets stuck at 2^-126 *but*
+     + fractional is calculated without the extra 1 +
+     + in other words (-1)^s * 2^-126 * f
+ + the limitations of floating point
+   + what happens if we perform many additions?
+ + why does this happen?
+   + A bit of math
+   + The nice cardinality is countable infinity
+     + e.g. the size of the natural numbers
+     + of the rational numbers
+     + the real numbers are the smallest *uncountable* infinity
+       + technically with size equal to |N|^|N|, where |N| is the size of the natural numbers (i.e. aleph_0)
+ + How does rounding happen in IEE754?
+   + round to even
+     + "breadcrumbs" are the real numbers that can be represented exactly in IEE754
+     + to avoid accumulating rounding error, if you're exactly between two breadcrumbs the hardware will round to the even one
+       + this should round up as often as it rounds down (in principle)
