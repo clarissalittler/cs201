@@ -1,0 +1,24 @@
+* Agenda
+** Questions?
+ + Have folks grabbed the book(s) from the repo?
+ + Anything not making sense so far?
+** malloc
+ + shame on me, in an act of pure momentum I didn't show =malloc=
+ + examples
+** conceptual stepback
+ + what /is/ a CPU anyway? how does it work?
+ + processor architectures
+ + assembly language(s)
+ + gcc -S
+ + what are instructions?
+ + what are registers?
+ + (memory hierarchy, the fast version)
+ + your first bare assembly program
+   + .text
+   + _start
+ + what did we just write?
+   + (why did it crash?)
+ + syscalls
+ + exit codes, revealed
+ + add and sub: your first binary operations (sorta)
+ + 
