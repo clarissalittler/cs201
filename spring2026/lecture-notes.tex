@@ -1,0 +1,698 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{parskip}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  showstringspaces=false,
+  columns=fullflexible,
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!60!black}
+}
+
+\title{CS201 Spring 2026 --- Lecture Notes}
+\author{Clarissa Littler}
+\date{Spring 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Preface}
+
+This document is a running narrative of what we covered in each class
+meeting this term. Each section pairs the agenda for the day with the
+little code samples we actually typed up together, so if you missed a
+lecture or want to go back and re-read, the whole arc of a day should be
+here in one place. The source files themselves live in the
+\texttt{lecture$N$/} subdirectories of the class repo, and all of the
+snippets quoted below are verbatim from those files.
+
+\tableofcontents
+
+\section{Lecture 1 --- Welcome, C vs.\ C++, Bitwise Tricks, and a Peek at Integers}
+
+This one was mostly an orientation plus a crash-course in the parts of
+C that tend to trip up people coming from C++. I was genuinely a little
+surprised everyone showed up, so thank you for that!
+
+\subsection*{Logistics}
+
+The class is my own personal admixture of four things:
+\begin{itemize}
+  \item C
+  \item x86-64 assembly
+  \item Concurrency
+  \item Operating systems theory and practice
+\end{itemize}
+Grading-wise, you've got quizzes, discussions, and coding assignments.
+The class repo is going to be your friend: that's where the textbook
+lives, where all the ``Agenda'' files like this one come from, and
+where we'll drop every bit of code we work on in class.
+
+Structurally, I'll aim to start about five minutes after 10, break
+after every 50 minutes, and try not to keep you much past two hours.
+
+\subsection*{C: What's different?}
+
+If you're coming from C++, the big shocks are:
+\begin{itemize}
+  \item No pass-by-reference. You get pass-by-value or you get
+    pointers, full stop.
+  \item No \texttt{bool} type (well, not in the way you're used to ---
+    nonzero is truthy and zero is falsy, and there's no native
+    \texttt{true}/\texttt{false}).
+  \item No \texttt{nullptr}; you use the \texttt{NULL} macro (which is
+    basically just \texttt{0} cast to a pointer).
+  \item I/O is \texttt{printf}/\texttt{scanf} rather than streams.
+\end{itemize}
+
+We played with two small files to make this concrete. The first,
+\texttt{arraything.c}, shows that arrays do decay to pointers --- so
+you pass the length by hand --- and that you iterate with a plain
+\texttt{for} loop rather than an iterator:
+
+\begin{lstlisting}[language=C]
+void arrayMunger(int a[], int s){
+  for(int i=0; i<s; i++){
+    a[i] = 2*a[i];
+  }
+}
+\end{lstlisting}
+
+The little commentary \texttt{// arr[i] ===> *(arr + i)} hints at the
+thing we'll lean on all term: indexing is just pointer arithmetic in
+disguise.
+
+The second file, \texttt{passPointy.c}, makes the ``no pass by
+reference'' point tangible. If you want a function to modify its
+caller's variable, you pass the \emph{address} and dereference inside:
+
+\begin{lstlisting}[language=C]
+void intMunger(int* p){
+  *p = 2*(*p);
+}
+\end{lstlisting}
+
+And you call it with \texttt{intMunger(\&test);}. That ampersand is
+doing real work --- it's giving you a pointer to \texttt{test} rather
+than a copy of it.
+
+\subsection*{Bitwise operations}
+
+We went through the usual suspects with truth tables:
+\begin{itemize}
+  \item \texttt{\&} (AND), \texttt{|} (OR), \texttt{\^{}} (XOR),
+    \texttt{\textasciitilde{}} (NOT).
+  \item \texttt{<<} (shift left, pads with zeroes, anything that
+    falls off the edge is gone) and \texttt{>>} (shift right, same
+    idea on the other side).
+\end{itemize}
+
+The file \texttt{bitmunger1.c} is where this all came together. It
+defines a little loop that prints out the 32 bits of an \texttt{int},
+lets you pick a bit to toggle, and optionally negates the integer via
+two's complement:
+
+\begin{lstlisting}[language=C]
+void toggleBit(int* num,int place){
+  *num = (*num) ^ (1 << place);
+}
+
+void twosComplement(int* num){
+    *num = ~((*num) - 1);
+}
+\end{lstlisting}
+
+\texttt{toggleBit} is the canonical XOR trick: XOR-ing a bit with 1
+flips it, XOR-ing with 0 leaves it alone. \texttt{twosComplement}
+implements the ``subtract one, then invert'' rule for negating a
+two's-complement integer.
+
+\subsection*{Peeking inside an integer: two's complement}
+
+We derived why two's complement works. A plain unsigned $n$-bit
+integer encodes
+\[
+  \sum_{i=0}^{n-1} b_i \cdot 2^i,
+\]
+so \texttt{11111111} (8 bits) is $128 + 64 + \cdots + 1 = 255$. In
+two's complement, the top bit's weight flips sign:
+\[
+  -b_{n-1} \cdot 2^{n-1} + \sum_{i=0}^{n-2} b_i \cdot 2^i.
+\]
+That gives you one clean mental check: all-ones is always $-1$,
+because $-2^{n-1} + (2^{n-1} - 1) = -1$. And to negate a number, you
+subtract one then invert all the bits (or equivalently, invert and
+then add one).
+
+\subsection*{A preview of floats}
+
+We ran out of time before we could fully explore floats, but I showed
+off \texttt{floatmunger1.c}, which is structurally the same as
+\texttt{bitmunger1.c} but reinterprets an \texttt{int}'s bits as a
+\texttt{float} via a pointer cast. The little spaces it prints
+(between bits 31/30 and 23/22) are hinting at the IEEE-754 sign /
+exponent / fraction split we'll dig into next time.
+
+\section{Lecture 2 --- Hex, Endianness, IEEE-754, and Where Floats Lie to You}
+
+The plan was to finish the float discussion we previewed on day one,
+but before diving in we took a small detour through hex and
+endianness.
+
+\subsection*{Warm-up: hex codes and the shape of a pointer}
+
+Hex is base-16, digits 0--F. The reason it shows up everywhere ---
+addresses, colors, byte dumps --- is that two hex digits are exactly
+one byte ($16 \cdot 16 = 256 = 2^8$). So when you see an RGBA color
+like \texttt{\#8765AF}, that's really three (or four) bytes: one for
+red, one for green, one for blue, optionally one for transparency.
+
+\subsection*{Endianness}
+
+We wrote \texttt{byteOrderTest.c} to actually look at how an 8-byte
+integer is laid out in memory on our machines:
+
+\begin{lstlisting}[language=C]
+long int num = 0x0123456789abcdef;
+unsigned char* p = (unsigned char*)&num;
+
+printf("The bytes are stored in memory as: ");
+for(int i=0; i<8; i++){
+  printf("%x ",*(p+i));
+}
+\end{lstlisting}
+
+On an x86-64 box this prints the bytes out in the opposite order from
+how we wrote the literal --- classic little-endian. The trick is the
+\texttt{(unsigned char*)} cast: once we have a byte-pointer, pointer
+arithmetic moves us one byte at a time, so we can walk the actual
+storage.
+
+\subsection*{Sizes and pointers}
+
+Alongside that, \texttt{sizes.c} just prints \texttt{sizeof(int)},
+\texttt{sizeof(long)}, \texttt{sizeof(char)}, \texttt{sizeof(float)},
+\texttt{sizeof(double)}, and the size of a pointer. On our 64-bit
+Linux boxes: int is 4, long is 8, char is 1, float is 4, double is 8,
+and any pointer is 8. That last one is the important bit ---
+\emph{all} pointers are the same size, regardless of what they point
+to, because they're all just addresses.
+
+And \texttt{pointerArith.c} drove home that pointer arithmetic scales
+with the \emph{pointee} size. An \texttt{int*} advances 4 bytes per
+\texttt{+1}, a \texttt{char*} advances 1, a \texttt{char**} advances
+8, and so on.
+
+\subsection*{IEEE-754, formally}
+
+We did the 32-bit (\texttt{float}) version because the 64-bit version
+is just ``same thing with bigger fields.''
+
+\begin{itemize}
+  \item 1 bit sign
+  \item 8 bits exponent (stored with a bias of 127)
+  \item 23 bits fraction
+\end{itemize}
+
+In the normal case, the value is
+\[
+  (-1)^s \cdot 2^{e - 127} \cdot (1 + f),
+\]
+where $f$ is the fractional part read as ``rational binary'': the bit
+at position $k$ after the implicit point contributes $2^{-k}$.
+
+Worked example: \texttt{0 10000001 1010\ldots0} is
+\[
+  (-1)^0 \cdot 2^{129 - 127} \cdot (1 + \tfrac12 + \tfrac18)
+  = 4 \cdot \tfrac{13}{8} = 6.5.
+\]
+
+We exercised this live with \texttt{floatmunger1.c} (same idea as
+lecture 1, but now with \texttt{\%.16f} so you can see lots of digits).
+Flipping specific bits and watching the printed value change is the
+single best way to internalize the format.
+
+\subsubsection*{Edge cases}
+
+\begin{itemize}
+  \item Exponent is all 1s:
+    \begin{itemize}
+      \item fraction is zero $\Rightarrow$ $\pm\infty$,
+      \item fraction is nonzero $\Rightarrow$ \texttt{NaN}.
+    \end{itemize}
+  \item Exponent is all 0s (subnormal numbers): the exponent sticks at
+    $2^{-126}$, but the leading implicit 1 is gone, so the value is
+    $(-1)^s \cdot 2^{-126} \cdot f$.
+\end{itemize}
+
+\subsection*{Where floats lie to you}
+
+\texttt{floatlimit.c} is the ``gotcha'' example:
+
+\begin{lstlisting}[language=C]
+float f = 0.0001;
+float accum = 0;
+for(int i=0; i<10000; i++){
+  accum += f;
+}
+printf("%.20f\n",accum);
+\end{lstlisting}
+
+We'd love this to print \texttt{1.00000000000000000000}. It doesn't.
+The reason is a mix of: 0.0001 is not exactly representable in binary,
+and we're accumulating that small rounding error 10{,}000 times.
+
+Why is this \emph{unavoidable}? A bit of math: the rationals and the
+integers are countably infinite, but the reals form a strictly larger
+uncountable set. There is no way to cover the reals with finitely many
+bits, or even with countably many bits; we're forced to pick a
+countable scatter of ``breadcrumbs'' and round every other real to the
+nearest one.
+
+\subsubsection*{Round to even}
+
+To keep that rounding error from biasing one direction, IEEE-754
+specifies ``round to even'': when a real is exactly halfway between
+two breadcrumbs, the hardware rounds to the one whose last bit is
+zero. Over many operations this rounds up about as often as it rounds
+down.
+
+\section{Lecture 3 --- \texttt{malloc}, and Your First Real Assembly}
+
+The real headline today: we left C-land and wrote actual assembly
+against the bare Linux syscall interface. But first, I owed you
+\texttt{malloc}.
+
+\subsection*{\texttt{malloc}, finally}
+
+In my rush last time I completely skipped dynamic allocation, which is
+embarrassing, so we opened with two quick examples.
+
+\texttt{malloc.c} is the minimum viable pointer dance:
+
+\begin{lstlisting}[language=C]
+int* n = malloc(sizeof(int));
+*n = 10;
+printf("%d\n",*n);
+free(n);
+n = 0;
+if(0 == NULL){
+  printf("Yup\n");
+}
+\end{lstlisting}
+
+Two things to note. First, \texttt{malloc} always returns a pointer
+and always needs you to tell it how many bytes you want --- unlike
+\texttt{new T} in C++, it doesn't know anything about your type, so
+you pass \texttt{sizeof(int)} (or a multiple of it). Second, that
+final \texttt{if} is my excuse to point out that \texttt{NULL} is
+literally just \texttt{0} cast to a pointer type.
+
+\texttt{malloc2.c} extends this to an array and a struct:
+
+\begin{lstlisting}[language=C]
+int* narr = malloc(100*sizeof(int));
+narr[2] = 5;
+
+struct Goofus* g = malloc(sizeof(struct Goofus));
+g->g1 = 5;            // same thing as (*g).g1
+\end{lstlisting}
+
+Once you've got a pointer from \texttt{malloc}, you can index it just
+like an array. The \texttt{->} arrow is shorthand for ``dereference
+then access a field.''
+
+\subsection*{Stepping back: what is a CPU, anyway?}
+
+The big conceptual pivot for the rest of the term:
+\begin{itemize}
+  \item A CPU is, at bottom, a thing that fetches \emph{instructions}
+    from memory and does what they say.
+  \item The set of instructions it understands is an \emph{instruction
+    set architecture} (ISA). Ours is x86-64.
+  \item Assembly language is a one-to-one (ish) textual encoding of
+    those instructions, so writing assembly is as close to ``talking
+    to the CPU'' as we'll practically get.
+  \item Registers are a tiny amount of extremely fast storage inside
+    the CPU itself. Most instructions operate on registers; memory
+    comes in via load/store.
+  \item Memory hierarchy, the 30-second version: registers $\to$
+    L1/L2/L3 cache $\to$ main memory $\to$ disk. Each level is
+    roughly an order of magnitude slower and roughly an order of
+    magnitude bigger than the one above it.
+\end{itemize}
+
+I also mentioned \texttt{gcc -S}, which tells gcc to stop at assembly
+rather than assemble and link. We'll come back to it.
+
+\subsection*{Your first bare assembly program}
+
+\texttt{first.s} is deliberately broken:
+
+\begin{lstlisting}
+    .section .text
+    .global _start
+
+_start:
+    mov $60,%rax
+\end{lstlisting}
+
+This is the shortest thing that looks like an assembly program. The
+\texttt{.text} section is where code lives; \texttt{\_start} is the
+symbol the linker uses as the program entry point (unlike in a C
+program, there is no runtime to call \texttt{main} for us).
+
+We moved \texttt{60} into \texttt{\%rax} --- 60 is the syscall number
+for \texttt{exit} on x86-64 Linux --- and then\ldots{} did nothing
+else. Because we never actually issued the \texttt{syscall}
+instruction and there's no implicit return, the CPU just wandered off
+the end of our code and trapped. Hence the crash.
+
+\texttt{firstfixed.s} is the corrected version:
+
+\begin{lstlisting}
+_start:
+    mov $60,%rax
+    mov $-1,%rdi
+    syscall
+\end{lstlisting}
+
+Syscall convention: put the syscall number in \texttt{\%rax}, put
+arguments in \texttt{\%rdi}, \texttt{\%rsi}, \texttt{\%rdx}, etc., and
+then execute \texttt{syscall}. For \texttt{exit(status)}, the status
+goes in \texttt{\%rdi}. So this exits with status \texttt{-1}, and
+\texttt{echo \$?} in the shell will confirm it.
+
+\subsection*{\texttt{add} and \texttt{sub}}
+
+\texttt{firstadd.s} and \texttt{firstsub.s} are our first binary
+operations:
+
+\begin{lstlisting}
+_start:
+    mov $10,%rbx
+    mov $20,%rcx
+    add %rbx,%rcx
+    mov %rcx,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+Syntax note that will bite you all term: in AT\&T syntax,
+\texttt{add S, D} means \texttt{D = D + S}. The destination is on the
+\emph{right}. So \texttt{add \%rbx,\%rcx} leaves 30 in
+\texttt{\%rcx}. \texttt{sub} is analogous: \texttt{sub \%rbx,\%rcx}
+computes \texttt{D - S} and leaves 10 in \texttt{\%rcx}.
+
+We also did the fun thing of running \texttt{gcc -S test.c} on a tiny
+C file and skimming the output (\texttt{test.s}). It's noisy
+(\texttt{.cfi\_}directives, frame setup, PLT calls) but the actual
+work is recognizable: move 10 into a local, load it into
+\texttt{\%esi}, load the format string's address via \texttt{leaq},
+call \texttt{printf@PLT}.
+
+\section{Lecture 4 --- Registers, Calling Convention, Addressing Modes, Control Flow, and ``Hello, world''}
+
+Today was a dense one: we filled in the register table, introduced the
+Linux x86-64 calling convention, walked through every addressing mode
+we'll use for arrays, covered \texttt{cmp}/\texttt{jmp}, wrote a
+for-loop in assembly, and finished by doing \texttt{write} and
+\texttt{exit} syscalls by hand.
+
+\subsection*{Logistics}
+
+The Linux server admin is in the process of activating accounts for
+folks who can't log in yet, so hang tight if that's you.
+
+\subsection*{Register reference}
+
+The basic x86-64 general-purpose registers and what they were
+historically used for:
+
+\begin{itemize}
+  \item \texttt{\%rax} --- accumulator (return values, implicit operand
+    for \texttt{mul}/\texttt{div}).
+  \item \texttt{\%rbx} --- base register (historically an array base).
+  \item \texttt{\%rcx} --- counter (loops, \texttt{rep}).
+  \item \texttt{\%rdx} --- data (I/O, upper half of
+    multiplication/division).
+  \item \texttt{\%rsi} --- source index (string ops).
+  \item \texttt{\%rdi} --- destination index (string ops).
+  \item \texttt{\%rbp} --- base pointer (stack frame base).
+  \item \texttt{\%rsp} --- stack pointer (top of the stack).
+  \item \texttt{\%r8}--\texttt{\%r15} --- extra general-purpose
+    registers.
+  \item \texttt{\%rip} --- instruction pointer; we don't write to this
+    directly, but we \emph{do} use it in RIP-relative addressing.
+\end{itemize}
+
+The floating-point/SIMD registers (\texttt{\%xmm0}\ldots{}) live in
+the \texttt{assemblyGuide.org} in the repo.
+
+\subsection*{Linux/x86-64 calling convention, first pass}
+
+\begin{itemize}
+  \item Return values go in \texttt{\%rax}.
+  \item The first six integer/pointer arguments are passed in, in
+    order:
+    \texttt{\%rdi}, \texttt{\%rsi}, \texttt{\%rdx}, \texttt{\%rcx},
+    \texttt{\%r8}, \texttt{\%r9}.
+\end{itemize}
+
+Syscalls use a slightly different convention (the fourth argument is
+\texttt{\%r10}, not \texttt{\%rcx}), but for function calls in user
+code the list above is what you want.
+
+\subsection*{\texttt{add}/\texttt{sub}, again}
+
+We re-ran \texttt{firstadd.s} from last time as a warm-up; the only
+new thing is a pair of clarifying comments explaining that
+\texttt{\%rdi} is the exit-code argument and \texttt{60} in
+\texttt{\%rax} selects the \texttt{exit} syscall.
+
+\subsection*{Global variables: values, pointers, and \texttt{lea}}
+
+Three files building on each other:
+
+\texttt{addGlobal.s} --- define a global with \texttt{.quad}, then
+load, add, store, load-again:
+
+\begin{lstlisting}
+    .section .data
+num:    .quad 200
+
+_start:
+    mov num,%rbx       # load num into %rbx
+    add $10,%rbx
+    mov %rbx,num       # store back
+    mov num,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+This works, but referencing a symbol like \texttt{num} directly makes
+the assembler emit an absolute address, which is awkward for
+position-independent code.
+
+\texttt{addGlobalBetter.s} --- same thing, but using
+\emph{RIP-relative} addressing:
+
+\begin{lstlisting}
+    mov num(%rip),%rbx
+    add $10,%rbx
+    mov %rbx,num(%rip)
+\end{lstlisting}
+
+Here \texttt{num(\%rip)} means ``the address that is
+\texttt{num}-minus-the-next-instruction bytes away from the current
+instruction pointer.'' The assembler computes that offset for us at
+build time. This is the form you want in modern code.
+
+\texttt{addGlobalLea.s} --- now using \texttt{lea} to take
+\emph{the address of} \texttt{num}, the way \texttt{\&} does in C:
+
+\begin{lstlisting}
+    lea num(%rip),%rbx   # rbx = &num
+    addq $10,(%rbx)      # *rbx = *rbx + 10
+    mov num(%rip),%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+The comment block at the bottom of the file spells out the C
+equivalent:
+\begin{lstlisting}[language=C]
+int num = 200;
+int* nump = &num;
+*nump = *nump + 10;
+\end{lstlisting}
+
+Parentheses around a register mean ``dereference.'' So \texttt{(\%rbx)}
+is ``the 8 bytes of memory starting at the address held in
+\texttt{\%rbx}.''
+
+\subsection*{From a scalar to an array}
+
+Four files, one new addressing idea at a time.
+
+\texttt{addArray1.s} --- change \texttt{num} to an array of four
+quadwords. The code is unchanged, so it just touches the first element.
+
+\texttt{addArray2.s} --- to get at element 1, add 8 to the pointer
+(because one \texttt{.quad} is 8 bytes):
+
+\begin{lstlisting}
+    lea num(%rip),%rbx
+    addq $8,%rbx
+    addq $10,(%rbx)
+    movq (%rbx),%rdi
+\end{lstlisting}
+
+\texttt{addArray3.s} --- same effect, but using the full ``scale-index''
+addressing mode:
+
+\begin{lstlisting}
+    lea num(%rip),%rbx
+    mov $1,%rcx
+    addq $10,(%rbx,%rcx,8)     # *(base + index*8)
+    movq (%rbx,%rcx,8),%rdi
+\end{lstlisting}
+
+The syntax \texttt{(base, index, scale)} computes
+\texttt{base + index*scale}. The scale has to be 1, 2, 4, or 8. This
+is exactly how C-style array indexing compiles --- you'll see the same
+form over and over.
+
+\texttt{addArray4.s} --- same as \texttt{addArray2}, but with
+\texttt{.long} (4-byte) elements instead of \texttt{.quad}, which
+forces us to use the \texttt{l} suffix (\texttt{addl},
+\texttt{movl}) and the 32-bit register name \texttt{\%edi}.
+
+Note the subtle point: with \texttt{.long}, a step of ``one element''
+is 4 bytes, not 8. In the file as written, we advanced the pointer by
+8 bytes, which lands us at element \emph{two} of the \texttt{.long}
+array, not element one. That kind of size/stride mismatch is a classic
+bug I'll keep harping on all term.
+
+\subsection*{\texttt{cmp} and \texttt{jmp}}
+
+\texttt{cmp S, D} does (roughly) \texttt{D - S} and sets flags without
+saving the result anywhere. The conditional jumps then read those
+flags:
+
+\begin{itemize}
+  \item \texttt{jmp} --- unconditional.
+  \item \texttt{jl} --- $D < S$. (Yes, \texttt{cmp S, D} then ``if
+    less'' compares $D$ to $S$; it still surprises me.)
+  \item \texttt{jle} --- $D \le S$.
+  \item \texttt{je}, \texttt{jne} --- equal, not equal.
+  \item \texttt{jg}, \texttt{jge} --- greater, greater-or-equal.
+\end{itemize}
+
+The demo, \texttt{cmp1.s}:
+
+\begin{lstlisting}
+    mov $10,%rbx
+    mov $20,%rcx
+    mov $-1,%rdi
+    cmp %rbx,%rcx     # flags set as if computing %rcx - %rbx
+    jge greater
+    mov $1,%rdi
+greater:
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+Since $20 \ge 10$, we jump to \texttt{greater} and exit with status
+\texttt{-1} (or \texttt{255} as far as the shell is concerned).
+
+\subsection*{A for-loop in assembly}
+
+Two flavors of ``sum the numbers from 1 to 10.''
+
+\texttt{sumLoop.s} counts up:
+
+\begin{lstlisting}
+    mov $0,%rbx        # accumulator
+    mov $1,%rcx        # counter
+loopStart:
+    add %rcx,%rbx
+    add $1,%rcx
+    cmp $10,%rcx
+    jle loopStart
+\end{lstlisting}
+
+\texttt{sumLoopB.s} counts down:
+
+\begin{lstlisting}
+    mov $0,%rbx
+    mov $10,%rcx
+loopStart:
+    add %rcx,%rbx
+    sub $1,%rcx
+    cmp $0,%rcx
+    jg loopStart
+\end{lstlisting}
+
+Both leave 55 in \texttt{\%rbx}, which we then move into
+\texttt{\%rdi} so we can read it out as the exit status.
+
+\subsection*{Buffers, strings, and \texttt{write}}
+
+The grand finale, \texttt{hello.s}:
+
+\begin{lstlisting}
+    .section .data
+msg:    .asciz "Hello world!\n"
+hellolen = . - msg
+
+    .section .text
+    .globl _start
+
+_start:
+    mov $1,%rax             # syscall number for write
+    mov $1,%rdi             # fd = 1 (stdout)
+    lea msg(%rip),%rsi      # buffer address
+    mov $hellolen,%rdx      # number of bytes
+    syscall
+
+    xor %rdi,%rdi           # exit status 0
+    mov $60,%rax            # syscall number for exit
+    syscall
+\end{lstlisting}
+
+Points of interest:
+\begin{itemize}
+  \item \texttt{.asciz} lays down the characters followed by a null
+    terminator.
+  \item \texttt{hellolen = . - msg} is a classic assembly idiom: the
+    dot is ``current address,'' so subtracting the start of
+    \texttt{msg} gives the length in bytes, including the newline and
+    the terminator. We use that as the third argument to \texttt{write}.
+  \item \texttt{write} is syscall 1 on Linux x86-64. Arguments are
+    \texttt{(fd, buf, count)} in \texttt{\%rdi}, \texttt{\%rsi},
+    \texttt{\%rdx}.
+  \item \texttt{xor \%rdi,\%rdi} is the idiomatic way to zero a
+    register --- one byte shorter than \texttt{mov \$0,\%rdi}.
+\end{itemize}
+
+Next time we'll close this out with an \texttt{echo}-style program
+that \emph{reads} from stdin and writes back, which means handling
+buffers properly.
+
+\end{document}

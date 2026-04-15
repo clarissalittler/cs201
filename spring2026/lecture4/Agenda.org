@@ -1,0 +1,43 @@
+* Agenda
+** Logistic note
+ + the linux server admin should be fixing whatever accounts are not activated
+** Register reference
+ Basic registers
+ + =%rax=: accumulator register (for operations like mul, div, etc.)
+ + =%rbx=: base register (historically used for array base address)
+ + =%rcx=: counter register (used in loops and rep instructions)
+ + =%rdx=: data register (used in I/O operations, multiplication, and division)
+ + =%rsi=: source index for string operations
+ + =%rdi=: destination index for string operations
+ + =%rbp=: base pointer (often used to point to function stack frames)
+ + =%rsp=: stack pointer (points to top of the stack)
+ + =%r8= – =%r15=: additional general-purpose registers
+ + =%rip= (special case, you won't use it except in rip-relative addressing)
+ For floating-point and vector/SIMD registers, check out the assemblyGuide.org 
+** Linux/x86-64 calling convention (first pass) 
+ + Functions must return values via =%rax=
+ + Arguments are passed into functions via the registers (presented in order):
+   + =%rdi=
+   + =%rsi=
+   + =%rdx=
+   + =%rcx=
+   + =%r8=
+   + =%r9=
+** add/sub, again
+** global variables
+ + a value vs. a pointer
+ + using lea
+** cmp and jmp
+ + cmp s,d roughly does a subtraction of d-s 
+ + jmp
+ + jl (d < s)
+ + jle
+ + je
+ + jne
+ + jg
+ + jge
+** making a simple for-loop
+** buffers/strings
+** reading and writing with syscalls
+ + hello world
+ + echo
