@@ -44,7 +44,8 @@
 # Returns:
 #   %rax = fib(n)
 # Local Variables:
-#   -8(%rbp) = storage for fib(n-1) result
+#   -8(%rbp)  = storage for fib(n-1) result
+#   -16(%rbp) = saved copy of n, preserved across both recursive calls
 #
 # RECURSION CALL TREE for fib(4):
 #                    fib(4)
@@ -79,12 +80,12 @@ fib:
 
     sub $16, %rsp             # ALLOCATE SPACE FOR LOCAL VARIABLES
                              # Reserve 16 bytes on the stack
-                             # WHY 16? We need 8 bytes for storing fib(n-1)
-                             # Extra 8 bytes maintains 16-byte stack alignment
-                             # (required by x86-64 ABI for function calls)
+                             # WHY 16? We need 8 bytes for fib(n-1) and
+                             # 8 bytes for a saved copy of n. Using 16 also
+                             # keeps %rsp 16-byte aligned (ABI requirement).
                              # MEMORY LAYOUT:
                              # %rbp - 8  : will hold fib(n-1)
-                             # %rbp - 16 : unused (for alignment)
+                             # %rbp - 16 : saved n (used across both recursive calls)
 
     # BASE CASE CHECK: if (n <= 1)
     # This is CRITICAL - without base case, infinite recursion!
@@ -105,16 +106,20 @@ fib:
     # We need to compute: fib(n-1) + fib(n-2)
     # Challenge: Making two recursive calls and preserving values
 
+    # SAVE n INTO A LOCAL SLOT (not via push!)
+    mov %rdi, -16(%rbp)       # Save n at -16(%rbp)
+                             # WHY A LOCAL SLOT INSTEAD OF 'push %rdi'?
+                             # Because push would move %rsp by 8 bytes, leaving
+                             # %rsp % 16 == 8 at the moment of the next 'call'.
+                             # The SysV ABI requires %rsp % 16 == 0 right before
+                             # every call. Saving into a slot we already allocated
+                             # preserves that alignment.
+                             # %rdi is caller-saved; the recursive call is allowed
+                             # to trash it, so we keep our own copy.
+
     # FIRST RECURSIVE CALL: fib(n - 1)
 
-    push %rdi                 # SAVE n ON THE STACK
-                             # WHY? We're about to modify %rdi for the recursive call
-                             # Need to preserve n for later use
-                             # %rdi is caller-saved, so recursive call will destroy it
-                             # After this: stack has [..., saved_rbp, saved_n]
-
-    dec %rdi                  # DECREMENT n BY 1
-                             # %rdi = n - 1
+    dec %rdi                  # %rdi = n - 1
                              # This is the parameter for fib(n-1)
                              # dec is shorthand for: sub $1,%rdi
 
@@ -125,45 +130,25 @@ fib:
                              # 3. fib executes with parameter n-1
                              # 4. Result returns in %rax
                              # 5. Stack unwinds back to here
-                             # THIS IS THE MAGIC OF RECURSION:
-                             # Each call gets its own stack frame!
 
     mov %rax, -8(%rbp)        # SAVE fib(n-1) RESULT
                              # Store result in our local variable at %rbp-8
                              # WHY? We need to preserve this value across next call
                              # The next call to fib will overwrite %rax
-                             # Now: local variable = fib(n-1)
-
-    pop %rdi                  # RESTORE n FROM STACK
-                             # Retrieve the original n value we saved earlier
-                             # %rdi = n again
-                             # Stack shrinks back to: [..., saved_rbp]
 
     # SECOND RECURSIVE CALL: fib(n - 2)
 
-    push %rdi                 # SAVE n AGAIN
-                             # Need to preserve n while we modify it
-                             # Yes, we just popped it, but we need it again after this call
+    mov -16(%rbp), %rdi       # Reload the saved n into %rdi
+                             # %rdi = n again, ready to compute n-2
 
-    dec %rdi                  # DECREMENT n BY 1
-                             # %rdi = n - 1
-                             # But we need n-2, so...
-
-    dec %rdi                  # DECREMENT n BY 1 AGAIN
-                             # %rdi = (n - 1) - 1 = n - 2
-                             # This is the parameter for fib(n-2)
-                             # Could use: sub $2,%rdi instead
+    dec %rdi                  # %rdi = n - 1
+    dec %rdi                  # %rdi = n - 2
+                             # Could also write: sub $2,%rdi
 
     call fib                  # RECURSIVE CALL: fib(n - 2)
                              # Another recursive call
                              # Result returns in %rax
-                             # This may trigger even more recursive calls
-                             # The stack keeps growing with each recursive call
-
-    pop %rdi                  # RESTORE n AGAIN
-                             # Get original n back (though we don't actually use it)
-                             # Good practice to clean up what we pushed
-                             # Keeps stack balanced
+                             # (Stack remains aligned because we didn't push anything.)
 
     # COMBINE RESULTS: fib(n-1) + fib(n-2)
 
@@ -376,7 +361,8 @@ _start:
 #
 # CALLER-SAVED (we must save if we need them):
 #   %rax, %rcx, %rdx, %rsi, %rdi, %r8-r11
-#   We push %rdi (parameter n) because recursive calls destroy it
+#   We save %rdi into a local slot (-16(%rbp)) because recursive calls destroy it.
+#   (See the note in the function body about why we don't just 'push %rdi'.)
 #
 # CALLEE-SAVED (fib must preserve for its caller):
 #   %rbp, %rbx, %r12-r15
@@ -453,8 +439,9 @@ _start:
 #    Stack overflow crash
 #
 # 2. NOT SAVING n BEFORE RECURSIVE CALLS:
-#    Without "push %rdi", n is lost after first recursive call
-#    Can't compute fib(n-2)
+#    Without "mov %rdi, -16(%rbp)", n is lost after first recursive call
+#    Can't compute fib(n-2). (Pushing %rdi would save n, but misaligns the
+#    stack for the recursive call — use a local stack slot instead.)
 #
 # 3. NOT SAVING fib(n-1) RESULT:
 #    Without "mov %rax,-8(%rbp)", result is lost

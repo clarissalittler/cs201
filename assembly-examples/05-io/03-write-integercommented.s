@@ -186,17 +186,18 @@
     # Outputs:
     #   None (prints to stdout as a side effect)
     #
-    # Registers used (clobbered):
-    #   %rax, %rbx, %rcx, %rdx, %rsi, %r8
+    # Clobbers (caller-saved, so no need to preserve):
+    #   %rax, %rcx, %rdx, %rsi, %r8
     #   All caller-saved registers may be modified
     #
-    # Stack layout:
-    #   Uses a local buffer of 32 bytes on the stack to store the string.
-    #   32 bytes is enough for:
-    #   - 20 digits (max for 64-bit signed: -9,223,372,036,854,775,808)
-    #   - 1 minus sign
-    #   - null terminator (if needed)
-    #   - alignment padding
+    # Preserves (callee-saved, saved/restored in the prologue/epilogue):
+    #   %rbx, %rbp
+    #
+    # Stack layout (below %rbp):
+    #   -32 .. -1   : 32-byte buffer for the string representation
+    #                 (enough for 20 digits + sign + null + padding)
+    #   -40         : saved %rbx
+    #   -48         : padding (keeps %rsp 16-byte aligned)
     #
     # Notes:
     #   - The function handles negative integers, including INT_MIN (-2^63),
@@ -218,13 +219,19 @@ writeInt:
                                     # %rbp provides stable reference for local variables
                                     # Now: %rbp points to saved caller's %rbp
 
-        subq    $40, %rsp           # Allocate 40 bytes on the stack for local variables
-                                    # WHY 40? 32 bytes for buffer + 8 bytes for alignment
-                                    # Keeps stack 16-byte aligned per ABI requirement
+        subq    $48, %rsp           # Allocate 48 bytes on the stack for local variables
+                                    # WHY 48? 32 bytes for buffer + 8 bytes for saved %rbx
+                                    # + 8 bytes of padding. Multiple of 16 keeps
+                                    # %rsp 16-byte aligned per the SysV ABI.
                                     # Stack grows DOWN (toward lower addresses)
                                     # STACK LAYOUT:
                                     # %rbp - 1  to %rbp - 32 : buffer (32 bytes)
-                                    # %rbp - 40 to %rbp - 33 : padding (8 bytes)
+                                    # %rbp - 40              : saved %rbx
+                                    # %rbp - 48              : padding (8 bytes)
+
+        movq    %rbx, -40(%rbp)     # Save callee-saved %rbx (used as divisor below)
+                                    # %rbx is callee-saved per the SysV ABI — if we
+                                    # trashed it, we'd corrupt the caller's copy.
 
         # Variables:
         # We will use a buffer of 32 bytes on the stack to store the string representation
@@ -335,7 +342,9 @@ check_negative:
         # Division with unsigned value works correctly
 
         # Handle INT_MIN (-2^63), which cannot be negated
-        movq    $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
+        # NOTE: we need movabsq here, not movq — the value 2^63 doesn't fit
+        # in a 32-bit sign-extended immediate, so a plain movq won't encode it.
+        movabsq $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
                                             # This is the UNSIGNED interpretation
                                             # In hex: 0x8000000000000000
                                             # Same bit pattern as INT_MIN, but unsigned
@@ -480,8 +489,11 @@ write_output:
                                     # Output appears on the terminal
 
         # ================================================================
-        # FUNCTION EPILOGUE: Restore stack frame and return
+        # FUNCTION EPILOGUE: Restore callee-saved register, then stack frame
         # ================================================================
+        movq    -40(%rbp), %rbx     # Restore callee-saved %rbx from its saved slot
+                                    # Must happen before 'leave' tears the frame down
+
         leave                       # Restore stack frame
                                     # 'leave' is shorthand for:
                                     #   movq %rbp, %rsp    (deallocate locals)

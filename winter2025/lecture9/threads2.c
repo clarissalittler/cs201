@@ -8,6 +8,7 @@
 // when you see void*, that's
 // polymorphism in C
 void* func1(void* arg){
+  (void)arg;
   printf("Hi I'm a thread!\n");
   return NULL;
   //HEY BOZO, look up why no explicit return gives a pointer of 0x11
@@ -26,8 +27,8 @@ int main(){
   pthread_join(thread1,(void**)&ret1);
   pthread_join(thread2,(void**)&ret2);
 
-  printf("The value of ret1 is: %p\n",ret1);
-  printf("The value of ret2 is: %p\n",ret2);
+  printf("The value of ret1 is: %p\n",(void*)ret1);
+  printf("The value of ret2 is: %p\n",(void*)ret2);
   
   return 0;
 }

@@ -5,28 +5,22 @@
 #include <stdlib.h>     // Standard library for functions like exit
 
 // Declare a global variable 'counter' to keep track of the number of SIGINT signals received
-// 'volatile' tells the compiler that 'counter' can be modified asynchronously (e.g., by a signal handler)
-volatile int counter = 0;
+// 'volatile sig_atomic_t' is the usual type for signal-shared flags/counters.
+volatile sig_atomic_t counter = 0;
 
 // Define the signal handler function for SIGINT
 void sigint_handler(int sig){
-    // Increment the counter each time SIGINT is received
-    counter++;
-    
-    // Print a message indicating a SIGINT was caught and how many more are needed to exit
-    printf("Caught a sigint: Press ctrl-c %d more times to exit\n", 3 - counter);
-    
-    // Check if the counter has reached or exceeded 3
-    if(counter >= 3){
-        // If so, print a farewell message
-        printf("I've been banished!\n");
-        
-        // Exit the program with a success status
-        exit(0);
+    (void)sig; // The example only cares that SIGINT happened.
+
+    // IMPORTANT SIGNAL-HANDLER RULE:
+    // Keep the handler tiny. We only update a signal-safe counter here.
+    if(counter < 3){
+        counter++;
     }
 }
 
 int main(){
+    sig_atomic_t reported = 0;
     // Print an initial message indicating that a SIGINT handler is set up
     printf("We have a ctrl-c handler here!\n");
     
@@ -36,6 +30,17 @@ int main(){
     
     // Enter an infinite loop that continuously prints "Boop boop" every second
     while(true){
+        // Print one status line for each newly received Ctrl-C.
+        while(reported < counter){
+            reported++;
+            printf("Caught a sigint: Press ctrl-c %d more times to exit\n", 3 - reported);
+        }
+
+        if(counter >= 3){
+            printf("I've been banished!\n");
+            break;
+        }
+
         printf("Boop boop\n"); // Print a message to the console
         sleep(1);              // Pause execution for 1 second
     }
@@ -44,6 +49,8 @@ int main(){
     // (This line will never be reached in this program)
     return 0;
 }
+
+/* Example session:
 We have a ctrl-c handler here!
 Boop boop
 Boop boop
@@ -55,3 +62,4 @@ Boop boop
 Boop boop
 ^CCaught a sigint: Press ctrl-c 0 more times to exit
 I've been banished!
+*/

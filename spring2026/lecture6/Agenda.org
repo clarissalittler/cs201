@@ -1,0 +1,33 @@
+* Agenda
+** Graded stack assignments!
+  Good work everyone!
+** Next assignment: writing assembly!
+ + You just need to write a program that
+   + uses an array
+   + reads in input
+   + does something with the read input and the array
+   + ???
+   + profit
+ + You need to make sure it assembles with as and links with ld
+ + No using gcc
+ + You can use the provided readInt and writeInt functions in the assembly guide
+ + Due on May 10th
+** Discussion 3
+ + This isn't meant to be super hard!
+ + Read the positTutorial.org filein the course repo
+ + Posits are a (family) of alternatives to IEE754
+ + The idea of posits are that the normal floating point standard loses /a lot/ of precision with big numbers and has arguably too much precision at really small numbers i.e. you lose too many decimal places on the outer edges and you don't necessarily need to tell the difference between 2^-120 and 2^-119 when doing scientific/engineering/high precision programming
+ + Posits are also intended to be simpler to implement in hardware and since they spread the precision out across the "number line" you can do just as precise of programming for less bits of precision
+ + Posits don't have a bunch of special cases
+   + they just have the single case of NaR
+   + No +/- inf, no NaN
+ + Posits are made up of
+   + sign bit
+   + regime bits (super exponent) <-- vary in size 
+   + exponent bits                <-- vary in size
+   + fractional bits              <-- vary in size
+** Including functions written in other files
+ + readInt
+ + writeInt
+** How to write a recursive function (factorial, fib)
+** Sum loop for an array 

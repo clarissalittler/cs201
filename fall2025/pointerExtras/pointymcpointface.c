@@ -14,15 +14,15 @@ int main(){
   // this is a variable, it lives *somewhere*
   int num = 0;
   // we can check where it lives!
-  printf("%p\n",&num);
+  printf("%p\n",(void*)&num);
   int* np = &num;
 
-  printf("The variable with address %p has a value of %d\n", np, *np);
+  printf("The variable with address %p has a value of %d\n", (void*)np, *np);
 
   worldsWorstInc(np);
   worldsWorstInc(np);
 
-  printf("The variable with address %p now has a value of %d\n", np, *np); 
+  printf("The variable with address %p now has a value of %d\n", (void*)np, *np); 
   
   return 0;
 }

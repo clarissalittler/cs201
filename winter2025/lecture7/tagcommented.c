@@ -35,6 +35,7 @@ volatile sig_atomic_t num = 0;
 // CHILD'S SIGNAL HANDLER:
 // Called when child receives SIGUSR1 from parent
 void handler1(int sig){
+  (void)sig;
   // this will be for the child receiving sigusr1
 
   // REPORT BEING TAGGED:
@@ -53,6 +54,7 @@ void handler1(int sig){
 // PARENT'S SIGNAL HANDLER:
 // Called when parent receives SIGUSR2 from child
 void handler2(int sig){
+  (void)sig;
   // REPORT BEING TAGGED:
   printf("I've been tagged by my child %d times\n",num);
   // Shows how many times child has "tagged" the parent

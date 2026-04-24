@@ -4,6 +4,7 @@
 
 // this uses FILE* instead
 int main(int argc, char* argv[]){
+  (void)argc;
 
   FILE* inputFile = fopen(argv[1],"r+");
   FILE* outputFile = fopen(argv[2],"w");

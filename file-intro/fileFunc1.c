@@ -5,6 +5,7 @@
 // with the normal libraries
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   const int lineSize = 1024;
   

@@ -71,6 +71,7 @@
 // WHAT THIS FUNCTION DOES:
 // Just prints a message to show the thread is running
 void* func(void* arg){
+  (void)arg;
 
   // SIMPLE OUTPUT:
   // Print from the thread to show it's executing

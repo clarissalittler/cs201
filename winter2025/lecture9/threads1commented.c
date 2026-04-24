@@ -53,6 +53,7 @@
 // Simple: just prints a message
 // Both threads will execute this same function
 void* func1(void* arg){
+  (void)arg;
 
   // SIMPLE OUTPUT:
   // Print a message to show this thread is running

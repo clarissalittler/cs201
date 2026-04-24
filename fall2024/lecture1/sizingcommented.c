@@ -11,12 +11,12 @@ int main() {  // Main function - the entry point of the program
   double** p2;  // Declare a variable 'p2' of type double** (pointer to a pointer to a double)
 
   // Print the size of each data type using the sizeof operator
-  printf("The size of a char is: %u\n", sizeof(c)); // Output: The size of a char in bytes
-  printf("The size of an int is: %u\n", sizeof(i)); // Output: The size of an int in bytes
-  printf("The size of a float is: %u\n", sizeof(f)); // Output: The size of a float in bytes
-  printf("The size of a double is: %u\n", sizeof(nd)); // Output: The size of a double in bytes
-  printf("The size of an int* is: %u\n", sizeof(p1)); // Output: The size of a pointer to an int in bytes
-  printf("The size of a double** is: %u\n", sizeof(p2)); // Output: The size of a pointer to a pointer to a double in bytes
+  printf("The size of a char is: %zu\n", sizeof(c)); // Output: The size of a char in bytes
+  printf("The size of an int is: %zu\n", sizeof(i)); // Output: The size of an int in bytes
+  printf("The size of a float is: %zu\n", sizeof(f)); // Output: The size of a float in bytes
+  printf("The size of a double is: %zu\n", sizeof(nd)); // Output: The size of a double in bytes
+  printf("The size of an int* is: %zu\n", sizeof(p1)); // Output: The size of a pointer to an int in bytes
+  printf("The size of a double** is: %zu\n", sizeof(p2)); // Output: The size of a pointer to a pointer to a double in bytes
 
   return 0; // Return 0 to indicate successful program execution
 }

@@ -35,7 +35,7 @@ int main(){
                                             // c points to the first byte of those 4 bytes
                                             // c+1 points to the second byte, etc.
 
-  for(int i=0; i<sizeof(typeof(n)); i++){  // LOOP THROUGH EACH BYTE: Iterate over all bytes
+  for(size_t i = 0; i < sizeof(n); i++){   // LOOP THROUGH EACH BYTE: Iterate over all bytes
                                             // typeof(n) gets the type of n (which is int)
                                             // sizeof(typeof(n)) gets size in bytes (typically 4)
                                             // Could also write: sizeof(int) or sizeof(n)
@@ -45,7 +45,7 @@ int main(){
                                             // - typeof is a GCC extension (not standard C)
                                             // - Standard C would use: sizeof(n)
 
-    printf("The %d th byte of n is: %x \n",i,*(c+i));  // PRINT EACH BYTE
+    printf("The %zu th byte of n is: %x \n",i,*(c+i)); // PRINT EACH BYTE
                                                         // i is the byte index (0, 1, 2, 3)
                                                         // c+i is pointer arithmetic: address of i-th byte
                                                         // *(c+i) dereferences to get the byte value

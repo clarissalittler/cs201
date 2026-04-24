@@ -10,6 +10,7 @@ int counter = 0;
 pthread_mutex_t mut;
 
 void* threadWorker(void* arg){
+  (void)arg;
   sleep(rand()%3+1);
 
   int temp;

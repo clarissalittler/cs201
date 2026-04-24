@@ -8,6 +8,7 @@
 int ourCounter = 0;
 
 void* threadCounter(void* arg){
+  (void)arg;
   int temp = ourCounter;
 
   sleep(rand()%3);

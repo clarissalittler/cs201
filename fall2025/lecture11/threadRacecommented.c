@@ -33,6 +33,7 @@ int counter = 0;
 //   - Must take void* as parameter (even if unused)
 //   - This is the standard signature for pthread functions
 void* incer(void* arg){
+  (void)arg;
 
   // THE RACE CONDITION HAPPENS HERE:
   // This looks like simple code, but it's actually THREE operations:

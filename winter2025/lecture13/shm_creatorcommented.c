@@ -32,25 +32,31 @@ struct drawing_board {
 };
 
 // GLOBAL RESOURCES:
-// Needed for cleanup in signal handler
-int shm_fd;
-struct drawing_board *board_ptr;
-sem_t *sem_ptr;
+// stop_requested is the signal-safe flag. Actual cleanup happens later.
+int shm_fd = -1;
+struct drawing_board *board_ptr = NULL;
+sem_t *sem_ptr = NULL;
+volatile sig_atomic_t stop_requested = 0;
 
 // CLEANUP HANDLER:
-// Called on Ctrl+C to clean up resources
+// Called on Ctrl+C to request shutdown.
 void cleanup(int sig) {
-    printf("\nCleaning up resources...\n");
-    if (board_ptr) munmap(board_ptr, SHM_SIZE);
+    static const char msg[] = "\nCleaning up resources...\n";
+    (void)sig;
+    stop_requested = 1;
+    write(STDOUT_FILENO, msg, sizeof(msg) - 1);
+}
+
+static void cleanup_resources(void) {
+    if (board_ptr && board_ptr != MAP_FAILED) munmap(board_ptr, SHM_SIZE);
     if (shm_fd != -1) {
         close(shm_fd);
         shm_unlink(SHM_NAME);  // Remove shared memory
     }
-    if (sem_ptr) {
+    if (sem_ptr && sem_ptr != SEM_FAILED) {
         sem_close(sem_ptr);
         sem_unlink(SEM_NAME);  // Remove semaphore
     }
-    exit(0);
 }
 
 // DISPLAY FUNCTION:
@@ -87,21 +93,42 @@ void display_board(struct drawing_board *board_ptr) {
 }
 
 int main() {
-    signal(SIGINT, cleanup);  // Set up Ctrl+C handler
+    struct sigaction sa = {0};
+    sa.sa_handler = cleanup;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);  // Set up Ctrl+C handler
 
     // CREATE SHARED MEMORY:
     shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
-    ftruncate(shm_fd, SHM_SIZE);
+    if (shm_fd == -1) {
+        perror("shm_open");
+        return EXIT_FAILURE;
+    }
+    if (ftruncate(shm_fd, SHM_SIZE) == -1) {
+        perror("ftruncate");
+        cleanup_resources();
+        return EXIT_FAILURE;
+    }
 
     // MAP SHARED MEMORY:
     board_ptr = (struct drawing_board *)mmap(NULL, SHM_SIZE,
                                            PROT_READ | PROT_WRITE, MAP_SHARED,
                                            shm_fd, 0);
+    if (board_ptr == MAP_FAILED) {
+        perror("mmap");
+        cleanup_resources();
+        return EXIT_FAILURE;
+    }
 
     // CREATE SEMAPHORE:
     // Named semaphore (different from sharedMemprod which used sem_init)
     // sem_open() creates a semaphore accessible by name
     sem_ptr = sem_open(SEM_NAME, O_CREAT, 0666, 1);
+    if (sem_ptr == SEM_FAILED) {
+        perror("sem_open");
+        cleanup_resources();
+        return EXIT_FAILURE;
+    }
 
     // INITIALIZE BOARD:
     // Fill with spaces
@@ -118,11 +145,12 @@ int main() {
     // MONITOR LOOP:
     // Continuously display the board
     // Clients (shm_client.c) will modify it
-    while (1) {
+    while (!stop_requested) {
         display_board(board_ptr);
         sleep(1);  // Update display every second
     }
 
+    cleanup_resources();
     return 0;
 }
 

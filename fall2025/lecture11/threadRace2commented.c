@@ -37,6 +37,7 @@ pthread_mutex_t mutex;
 // This is the CORRECTED version of the incer function
 // The critical section is now protected by a mutex
 void* incer(void* arg){
+  (void)arg;
   // ACQUIRE THE LOCK (LOCK THE MUTEX):
   // pthread_mutex_lock(&mutex) attempts to lock the mutex
   //

@@ -11,11 +11,11 @@ int main(){
   // %p prints pointers
   // let's look at the width of the pointers
   // and how they behave when we advance the array
-  printf("The start of arr1 is: %p\n",arr1);
-  printf("The start of arr2 is: %p\n",arr2);
+  printf("The start of arr1 is: %p\n",(void*)arr1);
+  printf("The start of arr2 is: %p\n",(void*)arr2);
   for(int i = 1; i < 5; i++){
-    printf("The %dth element of arr1 is at: %p\n",i,arr1 +i);
-    printf("The %dth element of arr2 is at: %p\n",i,arr2 +i);
+    printf("The %dth element of arr1 is at: %p\n",i,(void*)(arr1 + i));
+    printf("The %dth element of arr2 is at: %p\n",i,(void*)(arr2 + i));
   }
   
   return 0;

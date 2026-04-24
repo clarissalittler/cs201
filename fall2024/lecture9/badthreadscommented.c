@@ -11,6 +11,7 @@ int ourCounter = 0;
 
 // Function that each thread will execute
 void* threadCounter(void* arg){
+    (void)arg; // This example does not pass per-thread state.
     // Local copy of the global counter to reduce direct access (still prone to race conditions)
     int temp = ourCounter;
 
@@ -58,54 +59,7 @@ int main(){
     // Return 0 to indicate successful execution
     return 0;
 }
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <pthread.h>
-#include <unistd.h>
 
-// Global counter
-int ourCounter = 0;
-
-// Mutex to protect access to ourCounter
-pthread_mutex_t counterMutex = PTHREAD_MUTEX_INITIALIZER;
-
-void* threadCounter(void* arg){
-    // Lock the mutex before accessing the shared variable
-    pthread_mutex_lock(&counterMutex);
-
-    int temp = ourCounter;
-    sleep(rand() % 3); // Simulate work
-    ourCounter = temp + 1;
-
-    // Unlock the mutex after updating
-    pthread_mutex_unlock(&counterMutex);
-
-    return NULL;
-}
-
-int main(){
-    srand(time(0));
-    pthread_t threads[10];
-
-    for(int i = 0; i < 10; i++){
-        if(pthread_create(&threads[i], NULL, threadCounter, NULL) != 0){
-            perror("Failed to create thread");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    for(int i = 0; i < 10; i++){
-        if(pthread_join(threads[i], NULL) != 0){
-            perror("Failed to join thread");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    printf("Final counter value: %d\n", ourCounter);
-
-    // Destroy the mutex
-    pthread_mutex_destroy(&counterMutex);
-
-    return 0;
-}
+/*
+ * For the synchronized version of this pattern, see threadmutexcommented.c.
+ */

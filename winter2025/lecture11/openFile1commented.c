@@ -220,6 +220,7 @@ int echoFile(char* fName, bool showSize){
 }
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   // COMMENT FROM ORIGINAL CODE:
   // "change this so that if you pass in a -s argument"

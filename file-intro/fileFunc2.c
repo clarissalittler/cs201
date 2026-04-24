@@ -9,6 +9,7 @@
 // as we traverse
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   const int lineSize = 1024;
   const int fileSize = 10000; // our current limit

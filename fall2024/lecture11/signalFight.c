@@ -11,6 +11,7 @@ volatile bool stillFighting = true;
 volatile bool won = true;
 
 void hitHandler(int sig){
+  (void)sig;
   if(hp > 0){
     int d = rand()%5+1;
     printf("I, # %d, have been hit! I took %d damage!\n",getpid(),d);
@@ -23,6 +24,7 @@ void hitHandler(int sig){
 }
 
 void endHandler(int sig){
+  (void)sig;
   stillFighting = false;
 }
 

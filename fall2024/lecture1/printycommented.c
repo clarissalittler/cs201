@@ -8,6 +8,7 @@ int main(){
   // The "int" return type means the function will return an integer value. 
 
   int num = 10; 
+  (void)num;
   // This line declares an integer variable named "num" and assigns it the value 10. 
 
   char* str1 = "here's a string"; 
@@ -16,6 +17,7 @@ int main(){
   // The string literal "here's a string" is stored in a read-only memory area. 
 
   char* str2 = "oh no here's another"; 
+  (void)str2;
   // This line declares another character pointer variable named "str2" and assigns it the address of a different string literal "oh no here's another".
 
   // printf("Here's two numbers: %d%f\n", num, 2.9);
@@ -23,10 +25,10 @@ int main(){
   // These two lines are commented out. They would have printed the value of "num" (which is 10) and a floating-point number (2.9), 
   // followed by the two strings concatenated together. 
 
-  printf("The string %s starts at %d\n",str1,str1); 
+  printf("The string %s starts at %p\n",str1,(void*)str1); 
   // This line prints a message to the console. It uses the "printf" function with format specifiers.
   // "%s" is a format specifier for printing strings. It will print the value pointed to by "str1", which is the string "here's a string".
-  // "%d" is a format specifier for printing integers. It will print the value of "str1", which is the memory address where the string is stored.
+  // "%p" is a format specifier for printing pointers. It will print the address where the string is stored.
   // "\n" is a newline character, which moves the cursor to the next line after printing. 
 
   return 0; 

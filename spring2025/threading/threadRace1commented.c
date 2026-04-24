@@ -46,6 +46,7 @@ int ourCounter = 0;
  * interfere with each other.
  */
 void* threadCounter(void* arg){
+  (void)arg;
   /*
    * Step 1: READ the current value of ourCounter
    *

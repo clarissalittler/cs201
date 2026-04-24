@@ -2,13 +2,15 @@
 #include <pthread.h>
 
 void* thread_function(void* arg) {
+    (void)arg;
     printf("Thread executing\n");
     return NULL;
 }
 
 int main() {
     pthread_t thread;
-    char* message = "Hello from main thread";   
+    char* message = "Hello from main thread";
+    (void)message;
     // Create a new thread
     pthread_create(&thread, NULL, thread_function, NULL);
  

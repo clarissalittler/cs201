@@ -6,6 +6,7 @@
 int num = 0;
 
 void* thread_function(void* arg) {
+  (void)arg;
   for(int i=0; i<100; i++){
     int num2 = num; // thread collects state of a variable
     //sleep(rand()%2);

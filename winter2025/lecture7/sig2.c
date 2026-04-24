@@ -6,6 +6,7 @@
 volatile sig_atomic_t num = 3;
 
 void handler(int sig){
+  (void)sig;
   if(num > 0){
     printf("Caught that sigint!\n");
     printf("Explosion in...%d\n",num);

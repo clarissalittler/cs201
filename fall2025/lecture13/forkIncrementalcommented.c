@@ -67,6 +67,7 @@ void printMenu(){
 // 3. Keep it short and simple
 // 4. Don't call malloc, printf, or other unsafe functions
 void heartbeat(int signumb){
+  (void)signumb;
   printMenu();
 
   // INCREMENTAL GAME LOGIC:

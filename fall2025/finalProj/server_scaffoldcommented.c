@@ -124,6 +124,9 @@ struct clientData {
 // }
 // fclose(f);
 void cleanUp(FILE* f, char** ls, int nL) {
+    (void)f;
+    (void)ls;
+    (void)nL;
     // Your implementation here
 }
 
@@ -234,6 +237,7 @@ char* getStr(struct clientData* d, const char* prompt) {
 // Gives user visibility into file state
 // Shows line numbers for insert/delete/edit operations
 void printLines(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -349,6 +353,7 @@ int getInt(struct clientData* d, const char* prompt) {
 // Shift:  "Line 1\n"  "Line 2\n"  "Line 2\n"  "Line 3\n"  (line 2 moved to 3, line 3 moved to 4)
 // Insert: "Line 1\n"  "NEW\n"     "Line 2\n"  "Line 3\n"
 void insLine(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -409,6 +414,7 @@ void insLine(struct clientData* d) {
 // Shift:  "Line 1\n"  "Line 3\n"  "Line 3\n"  (line 3 moved to slot 1)
 // Clean:  "Line 1\n"  "Line 3\n"  NULL        (clear old slot 2)
 void delLine(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -464,6 +470,7 @@ void delLine(struct clientData* d) {
 // New "New Content\n" string is allocated by getStr
 // Pointer in d->lines[idx] is updated to point to new string
 void editLine(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -529,6 +536,8 @@ void editLine(struct clientData* d) {
 //   ...
 //   d->lines[999] = NULL
 void loadFile(FILE* f, struct clientData* d) {
+    (void)f;
+    (void)d;
     // Your implementation here
 }
 

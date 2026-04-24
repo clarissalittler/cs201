@@ -22,6 +22,7 @@ pthread_mutex_t mutex;
  * @return NULL
  */
 void* threadCounter(void* arg){
+    (void)arg;
     // Lock the mutex before accessing the shared counter to ensure exclusive access
     pthread_mutex_lock(&mutex);
     

@@ -43,6 +43,7 @@ volatile sig_atomic_t won = 1;
 // HIT HANDLER:
 // Called when this process receives SIGUSR1 (attack from opponent)
 void hitHandler(int sig){
+  (void)sig;
   // CHECK IF STILL ALIVE:
   if(hp > 0){
     // We're still alive, process the hit
@@ -108,6 +109,7 @@ void hitHandler(int sig){
 // END HANDLER:
 // Called when opponent dies and sends SIGUSR2 to end the fight
 void endHandler(int sig){
+  (void)sig;
   // STOP FIGHTING:
   stillFighting = 0;
   // Exit the fight loop

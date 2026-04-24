@@ -24,14 +24,12 @@
 */
 
 int main(){
-
-  int num;
   printf("The size of a char is: %ld\n",sizeof(char));
   
   char arr[10];
 
   for(int i = 0; i < 10; i++){
-    printf("The address of the %d th element is %p\n",i,arr+i);
+    printf("The address of the %d th element is %p\n",i,(void*)(arr+i));
   }
   
   return 0;

@@ -11,7 +11,7 @@ int main(){
   unsigned char* pointy = (unsigned char*)&num;
 
   printf("Our number's bytes, in order, are: ");
-  for(int i = 0; i < sizeof(int); i++){
+  for(size_t i = 0; i < sizeof(num); i++){
     printf(" %x ",*(pointy+i));
   }
   printf("\n");

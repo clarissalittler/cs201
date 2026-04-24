@@ -107,8 +107,27 @@ concurrency-tutorial/exercises/04-ipc/exercise[1-9]_*
 concurrency-tutorial/exercises/05-sockets/exercise[1-9]
 
 # Solution executables (no extensions)
+concurrency-tutorial/exercises/solutions/*_solution
 concurrency-tutorial/exercises/solutions/*/exercise[1-9]_solution
 concurrency-tutorial/exercises/solutions/*/exercise[1-9]_*_solution
+
+# Tutorial/example executables in standalone topic directories
+assembly-examples/*/*
+!assembly-examples/*/*.*
+!assembly-examples/*/*/
+deadlock-lecture/*
+!deadlock-lecture/*.*
+!deadlock-lecture/*/
+file-intro/*
+!file-intro/*.*
+!file-intro/*/
+socket-examples/*
+!socket-examples/*.*
+!socket-examples/*/
+fall2025/finalProj/*
+!fall2025/finalProj/*.*
+!fall2025/finalProj/*/
+rust-intro/bin/
 
 # Lecture executables (all files without extensions in lecture dirs)
 # Matches files that don't contain a dot (no extension)

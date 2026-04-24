@@ -3,49 +3,49 @@
 #+filetags:   :concurrency:systems:processes:threads:ipc:synchronization:
 
 * Goals of this document
-This document provides a comprehensive guide to concurrency and parallelism in Unix-like systems through C programming. It covers processes, threads, synchronization, and inter-process communication (IPC) mechanisms with practical examples.
+What you're reading is a guide to concurrency and parallelism in Unix-like systems. We're going to work through processes, threads, synchronization, and inter-process communication (IPC) with lots of practical C examples. By the end of this, you should be comfortable writing programs that do multiple things at once — and more importantly, writing them /correctly/.
 
 * Introduction to Concurrency
 ** What is concurrency?
-Concurrency is the ability of a system to handle multiple tasks that overlap in time. In computing, it refers to multiple computations happening at the same time. This can be achieved through various mechanisms like processes, threads, or even asynchronous I/O.
+So what do we mean when we say "concurrency"? Basically, it's when a system is juggling multiple tasks that overlap in time. This can happen through different mechanisms — processes, threads, or asynchronous I/O — and it's one of the most important (and tricky!) concepts in systems programming.
 
-Concurrency doesn't necessarily mean that tasks are executing simultaneously (true parallelism). Instead, it means that progress is being made on multiple tasks, possibly by interleaving their execution.
+Now here's the thing that trips people up: concurrency doesn't necessarily mean things are executing /simultaneously/. It just means that progress is being made on multiple tasks, possibly by interleaving their execution. Your computer might be rapidly switching between tasks so fast that it /looks/ simultaneous, but there's a real difference between that and true parallelism.
 
 ** Why is concurrency important?
-- Improved resource utilization (CPU, I/O, etc.)
-- Better responsiveness in interactive applications
-- Ability to handle multiple client connections in servers
-- Natural modeling of real-world concurrent activities
-- Taking advantage of multi-core processors (parallelism)
+Okay, so why should you care about this? A few reasons:
+- Better resource utilization — your CPU shouldn't be sitting idle waiting for a disk read to finish
+- Responsiveness — nobody wants a UI that freezes while it's doing work in the background
+- Servers need to handle multiple clients at once — you can't just serve one person at a time!
+- It lets you actually use those multiple cores in your processor
+- A lot of real-world problems are just naturally concurrent
 
 ** Concurrency vs. Parallelism
-While often used interchangeably, they have distinct meanings:
+People use these interchangeably all the time, but they actually mean different things:
 
-- *Concurrency*: Dealing with multiple tasks during overlapping time periods by interleaving their execution
-- *Parallelism*: Executing multiple tasks simultaneously, typically on multiple CPU cores
+- *Concurrency* is about /dealing with/ multiple things at once — interleaving tasks, switching between them, making progress on all of them
+- *Parallelism* is about /doing/ multiple things at once — literally executing on multiple CPU cores simultaneously
 
-Think of concurrency as juggling multiple balls (you're only holding one at a time, but making progress on all), while parallelism is like having multiple people each juggling their own ball.
+I like to think of it this way: concurrency is one cook working on three dishes by switching between them. Parallelism is three cooks each working on their own dish. You can have concurrency without parallelism (one core, time-slicing) and you can have parallelism without much concurrency design (embarrassingly parallel problems). But most of the time in practice you're dealing with both.
 
 * Processes
 ** What is a process?
-A process is an instance of a program in execution. Each process has its own:
-- Address space (memory allocation)
-- Program counter
+A process is basically a running instance of a program. When you type =ls= at the command line, that creates a process. When you open your web browser, that's a process. Each process gets its own:
+- Address space (its own chunk of memory)
+- Program counter (where it is in the code)
 - Register set
-- Stack
-- Heap
+- Stack and heap
 - File descriptors
 - Signal handlers
 
-Processes are isolated from each other by default, which provides security and stability (one crashing process doesn't affect others).
+The key thing about processes is that they're /isolated/ from each other. One process can't just reach into another process's memory. This is great for stability — if one process crashes, it doesn't take the rest of the system down with it — but it also means that getting processes to /talk/ to each other requires some extra work (which we'll cover in the IPC section).
 
 ** Process Creation: fork()
-In Unix-like systems, processes are created using the =fork()= system call. When a process calls =fork()=, the operating system creates a new process by duplicating the calling process. The new process is called the child, while the original process is called the parent.
+In Unix-like systems, processes are created with the =fork()= system call, and it's one of the weirdest things you'll encounter if you're coming from a normal programming background. When a process calls =fork()=, the operating system /clones/ the entire process. Now you have two nearly identical processes running the same code from the same point. Wild, right?
 
-=fork()= returns:
-- To the parent process: the PID of the child process
-- To the child process: 0
-- -1 if the creation of a child process was unsuccessful
+The way you tell them apart is through the return value of =fork()=:
+- In the *parent* process: =fork()= returns the PID (process ID) of the new child
+- In the *child* process: =fork()= returns 0
+- If something went wrong: =fork()= returns -1
 
 *** Basic fork example
 #+begin_src c
@@ -74,22 +74,22 @@ int main() {
 #+end_src
 
 *** Key points about fork()
-- After fork(), both processes continue execution from the next instruction
-- Child inherits copies of the parent's:
-  - Open file descriptors
-  - Signal handlers
-  - Environment variables
-  - Current working directory
-  - Resource limits
-- Memory is typically copied-on-write for efficiency
-- Variables with the same names exist in both processes but are separate copies
+Some things to keep in mind:
+- After =fork()=, both parent and child continue from the exact same point in the code (the instruction right after the =fork()= call)
+- The child gets /copies/ of the parent's stuff: file descriptors, signal handlers, environment variables, current working directory, resource limits
+- Memory is "copy-on-write" for efficiency — the OS doesn't actually duplicate all the memory until one of the processes tries to modify it
+- Variables with the same names exist in both processes but they're completely separate copies — changing one doesn't affect the other
 
 ** Process Execution: exec family
-The =exec= family of functions replaces the current process image with a new one. Common variants:
-- =execl()=: List of arguments
-- =execv()=: Vector of arguments
-- =execle()=: List of arguments and environment
-- =execve()=: Vector of arguments and environment
+So =fork()= gives you a copy of the current process, but what if you want to run a /different/ program? That's what the =exec= family is for. These functions replace the current process's code with a completely new program. The process keeps its PID and other attributes, but it's now running entirely different code.
+
+There are several variants (the naming is a bit of a mess, honestly):
+- =execl()=: Arguments as a list
+- =execv()=: Arguments as a vector (array)
+- =execle()=: List of arguments plus custom environment
+- =execve()=: Vector of arguments plus custom environment
+
+The classic Unix pattern is =fork()= + =exec()=: fork a child, then immediately exec a new program in the child. That's literally how your shell runs every command you type!
 
 Example:
 #+begin_src c
@@ -116,14 +116,14 @@ int main() {
 #+end_src
 
 ** Process Termination and Waiting
-Processes terminate by:
-- Returning from main
-- Calling =exit()=
-- Receiving certain signals (like SIGTERM)
+Processes can end their life in a few ways:
+- Returning from =main()=
+- Calling =exit()= (or =_exit()= if you're in a child process after =fork()= and want to avoid flushing the parent's I/O buffers — this is a subtle but real gotcha!)
+- Getting killed by a signal (like SIGTERM or SIGKILL)
 
-Parents can wait for children using:
-- =wait()=: Waits for any child
-- =waitpid()=: Waits for a specific child
+When a child process terminates, the parent should collect its exit status. If the parent doesn't, the child becomes a "zombie" (more on that in a moment). You collect the status with:
+- =wait()=: Waits for /any/ child to finish
+- =waitpid()=: Waits for a /specific/ child
 
 Example:
 #+begin_src c
@@ -156,24 +156,27 @@ int main() {
 #+end_src
 
 ** Zombie and Orphan Processes
-- *Zombie process*: A child that has terminated but its parent hasn't called =wait()= to collect its exit status
-- *Orphan process*: A child whose parent has terminated before it; adopted by the init process (PID 1)
+Two fun (well, "fun") terms you'll hear:
+- *Zombie process*: A child that has finished executing but its parent hasn't called =wait()= yet. The child's entry sticks around in the process table, just holding its exit status, taking up space. It's "dead" but not fully gone. If you keep leaking zombies, you'll eventually run out of process table entries, which is bad.
+- *Orphan process*: A child whose parent has terminated before it. The child doesn't just disappear — it gets "adopted" by the init process (PID 1), which will eventually call =wait()= on it. So orphans are actually handled pretty gracefully by the OS.
 
 * Threads
 ** What are threads?
-Threads are "lightweight processes" that exist within a process. All threads within a process share:
-- The same address space (code, data, heap)
+If processes are like separate apartments (each with their own kitchen, bathroom, etc.), threads are more like roommates sharing the same apartment. Threads exist /within/ a process and share most of that process's resources:
+- The same address space (code, data, heap — all shared!)
 - Open file descriptors
 - Signal handlers
 
-Each thread has its own:
+But each thread gets its own:
 - Thread ID
-- Program counter
+- Program counter (they can be at different points in the code)
 - Register set
-- Stack
+- Stack (each thread needs its own call stack)
+
+This sharing is both the strength and the danger of threads. Sharing memory makes communication between threads trivially easy — you just read and write the same variables. But it also means threads can stomp all over each other's data if you're not careful. That's where synchronization comes in (which we'll get to shortly).
 
 ** Thread Creation: pthread_create()
-POSIX threads (pthreads) is a standardized API for thread creation and synchronization.
+On Linux (and most Unix-like systems), we use POSIX threads, usually just called "pthreads". It's the standard API for creating and managing threads in C. You'll need to include =<pthread.h>= and compile with the =-pthread= flag (e.g., =gcc -pthread program.c -o program=).
 
 Basic thread creation:
 #+begin_src c
@@ -204,54 +207,79 @@ int main() {
 #+end_src
 
 ** Thread Termination and Joining
-Threads terminate by:
-- Returning from the thread function
-- Calling =pthread_exit()=
-- The entire process exiting
+Threads can end by:
+- Returning from their thread function (the most normal way)
+- Calling =pthread_exit()= explicitly
+- The entire process exiting (which kills all its threads)
 
-Thread joining:
-- =pthread_join()=: Wait for a thread to terminate
-- =pthread_detach()=: Mark a thread as detached, resources automatically reclaimed
+When a thread finishes, you usually want to "join" it — this is like =wait()= for threads:
+- =pthread_join()=: Blocks until the specified thread finishes, then collects its return value
+- =pthread_detach()=: If you don't care about joining a thread, you can detach it. Its resources will be cleaned up automatically when it finishes. You can't join a detached thread.
 
-** Thread vs Process Advantages
-*** Thread advantages:
-- Faster creation and termination
-- Easier sharing of data
-- Lower memory overhead
-- Faster context switching
+** Thread vs Process: when do you use which?
+This comes up a lot, and there's no single right answer — it depends on what you need.
 
-*** Process advantages:
-- Better isolation and protection
-- Easier to implement
-- More portable
-- Crash of one process doesn't affect others
+*** Threads are great when you need:
+- Fast creation and teardown (much cheaper than processes)
+- Easy data sharing between tasks (it's just shared memory!)
+- Low overhead (threads share the address space, so less memory duplication)
+
+*** Processes are great when you need:
+- Isolation — if one task crashes, you don't want it to take everything else down
+- Security — processes can't read each other's memory
+- Simplicity — you don't have to worry about shared-state bugs
+
+A good rule of thumb: if your tasks need to share a lot of data and you trust the code, use threads. If your tasks are independent or you're running untrusted code, use processes. Many real-world systems (like web browsers) use both.
 
 * Thread Synchronization
 ** The Need for Synchronization
-When multiple threads access shared data, race conditions can occur, leading to inconsistent results. Synchronization mechanisms help ensure orderly access to shared resources.
+So here's where things get interesting — and by "interesting" I mean "the source of some of the worst bugs you'll ever encounter." When multiple threads can read and write the same data, you get *race conditions*: the output of your program depends on the exact timing of how threads interleave. And since thread scheduling is non-deterministic, these bugs can be maddeningly hard to reproduce.
+
+Synchronization is how we impose order on this chaos.
 
 ** Race Condition Example
-Consider a simple counter increment:
+Let's look at the classic example. Say two threads both want to increment a shared counter:
 #+begin_src c
+// race_condition.c — compile with: gcc -pthread race_condition.c -o race_condition
+#include <stdio.h>
+#include <pthread.h>
+
 int counter = 0;
 
 void* increment(void* arg) {
+    (void)arg;
     for (int i = 0; i < 1000; i++) {
         counter++; // This is not atomic!
     }
     return NULL;
 }
+
+int main() {
+    pthread_t thread1, thread2;
+
+    pthread_create(&thread1, NULL, increment, NULL);
+    pthread_create(&thread2, NULL, increment, NULL);
+
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+
+    // Expected: 2000, but will often be less due to the race condition
+    printf("Final counter value: %d (expected 2000)\n", counter);
+    return 0;
+}
 #+end_src
 
-The operation =counter++= actually involves three steps:
-1. Read the current value of counter
-2. Increment the value
-3. Store the new value back
+Here's the problem: =counter++= /looks/ like a single operation, but it's actually three steps at the machine level:
+1. Read the current value of counter from memory
+2. Add 1 to it
+3. Write the new value back to memory
 
-If two threads execute this concurrently, they might interleave these steps, leading to lost updates.
+If two threads execute this at the same time, they might both read the same value (say, 5), both increment it to 6, and both write 6 back. You just lost an update! Run this with two threads doing 1000 increments each and you'll get some number less than 2000.
 
 ** Mutexes (Mutual Exclusion)
-Mutexes ensure that only one thread can access a critical section at a time.
+The most basic synchronization tool is the *mutex* (short for "mutual exclusion"). A mutex is like a lock on a bathroom door: only one thread can hold it at a time. If another thread tries to lock an already-locked mutex, it blocks until the first thread unlocks it.
+
+The pattern is always the same: lock, do your critical work, unlock. Keep the critical section as small as possible — you're making every other thread wait!
 
 Basic mutex usage:
 #+begin_src c
@@ -262,6 +290,7 @@ int counter = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void* increment(void* arg) {
+    (void)arg;
     for (int i = 0; i < 1000; i++) {
         pthread_mutex_lock(&mutex);
         counter++;  // Critical section
@@ -284,21 +313,31 @@ int main() {
 }
 #+end_src
 
+*A note on atomics:* For simple operations like incrementing a counter, C11 provides atomic types (=_Atomic int counter;= from =<stdatomic.h>=) that avoid the need for a full mutex. Atomic operations use hardware support (like the =lock= prefix on x86) and are much faster than mutex lock/unlock cycles. But they only work for simple, single-variable operations — anything more complex still needs a mutex.
+
 ** Condition Variables
-Condition variables allow threads to wait until a specific condition occurs. They are used with mutexes.
+Sometimes a thread needs to wait until something specific happens before it can proceed. You /could/ do this by repeatedly checking a flag in a loop (called "busy waiting"), but that wastes CPU cycles. Condition variables give you a much better option: a thread can go to sleep and be woken up when the condition it cares about becomes true.
+
+Condition variables always work together with a mutex. The pattern is:
+1. Lock the mutex
+2. Check if your condition is true
+3. If not, call =pthread_cond_wait()= — this atomically releases the mutex and puts the thread to sleep
+4. When woken up, the mutex is re-acquired and you check the condition again (always use a =while= loop, not =if=, because of spurious wakeups!)
 
 Example:
 #+begin_src c
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 int ready = 0;
 
 void* producer(void* arg) {
+    (void)arg;
     pthread_mutex_lock(&mutex);
-    
+
     // Do some work to produce data
     printf("Producer: Working...\n");
     sleep(2);
@@ -313,8 +352,9 @@ void* producer(void* arg) {
 }
 
 void* consumer(void* arg) {
+    (void)arg;
     pthread_mutex_lock(&mutex);
-    
+
     // Wait until data is ready
     while (!ready) {
         printf("Consumer: Waiting for data...\n");
@@ -332,7 +372,6 @@ int main() {
     pthread_t prod_thread, cons_thread;
     
     pthread_create(&cons_thread, NULL, consumer, NULL);
-    sleep(1);  // Ensure consumer starts first
     pthread_create(&prod_thread, NULL, producer, NULL);
     
     pthread_join(prod_thread, NULL);
@@ -343,11 +382,14 @@ int main() {
 #+end_src
 
 ** Semaphores
-Semaphores are counters that control access to shared resources. They can be used for:
-- Mutual exclusion (binary semaphore)
-- Resource counting (counting semaphore)
+A semaphore is like a bouncer with a counter. It keeps track of how many "slots" are available. =sem_wait()= decrements the counter (and blocks if it would go below zero), and =sem_post()= increments it (and wakes up a waiting thread if any).
 
-Example:
+Semaphores are useful for two things:
+- *Binary semaphores* (counter of 0 or 1): essentially a mutex, but with different semantics — notably, a different thread can "unlock" a semaphore than the one that "locked" it
+- *Counting semaphores*: controlling access to a pool of resources (e.g., "up to 5 database connections")
+
+The classic example is the producer-consumer problem with a bounded buffer:
+
 #+begin_src c
 #include <stdio.h>
 #include <pthread.h>
@@ -363,6 +405,7 @@ int buffer[BUFFER_SIZE];
 int in = 0, out = 0;
 
 void* producer(void* arg) {
+    (void)arg;
     for (int i = 0; i < MAX_ITEMS; i++) {
         int item = i + 1;
         
@@ -380,6 +423,7 @@ void* producer(void* arg) {
 }
 
 void* consumer(void* arg) {
+    (void)arg;
     for (int i = 0; i < MAX_ITEMS; i++) {
         sem_wait(&full);   // Wait for an item
         sem_wait(&mutex);  // Enter critical section
@@ -416,53 +460,80 @@ int main() {
 #+end_src
 
 ** Deadlocks
-Deadlocks occur when threads are blocked forever waiting for each other. The classic example is the dining philosophers problem.
+A deadlock is what happens when threads get stuck waiting for each other in a cycle. Thread A holds lock 1 and is waiting for lock 2. Thread B holds lock 2 and is waiting for lock 1. Neither can make progress. They'll sit there forever.
 
-Four conditions for deadlock:
-1. Mutual exclusion: Resources that cannot be shared
-2. Hold and wait: A thread holds resources while waiting for others
-3. No preemption: Resources cannot be forcibly taken away
-4. Circular wait: A cycle of threads, each waiting for a resource held by the next
+For a deadlock to happen, you need /all four/ of these conditions at once:
+1. *Mutual exclusion*: The resources can't be shared (only one thread at a time)
+2. *Hold and wait*: A thread holds one resource while waiting for another
+3. *No preemption*: You can't forcibly take a resource away from a thread
+4. *Circular wait*: There's a cycle in the waiting graph
 
-Example (deadlock-prone):
+Example (this code will deadlock!):
 #+begin_src c
+// deadlock.c — compile with: gcc -pthread deadlock.c -o deadlock
+// WARNING: This program will likely deadlock! Use Ctrl+C to kill it.
+#include <stdio.h>
+#include <pthread.h>
+#include <unistd.h>
+
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
+
 void* thread1_function(void* arg) {
+    (void)arg;
     pthread_mutex_lock(&mutex1);
     sleep(1);  // Increases chance of deadlock
     pthread_mutex_lock(&mutex2);
-    
+
     // Critical section
-    
+    printf("Thread 1: acquired both mutexes\n");
+
     pthread_mutex_unlock(&mutex2);
     pthread_mutex_unlock(&mutex1);
     return NULL;
 }
 
 void* thread2_function(void* arg) {
+    (void)arg;
     pthread_mutex_lock(&mutex2);
     sleep(1);  // Increases chance of deadlock
     pthread_mutex_lock(&mutex1);
-    
+
     // Critical section
-    
+    printf("Thread 2: acquired both mutexes\n");
+
     pthread_mutex_unlock(&mutex1);
     pthread_mutex_unlock(&mutex2);
     return NULL;
 }
+
+int main() {
+    pthread_t thread1, thread2;
+
+    pthread_create(&thread1, NULL, thread1_function, NULL);
+    pthread_create(&thread2, NULL, thread2_function, NULL);
+
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+
+    printf("Both threads completed successfully (no deadlock occurred)\n");
+    return 0;
+}
 #+end_src
 
-Deadlock prevention includes:
-- Lock ordering (always acquire locks in the same order)
-- Lock timeouts
-- Deadlock detection
-- Using lock-free data structures
+The fix? Break any one of those four conditions. In practice, the easiest approaches are:
+- *Lock ordering*: Always acquire locks in the same global order. If everyone always locks =mutex1= before =mutex2=, you can't get a cycle.
+- *Lock timeouts*: Use =pthread_mutex_timedlock()= and back off if you can't get the lock
+- *Avoid holding multiple locks*: Redesign your code so you never need two locks at once
 
 * Inter-Process Communication (IPC)
 ** What is IPC?
-IPC mechanisms allow processes to communicate and synchronize their actions. Unlike threads, processes don't share memory by default, so explicit IPC mechanisms are needed.
+Remember how I said processes are isolated from each other? That's great for safety, but eventually processes need to /talk/ to each other. That's what IPC (Inter-Process Communication) is for. Since processes don't share memory by default, you need explicit mechanisms to pass data between them. Unix gives you several options, each with different trade-offs.
 
 ** Pipes
-Pipes provide a one-way communication channel between related processes (typically parent and child).
+Pipes are the simplest IPC mechanism. You've probably already used them at the command line: =ls | grep foo= creates a pipe between =ls= and =grep=. In C, =pipe()= creates a pair of file descriptors — one for reading, one for writing. Data flows in one direction only (write end to read end).
+
+Pipes work between related processes (parent-child), because the child inherits the pipe's file descriptors from the parent via =fork()=.
 
 Example:
 #+begin_src c
@@ -508,7 +579,7 @@ int main() {
 #+end_src
 
 ** Named Pipes (FIFOs)
-Named pipes (FIFOs) allow communication between unrelated processes.
+Regular pipes only work between related processes (since the child has to inherit the file descriptors). Named pipes, also called FIFOs, solve this — they exist as special files in the filesystem, so /any/ process can open them by name.
 
 Example (writer):
 #+begin_src c
@@ -564,7 +635,9 @@ int main() {
 #+end_src
 
 ** Message Queues
-Message queues allow processes to send structured messages to each other.
+Message queues let processes send structured messages to each other. Unlike pipes (which are just byte streams), message queues preserve message boundaries — each =msgsnd()= sends a discrete message that's received as a whole unit by =msgrcv()=. Messages also have a type field, which lets you selectively receive specific message types.
+
+Note: this example uses the older System V message queue API. There's also a POSIX message queue API (=mq_open=, etc.) that's more modern, but System V is still widely used and is what you'll see in a lot of existing code.
 
 Example:
 #+begin_src c
@@ -602,7 +675,7 @@ int main() {
 #+end_src
 
 ** Shared Memory
-Shared memory allows multiple processes to access a common region of memory.
+Shared memory is the fastest IPC mechanism because there's no copying — both processes are literally reading and writing the same physical memory. The downside? You're back to all the shared-state problems we discussed in the threading section. You'll need to use semaphores or some other synchronization to avoid races.
 
 Example:
 #+begin_src c
@@ -618,13 +691,15 @@ int main() {
     int shmid = shmget(key, 1024, 0666|IPC_CREAT);
     char *str = (char*) shmat(shmid, NULL, 0);
 
+    // Write before forking — both processes share the memory,
+    // so the child will see the data immediately
+    strcpy(str, "Hello from shared memory!");
+    printf("Parent wrote message to shared memory\n");
+
     if (fork() == 0) {  // Child process
-        sleep(1);  // Ensure parent writes first
         printf("Child read: %s\n", str);
         shmdt(str);
     } else {  // Parent process
-        strcpy(str, "Hello from shared memory!");
-        printf("Parent wrote message to shared memory\n");
         wait(NULL);  // Wait for child
         shmdt(str);
         shmctl(shmid, IPC_RMID, NULL);  // Destroy shared memory
@@ -635,698 +710,21 @@ int main() {
 #+end_src
 
 ** Sockets
-Sockets provide network and inter-process communication. They can be used for processes on the same machine (Unix domain sockets) or across different machines (Internet sockets).
+Sockets are the heavy-duty IPC mechanism — they're how processes talk to each other over a network /and/ on the same machine. Everything you do on the internet involves sockets at some level: web browsers, email, SSH, you name it.
 
-*** Socket Types and Families
-- *Socket Families*:
-  - =AF_UNIX= (=AF_LOCAL=): Unix domain sockets for local IPC
-  - =AF_INET=: IPv4 Internet protocols
-  - =AF_INET6=: IPv6 Internet protocols
-  
-- *Socket Types*:
-  - =SOCK_STREAM=: TCP - reliable, connection-oriented, byte stream
-  - =SOCK_DGRAM=: UDP - unreliable, connectionless, datagrams
-
-*** TCP Socket Programming
-TCP provides reliable, ordered, error-checked delivery of a stream of bytes between applications running on hosts communicating via an IP network.
-
-**** Basic TCP Server
-#+begin_src c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-
-#define PORT 8080
-#define BUFFER_SIZE 1024
-
-int main() {
-    int server_fd, client_fd;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    char buffer[BUFFER_SIZE];
-    
-    // Create socket
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-    
-    // Set socket options (reuse address)
-    int opt = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, 
-                   &opt, sizeof(opt)) < 0) {
-        perror("setsockopt failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
-    
-    // Setup server address
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(PORT);
-    
-    // Bind socket to address
-    if (bind(server_fd, (struct sockaddr *)&server_addr, 
-             sizeof(server_addr)) < 0) {
-        perror("Bind failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
-    
-    // Listen for connections (backlog of 5)
-    if (listen(server_fd, 5) < 0) {
-        perror("Listen failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
-    
-    printf("Server listening on port %d\n", PORT);
-    
-    while (1) {
-        // Accept connection
-        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, 
-                          &client_len);
-        if (client_fd < 0) {
-            perror("Accept failed");
-            continue;
-        }
-        
-        printf("Client connected from %s:%d\n",
-               inet_ntoa(client_addr.sin_addr),
-               ntohs(client_addr.sin_port));
-        
-        // Read and echo data
-        while (1) {
-            memset(buffer, 0, BUFFER_SIZE);
-            int bytes_read = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
-            
-            if (bytes_read <= 0) {
-                break;  // Client disconnected
-            }
-            
-            printf("Received: %s", buffer);
-            send(client_fd, buffer, bytes_read, 0);
-        }
-        
-        close(client_fd);
-        printf("Client disconnected\n");
-    }
-    
-    close(server_fd);
-    return 0;
-}
-#+end_src
-
-**** Basic TCP Client
-#+begin_src c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-
-#define PORT 8080
-#define BUFFER_SIZE 1024
-
-int main() {
-    int sock = 0;
-    struct sockaddr_in server_addr;
-    char buffer[BUFFER_SIZE];
-    char input[BUFFER_SIZE];
-    
-    // Create socket
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-    
-    // Setup server address
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
-    
-    // Convert IPv4 address from text to binary
-    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
-        perror("Invalid address");
-        close(sock);
-        exit(EXIT_FAILURE);
-    }
-    
-    // Connect to server
-    if (connect(sock, (struct sockaddr *)&server_addr, 
-                sizeof(server_addr)) < 0) {
-        perror("Connection failed");
-        close(sock);
-        exit(EXIT_FAILURE);
-    }
-    
-    printf("Connected to server\n");
-    printf("Type messages (type 'quit' to exit):\n");
-    
-    while (1) {
-        printf("> ");
-        fgets(input, BUFFER_SIZE, stdin);
-        
-        if (strncmp(input, "quit", 4) == 0) {
-            break;
-        }
-        
-        // Send message
-        send(sock, input, strlen(input), 0);
-        
-        // Receive echo
-        memset(buffer, 0, BUFFER_SIZE);
-        int bytes_read = recv(sock, buffer, BUFFER_SIZE - 1, 0);
-        if (bytes_read > 0) {
-            printf("Server echo: %s", buffer);
-        }
-    }
-    
-    close(sock);
-    return 0;
-}
-#+end_src
-
-*** Handling Multiple Clients
-There are several approaches to handle multiple clients concurrently:
-
-**** 1. Multi-threaded Server
-Create a new thread for each client connection:
-
-#+begin_src c
-#include <pthread.h>
-
-void* handle_client(void* arg) {
-    int client_fd = *(int*)arg;
-    free(arg);
-    char buffer[BUFFER_SIZE];
-    
-    while (1) {
-        memset(buffer, 0, BUFFER_SIZE);
-        int bytes_read = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
-        
-        if (bytes_read <= 0) {
-            break;
-        }
-        
-        // Process and respond
-        send(client_fd, buffer, bytes_read, 0);
-    }
-    
-    close(client_fd);
-    return NULL;
-}
-
-// In main server loop:
-while (1) {
-    int* client_fd_ptr = malloc(sizeof(int));
-    *client_fd_ptr = accept(server_fd, (struct sockaddr *)&client_addr, 
-                           &client_len);
-    
-    pthread_t thread;
-    pthread_create(&thread, NULL, handle_client, client_fd_ptr);
-    pthread_detach(thread);  // Let thread clean up when done
-}
-#+end_src
-
-**** 2. Using select() for I/O Multiplexing
-Handle multiple clients in a single process using =select()=:
-
-#+begin_src c
-#include <sys/select.h>
-
-fd_set master_fds, read_fds;
-int max_fd;
-
-// Initialize
-FD_ZERO(&master_fds);
-FD_SET(server_fd, &master_fds);
-max_fd = server_fd;
-
-while (1) {
-    read_fds = master_fds;  // Copy master set
-    
-    // Wait for activity on any socket
-    if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0) {
-        perror("select failed");
-        break;
-    }
-    
-    // Check for new connections
-    if (FD_ISSET(server_fd, &read_fds)) {
-        int new_fd = accept(server_fd, (struct sockaddr *)&client_addr, 
-                           &client_len);
-        if (new_fd >= 0) {
-            FD_SET(new_fd, &master_fds);
-            if (new_fd > max_fd) {
-                max_fd = new_fd;
-            }
-        }
-    }
-    
-    // Check each client for data
-    for (int fd = 0; fd <= max_fd; fd++) {
-        if (fd != server_fd && FD_ISSET(fd, &read_fds)) {
-            char buffer[BUFFER_SIZE];
-            int bytes_read = recv(fd, buffer, BUFFER_SIZE - 1, 0);
-            
-            if (bytes_read <= 0) {
-                // Client disconnected
-                close(fd);
-                FD_CLR(fd, &master_fds);
-            } else {
-                // Echo back to client
-                send(fd, buffer, bytes_read, 0);
-            }
-        }
-    }
-}
-#+end_src
-
-*** Advanced Socket Features
-
-**** Socket Options
-Common socket options using =setsockopt()=:
-
-#+begin_src c
-int opt = 1;
-
-// Allow socket reuse (avoid "Address already in use")
-setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-// Set send/receive timeouts
-struct timeval timeout;
-timeout.tv_sec = 5;  // 5 seconds
-timeout.tv_usec = 0;
-setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-setsockopt(server_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-
-// Keep connections alive
-setsockopt(server_fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
-#+end_src
-
-**** Non-blocking Sockets
-Make sockets non-blocking for asynchronous I/O:
-
-#+begin_src c
-#include <fcntl.h>
-
-// Method 1: Using fcntl
-int flags = fcntl(socket_fd, F_GETFL, 0);
-fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK);
-
-// Method 2: Using ioctl (Linux)
-#include <sys/ioctl.h>
-int nonblock = 1;
-ioctl(socket_fd, FIONBIO, &nonblock);
-#+end_src
-
-*** Application Protocols
-
-**** HTTP Server Example
-A simple HTTP server that serves static content:
-
-#+begin_src c
-void handle_http_request(int client_fd) {
-    char buffer[BUFFER_SIZE];
-    char response[BUFFER_SIZE];
-    
-    // Read HTTP request
-    recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
-    
-    // Parse request (simplified - just check if GET)
-    if (strncmp(buffer, "GET", 3) == 0) {
-        char *path = strtok(buffer + 4, " ");
-        
-        if (strcmp(path, "/") == 0) {
-            // Serve index page
-            char *content = "<html><body><h1>Welcome!</h1></body></html>";
-            snprintf(response, BUFFER_SIZE,
-                    "HTTP/1.1 200 OK\r\n"
-                    "Content-Type: text/html\r\n"
-                    "Content-Length: %zu\r\n"
-                    "Connection: close\r\n"
-                    "\r\n"
-                    "%s", strlen(content), content);
-        } else {
-            // 404 Not Found
-            char *content = "<html><body><h1>404 Not Found</h1></body></html>";
-            snprintf(response, BUFFER_SIZE,
-                    "HTTP/1.1 404 Not Found\r\n"
-                    "Content-Type: text/html\r\n"
-                    "Content-Length: %zu\r\n"
-                    "Connection: close\r\n"
-                    "\r\n"
-                    "%s", strlen(content), content);
-        }
-        
-        send(client_fd, response, strlen(response), 0);
-    }
-}
-#+end_src
-
-**** File Transfer Protocol
-Example of transferring files over sockets:
-
-Server (sends file):
-#+begin_src c
-void send_file(int client_fd, const char *filename) {
-    int file_fd = open(filename, O_RDONLY);
-    if (file_fd < 0) {
-        char *error = "ERROR: File not found\n";
-        send(client_fd, error, strlen(error), 0);
-        return;
-    }
-    
-    // Get file size
-    struct stat file_stat;
-    fstat(file_fd, &file_stat);
-    
-    // Send file size first
-    size_t file_size = file_stat.st_size;
-    send(client_fd, &file_size, sizeof(file_size), 0);
-    
-    // Send file contents
-    char buffer[BUFFER_SIZE];
-    ssize_t bytes_read;
-    
-    while ((bytes_read = read(file_fd, buffer, BUFFER_SIZE)) > 0) {
-        send(client_fd, buffer, bytes_read, 0);
-    }
-    
-    close(file_fd);
-}
-#+end_src
-
-Client (receives file):
-#+begin_src c
-void receive_file(int server_fd, const char *filename) {
-    // Receive file size
-    size_t file_size;
-    recv(server_fd, &file_size, sizeof(file_size), 0);
-    
-    // Create output file
-    int file_fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    
-    // Receive file contents
-    char buffer[BUFFER_SIZE];
-    size_t total_received = 0;
-    
-    while (total_received < file_size) {
-        ssize_t bytes_received = recv(server_fd, buffer, BUFFER_SIZE, 0);
-        if (bytes_received <= 0) break;
-        
-        write(file_fd, buffer, bytes_received);
-        total_received += bytes_received;
-        
-        // Progress indicator
-        printf("\rReceived: %zu/%zu bytes (%.1f%%)", 
-               total_received, file_size, 
-               (double)total_received / file_size * 100);
-        fflush(stdout);
-    }
-    printf("\n");
-    
-    close(file_fd);
-}
-#+end_src
-
-*** Chat Application Example
-A multi-client chat server using select():
-
-#+begin_src c
-typedef struct {
-    int socket;
-    char nickname[32];
-    int active;
-} Client;
-
-Client clients[MAX_CLIENTS];
-
-void broadcast_message(char *message, int sender_socket) {
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i].active && clients[i].socket != sender_socket) {
-            send(clients[i].socket, message, strlen(message), 0);
-        }
-    }
-}
-
-void handle_chat_message(int client_index) {
-    char buffer[BUFFER_SIZE];
-    char message[BUFFER_SIZE + 64];
-    
-    int bytes_read = recv(clients[client_index].socket, buffer, 
-                         BUFFER_SIZE - 1, 0);
-    
-    if (bytes_read <= 0) {
-        // Client disconnected
-        if (clients[client_index].active) {
-            snprintf(message, sizeof(message), 
-                    "%s has left the chat\n", 
-                    clients[client_index].nickname);
-            broadcast_message(message, -1);
-            
-            close(clients[client_index].socket);
-            clients[client_index].active = 0;
-        }
-        return;
-    }
-    
-    buffer[bytes_read] = '\0';
-    
-    // Format and broadcast message
-    snprintf(message, sizeof(message), "[%s]: %s", 
-             clients[client_index].nickname, buffer);
-    broadcast_message(message, clients[client_index].socket);
-}
-#+end_src
-
-*** Unix Domain Sockets
-For local inter-process communication:
-
-#+begin_src c
-// Server code
-// Note: Error checking omitted for brevity. In production code,
-// always check return values from socket(), bind(), listen(), accept(), etc.
-#include <stdio.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
-#include <string.h>
-
-int main() {
-    int server_fd, client_fd;
-    struct sockaddr_un address;
-    int addrlen = sizeof(address);
-    char buffer[1024] = {0};
-    char *message = "Hello from server";
-
-    // Create socket
-    server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-
-    address.sun_family = AF_UNIX;
-    strcpy(address.sun_path, "/tmp/socket");
-    unlink("/tmp/socket");  // Remove if it already exists
-
-    // Bind socket
-    bind(server_fd, (struct sockaddr *)&address, sizeof(address));
-
-    // Listen for connections
-    listen(server_fd, 3);
-
-    // Accept connection
-    client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-
-    // Read client message
-    read(client_fd, buffer, 1024);
-    printf("Client: %s\n", buffer);
-
-    // Send response
-    send(client_fd, message, strlen(message), 0);
-
-    close(client_fd);
-    close(server_fd);
-    return 0;
-}
-#+end_src
-
-*** Socket Programming Best Practices
-1. **Error Handling**: Always check return values from socket functions
-2. **Resource Management**: Close sockets when done
-3. **Buffer Management**: Be careful with buffer sizes and null termination
-4. **Protocol Design**: Design clear message formats and delimiters
-5. **Security**: Validate all input, use encryption for sensitive data
-6. **Scalability**: Consider using epoll (Linux) or kqueue (BSD) for thousands of connections
-7. **Timeouts**: Set appropriate timeouts to avoid hanging connections
-8. **Signal Handling**: Handle SIGPIPE for broken connections
-
-*** Essential Patterns for Client-Server Applications
-
-**** Interactive Text-Based Protocol
-Many applications use a simple request-response pattern where the server sends prompts and the client responds:
-
-#+begin_src c
-// Server side - sending prompts and reading responses
-void interact_with_client(int client_fd) {
-    char buffer[1024];
-    
-    // Send a prompt
-    const char *prompt = "Enter your choice (1-5): ";
-    send(client_fd, prompt, strlen(prompt), 0);
-    
-    // Read response
-    int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_read > 0) {
-        buffer[bytes_read] = '\0';
-        // Process the response
-        int choice = atoi(buffer);
-        // Handle the choice...
-    }
-}
-
-// Client side - reading prompts and sending responses
-void interact_with_server(int server_fd) {
-    char buffer[1024];
-    char input[1024];
-    
-    while (1) {
-        // Read prompt from server
-        int bytes_read = recv(server_fd, buffer, sizeof(buffer) - 1, 0);
-        if (bytes_read <= 0) break;
-        
-        buffer[bytes_read] = '\0';
-        printf("%s", buffer);  // Display prompt
-        
-        // Get user input and send to server
-        if (fgets(input, sizeof(input), stdin)) {
-            send(server_fd, input, strlen(input), 0);
-        }
-    }
-}
-#+end_src
-
-**** Handling Line-Based Input
-When working with text protocols, properly handling newlines is crucial:
-
-#+begin_src c
-// Remove trailing newline from fgets input
-char *line = fgets(buffer, sizeof(buffer), stdin);
-if (line) {
-    size_t len = strlen(line);
-    if (len > 0 && line[len-1] == '\n') {
-        line[len-1] = '\0';  // Remove newline
-    }
-}
-
-// Server side - clean up received input
-int bytes = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-if (bytes > 0) {
-    buffer[bytes] = '\0';
-    // Remove trailing newline if present
-    if (bytes > 0 && buffer[bytes-1] == '\n') {
-        buffer[bytes-1] = '\0';
-    }
-}
-#+end_src
-
-**** Multi-Client Server with Threads
-Simple pattern for handling multiple clients concurrently:
-
-#+begin_src c
-// Client data structure
-typedef struct {
-    int socket;
-    // Add any per-client state here
-} ClientData;
-
-// Thread function to handle one client
-void* handle_client_thread(void* arg) {
-    ClientData *client = (ClientData*)arg;
-    
-    // Handle all interactions with this client
-    // ... your protocol implementation ...
-    
-    // Cleanup
-    close(client->socket);
-    free(client);
-    return NULL;
-}
-
-// Main server loop
-int main() {
-    int server_fd = /* create and setup server socket */;
-    
-    while (1) {
-        struct sockaddr_in client_addr;
-        socklen_t addr_len = sizeof(client_addr);
-        
-        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
-        if (client_fd < 0) {
-            perror("accept");
-            continue;
-        }
-        
-        // Create client data
-        ClientData *client = malloc(sizeof(ClientData));
-        client->socket = client_fd;
-        
-        // Create thread to handle client
-        pthread_t thread;
-        pthread_create(&thread, NULL, handle_client_thread, client);
-        pthread_detach(thread);  // Don't need to join
-    }
-}
-#+end_src
-
-**** Common Socket Errors and Solutions
-
-**Address Already in Use**
-When restarting a server quickly:
-#+begin_src c
-int opt = 1;
-setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-#+end_src
-
-**Broken Pipe**
-When writing to a disconnected socket:
-#+begin_src c
-// Ignore SIGPIPE globally
-signal(SIGPIPE, SIG_IGN);
-
-// Or use MSG_NOSIGNAL flag
-send(socket, buffer, length, MSG_NOSIGNAL);
-#+end_src
-
-**Connection Refused**
-Client trying to connect when server isn't running:
-#+begin_src c
-if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-    if (errno == ECONNREFUSED) {
-        fprintf(stderr, "Server is not running on port %d\n", port);
-    }
-}
-#+end_src
+For a thorough treatment of socket programming — including TCP/UDP, client-server patterns, multiplexing with =select()=, and application protocols — see the separate [[file:../socketsGuide.org][sockets guide]].
 
 * Common Concurrency Patterns
 ** Producer-Consumer
-The producer-consumer pattern involves two types of threads/processes:
-- Producers generate data
-- Consumers process the data
-
-A bounded buffer is used to transfer data between them, with synchronization to ensure the buffer doesn't overflow or underflow.
+The producer-consumer pattern is probably the most common concurrency pattern you'll encounter. The idea is simple: one or more threads produce data and put it in a shared buffer, and one or more threads consume data from that buffer. You need synchronization to make sure producers don't overflow the buffer and consumers don't read from an empty one. We already saw this in the semaphore section — that bounded-buffer example /is/ the producer-consumer pattern.
 
 ** Reader-Writer
-The reader-writer pattern allows multiple threads to read simultaneously, but requires exclusive access for writing. Used when reads are more common than writes.
+The reader-writer pattern comes up when you have data that's read much more often than it's written. Multiple threads can safely read at the same time (since reads don't modify anything), but writes need exclusive access. A reader-writer lock (=pthread_rwlock_t=) gives you exactly this: multiple concurrent readers OR one exclusive writer, but never both.
 
 ** Thread Pool
-A thread pool maintains a set of worker threads ready to execute tasks. This avoids the overhead of creating and destroying threads for each task.
+Creating a new thread for every task is wasteful — thread creation isn't free. A thread pool solves this by keeping a fixed set of worker threads alive, waiting for tasks to arrive in a queue. When a task comes in, an idle worker picks it up. When it's done, the worker goes back to waiting. This is how most web servers and application frameworks handle concurrency under the hood.
 
-Example:
+Here's a simplified implementation to give you the idea:
 #+begin_src c
 // Simplified thread pool example
 #include <stdio.h>
@@ -1449,35 +847,36 @@ void threadPoolShutdown() {
 
 * Best Practices
 ** General Concurrency Guidelines
-1. Keep critical sections small
-2. Minimize shared data
-3. Use higher-level abstractions when possible
-4. Understand and avoid race conditions
-5. Use thread-safe functions
-6. Be aware of deadlocks
-7. Prefer message passing over shared memory when appropriate
-8. Test extensively with different timing and orderings
+After wrestling with all of the above, here's the hard-won wisdom:
+1. *Keep critical sections small* — the less code under a lock, the less contention
+2. *Minimize shared data* — the less shared state, the fewer bugs. Seriously, this one is huge.
+3. *Use higher-level abstractions when possible* — if a library provides a thread-safe queue, use it instead of rolling your own mutex-guarded list
+4. *Understand and avoid race conditions* — if you can't reason about why your code is safe, it probably isn't
+5. *Use thread-safe functions* — many C standard library functions (=strtok=, =localtime=, etc.) are NOT thread-safe. Use their =_r= variants.
+6. *Be aware of deadlocks* — whenever you hold more than one lock, think about ordering
+7. *Prefer message passing over shared memory when appropriate* — it's easier to reason about
+8. *Test extensively* — and know that passing tests doesn't mean your concurrent code is correct. It might just mean you got lucky with the scheduling.
 
 ** Debugging Concurrent Programs
-Debugging concurrent programs is challenging because:
-- Bugs may be non-deterministic
-- Traditional debugging can change timing and hide issues
-- Race conditions can be difficult to reproduce
+Debugging concurrent programs is genuinely hard. Here's why:
+- Bugs are often *non-deterministic* — they depend on timing, so they might happen 1 in 1000 runs
+- Traditional debugging (stepping through code) *changes the timing*, which can make bugs disappear (this is called a "Heisenbug" and yes, the name is intentional)
+- Race conditions can be practically impossible to reproduce on demand
 
-Techniques:
-- Use logging with thread/process IDs
-- Use tools like Valgrind, ThreadSanitizer, Helgrind
-- Write deterministic tests
-- Use assertions to check invariants
+Techniques that actually help:
+- *Logging with thread/process IDs* — when something goes wrong, you need to reconstruct what happened and in what order
+- *ThreadSanitizer* (compile with =-fsanitize=thread=) — this is genuinely magical. It instruments your code to detect data races at runtime. Use it!
+- *Helgrind* (a Valgrind tool) — similar idea, different implementation
+- *Assertions* — sprinkle =assert()= calls to check invariants. If a race condition violates one, you'll know immediately instead of getting silently corrupted data
 
 ** Performance Considerations
-1. Too many threads can lead to thrashing (context switching overhead)
-2. Thread affinity can improve cache utilization
-3. Understand the cost of synchronization
-4. Consider the granularity of parallelism
-5. Be aware of false sharing (when threads compete for the same cache line)
+A few things to keep in mind as you write concurrent programs:
+1. *Too many threads is a thing* — if you have 1000 threads on 8 cores, you're spending most of your time context switching instead of doing work
+2. *Locking isn't free* — every =pthread_mutex_lock= has overhead. If your critical section is tiny, the lock might cost more than the work it protects
+3. *False sharing is sneaky* — if two threads modify different variables that happen to be on the same cache line (typically 64 bytes), the CPU has to keep bouncing that cache line between cores, destroying performance
+4. *Think about granularity* — locking once per 1000 items is better than locking once per item. But a single giant lock defeats the purpose of multithreading. Find the balance.
 
 * Footnotes
 [fn:1] POSIX (Portable Operating System Interface) is a family of standards for maintaining compatibility between operating systems. POSIX threading (pthreads) is the standardized threading API.
 
-[fn:2] Compiling threaded programs in Linux requires linking with the pthread library: `gcc -pthread program.c -o program`
+[fn:2] Compiling threaded programs in Linux requires linking with the pthread library: =gcc -pthread program.c -o program=. This is mentioned up front in the Thread Creation section, but just in case you skipped ahead!

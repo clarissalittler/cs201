@@ -17,4 +17,7 @@ int main(){ // This is the main function, the entry point of the program. It ret
 
   return 0; // This line returns 0 to the operating system, indicating that the program executed successfully. 
 }
+
+/* Example output:
 The truncation turns -200 into -48
+*/

@@ -11,6 +11,7 @@ const int bSize = 1024;
 int fdWrite, fdRead;
 
 void *readFromServer(void *arg){
+  (void)arg;
   char buffer[bSize];
   while(1){
     memset(buffer, 0, bSize);

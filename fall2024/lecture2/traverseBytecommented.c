@@ -18,8 +18,8 @@ int main(){
   //printf("The first byte of our number is: %x\n", pointy[3]); // uncomment to print the hexadecimal value of the first byte, which is actually the fourth byte in memory due to little-endian ordering
 
   //the bytes in memory order of ourNum
-  for(int i=0; i < sizeof(typeof(ourNum)); i++){ // iterate through each byte of ourNum. sizeof(typeof(ourNum)) gets the size of the integer type, which is 4 bytes on most systems.
-    printf("byte #%d = %x\n",i,pointy[i]); // print the byte number and its hexadecimal value. pointy[i] accesses the i-th byte of the integer.
+  for(size_t i = 0; i < sizeof(ourNum); i++){ // iterate through each byte of ourNum. sizeof(ourNum) gets the size of the integer type, which is 4 bytes on most systems.
+    printf("byte #%zu = %x\n",i,pointy[i]); // print the byte number and its hexadecimal value. pointy[i] accesses the i-th byte of the integer.
   }
   
   return 0; // return 0 to indicate successful program execution

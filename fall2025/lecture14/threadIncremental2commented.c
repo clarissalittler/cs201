@@ -39,6 +39,7 @@ char menuString[] = "Press 1 to tick up your income\nPress 2 to buy a first-leve
 // Called when user presses Ctrl+C (SIGINT)
 // This is simpler than in test1.c - just sets the flag
 void cleanup(int signum){
+  (void)signum;
   // Set flag to 0 to signal all threads to stop
   // Both heartbeat thread and main loop check this flag
   toContinue = 0;
@@ -50,12 +51,13 @@ void cleanup(int signum){
 void printMenu(){
   printf("Money %d\nGen1: %d\nGen2: %d\nGen3: %d\n",
 	 income,gen1,gen2,gen3);
-  printf(menuString);
+  printf("%s", menuString);
 }
 
 // HEARTBEAT THREAD:
 // Now with termination condition!
 void* heartbeat(void* arg){
+  (void)arg;
 
   // CONTROLLED LOOP:
   // Continues while toContinue == 1

@@ -8,6 +8,7 @@
 // when you see void*, that's
 // polymorphism in C
 void* func1(void* arg){
+  (void)arg;
   printf("Hi I'm a thread!\n");
   return NULL;
 }

@@ -7,6 +7,7 @@ long counter = 0;
 pthread_mutex_t counterMutex;
 
 void* inc(void* arg){
+  (void)arg;
   for(int i = 0; i < 100000; i++){
     pthread_mutex_lock(&counterMutex);
     counter++;

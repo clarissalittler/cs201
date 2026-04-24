@@ -36,6 +36,16 @@ cargo --version
 
 ## Compilation and Running
 
+### Build the repo examples
+
+This directory contains standalone `.rs` files, not a Cargo workspace. The
+repository build uses the local Makefile:
+
+```bash
+make        # compile all examples into bin/
+make clean  # remove compiled binaries
+```
+
 ### Compile and run individual programs:
 
 ```bash
@@ -47,6 +57,10 @@ rustc hello.rs
 ```
 
 ### Using Cargo (Rust's build system and package manager):
+
+Cargo is useful for regular Rust projects, but this directory does not include
+a `Cargo.toml`. The examples here are meant to stay lightweight and compile as
+single files.
 
 ```bash
 # Create a new project
@@ -63,7 +77,7 @@ cargo build --release
 ### Compile all examples:
 
 ```bash
-# Compile each example
+# Compile each example manually
 rustc hello.rs
 rustc echo0.rs
 rustc echo1.rs

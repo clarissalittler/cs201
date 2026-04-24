@@ -4,6 +4,7 @@
 
 // FILE* type
 int main(int argc, char* argv[]){
+  (void)argc;
 
   FILE* ourFile = fopen(argv[1],"r+");
 

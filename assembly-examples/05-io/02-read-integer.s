@@ -49,13 +49,15 @@ readInt:
 	dec %rbx
 
 intRead:
-	movb (%rdi,%rcx,1),%r8b # temp = buffer[i] (load one byte)
+	movzbl (%rdi,%rcx,1),%r8d # temp = buffer[i] (load one byte, zero-extended into %r8)
+	                          # movzbl clears the upper 56 bits of %r8, so the
+	                          # sub/add below operate on a clean value.
 	sub $'0',%r8 		# temp = temp - '0' (convert ASCII to digit)
 	imul $10,%rax		# result = result * 10
 	add %r8,%rax		# result = result + digit
 	inc %rcx 		# i++
 	cmp %rbx,%rcx 		# compare i with numBytes-1
-	jl intRead		# if i < numBytes-1, continue loop
+	jb intRead		# unsigned: if i < numBytes-1, continue loop
 
 	# Function epilogue: restore saved registers and return
 	pop %rbx		# Restore %rbx

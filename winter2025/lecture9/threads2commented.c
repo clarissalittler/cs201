@@ -32,6 +32,7 @@
 // The function is identical
 // The difference is in HOW we call pthread_join in main()
 void* func1(void* arg){
+  (void)arg;
 
   // PRINT MESSAGE:
   // Each thread prints this
@@ -147,8 +148,8 @@ int main(){
   // WHY NULL?
   // Because func1 returns NULL
   // If func1 returned a different pointer, we'd see that address
-  printf("The value of ret1 is: %p\n",ret1);
-  printf("The value of ret2 is: %p\n",ret2);
+  printf("The value of ret1 is: %p\n",(void*)ret1);
+  printf("The value of ret2 is: %p\n",(void*)ret2);
 
   return 0;
 }

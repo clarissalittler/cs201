@@ -17,7 +17,8 @@
 #include <sys/stat.h>    // Provides mkfifo()
 #include <sys/types.h>   // Provides mode_t type
 #include <string.h>      // Provides strcpy(), strcmp(), memset(), strcspn()
-#include <signal.h>      // Provides signal(), SIGINT
+#include <signal.h>      // Provides sigaction(), SIGINT
+#include <errno.h>       // Provides errno and EEXIST/EINTR
 
 // FIFO NAMES:
 // These are the filesystem paths for our named pipes
@@ -34,42 +35,43 @@
 #define FIFO_CLIENT "fifo_client"
 #define BUFFER_SIZE 256
 
-// GLOBAL FILE DESCRIPTORS:
-// Needed in signal handler for cleanup
-// Initialized to -1 to indicate "not open"
-int server_fd, client_fd;
+// GLOBAL STATE:
+// File descriptors live here so cleanup code can see them.
+// stop_requested is the signal-safe flag shared with the handler.
+int server_fd = -1, client_fd = -1;
+volatile sig_atomic_t stop_requested = 0;
 
 // CLEANUP SIGNAL HANDLER:
 // Called when Ctrl+C is pressed (SIGINT)
 //
-// PURPOSE:
-//   - Close file descriptors
-//   - Remove FIFO files from filesystem
-//   - Graceful shutdown
+// IMPORTANT SIGNAL-HANDLER RULE:
+//   - Keep handlers tiny
+//   - Only do async-signal-safe work here
+//   - Real cleanup happens back in normal control flow
 void cleanup(int sig) {
-    printf("\nCleaning up and exiting...\n");
+    static const char msg[] = "\nCleaning up and exiting...\n";
+    (void)sig;
+    stop_requested = 1;
+    write(STDOUT_FILENO, msg, sizeof(msg) - 1);
+}
 
-    // CLOSE FILE DESCRIPTORS IF OPEN:
-    // Check != -1 to avoid closing invalid FDs
+static void cleanup_resources(void) {
     if (server_fd != -1) close(server_fd);
     if (client_fd != -1) close(client_fd);
-
-    // REMOVE FIFO FILES:
-    // unlink() deletes the files from filesystem
-    // Essential because FIFOs persist after program exits
     unlink(FIFO_SERVER);
     unlink(FIFO_CLIENT);
-
-    exit(0);
 }
 
 int main() {
     char buffer[BUFFER_SIZE];
     int bytes_read;
+    struct sigaction sa = {0};
 
     // STEP 1: SET UP SIGNAL HANDLER
-    // Catch Ctrl+C for graceful cleanup
-    signal(SIGINT, cleanup);
+    // Use sigaction() so blocking syscalls can return with EINTR.
+    sa.sa_handler = cleanup;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
 
     // STEP 2: CREATE NAMED PIPES (FIFOs)
     //
@@ -86,8 +88,15 @@ int main() {
     //   - mkfifo() will fail
     //   - Common if previous run didn't cleanup
     //   - Solution: rm fifo_server fifo_client
-    mkfifo(FIFO_SERVER, 0666);
-    mkfifo(FIFO_CLIENT, 0666);
+    if (mkfifo(FIFO_SERVER, 0666) == -1 && errno != EEXIST) {
+        perror("mkfifo");
+        return EXIT_FAILURE;
+    }
+    if (mkfifo(FIFO_CLIENT, 0666) == -1 && errno != EEXIST) {
+        perror("mkfifo");
+        unlink(FIFO_SERVER);
+        return EXIT_FAILURE;
+    }
 
     printf("Chat Server started. Waiting for connections...\n");
 
@@ -109,7 +118,17 @@ int main() {
     //   - O_WRONLY: Open for writing only
     //   - BLOCKS until client opens read end
     server_fd = open(FIFO_SERVER, O_RDONLY);
+    if (server_fd == -1) {
+        if (!stop_requested) perror("open");
+        cleanup_resources();
+        return stop_requested ? 0 : EXIT_FAILURE;
+    }
     client_fd = open(FIFO_CLIENT, O_WRONLY);
+    if (client_fd == -1) {
+        if (!stop_requested) perror("open");
+        cleanup_resources();
+        return stop_requested ? 0 : EXIT_FAILURE;
+    }
 
     printf("Client connected. Start chatting!\n");
 
@@ -137,7 +156,7 @@ int main() {
     //   5. Send response to client
     //   6. Check if server wants to exit
     //   7. Repeat
-    while (1) {
+    while (!stop_requested) {
         // CLEAR BUFFER:
         // Prepare for new message
         memset(buffer, 0, BUFFER_SIZE);
@@ -151,7 +170,15 @@ int main() {
         //   - < 0: Error
         bytes_read = read(server_fd, buffer, BUFFER_SIZE);
 
-        if (bytes_read <= 0) {
+        if (bytes_read < 0) {
+            if (stop_requested && errno == EINTR) {
+                break;
+            }
+            perror("read");
+            break;
+        }
+
+        if (bytes_read == 0) {
             // CLIENT DISCONNECTED OR ERROR
             printf("Client disconnected.\n");
             break;
@@ -174,7 +201,13 @@ int main() {
         //   - Up to BUFFER_SIZE characters
         //   - Includes newline character
         printf("Your response: ");
-        fgets(buffer, BUFFER_SIZE, stdin);
+        if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) {
+            if (stop_requested || feof(stdin)) {
+                break;
+            }
+            clearerr(stdin);
+            continue;
+        }
 
         // REMOVE NEWLINE:
         // fgets() includes '\n', we don't want it
@@ -200,8 +233,8 @@ int main() {
     }
 
     // CLEANUP:
-    // Chat ended, clean up resources
-    cleanup(0);
+    // Chat ended, clean up resources outside the signal handler.
+    cleanup_resources();
     return 0;
 }
 

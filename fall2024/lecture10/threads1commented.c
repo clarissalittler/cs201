@@ -6,6 +6,7 @@
 
 // This function is executed by a separate thread
 void* myFun(void* arg){
+  (void)arg;
   
   // Generate a random integer between 1 and 3 (inclusive)
   int temp = rand()%3+1;

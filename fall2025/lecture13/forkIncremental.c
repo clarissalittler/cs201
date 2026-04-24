@@ -22,6 +22,7 @@ void printMenu(){
 
 
 void heartbeat(int signumb){
+  (void)signumb;
   printMenu();
   gen2 += gen3;
   gen1 += gen2;

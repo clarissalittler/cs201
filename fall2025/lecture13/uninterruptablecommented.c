@@ -22,6 +22,7 @@
 // This is somewhat of a misnomer - the process IS interrupted (handler runs)
 // But it's not TERMINATED, which is what we usually mean by "interrupted"
 void uninterruptable(int signum){
+  (void)signum;
   // MINIMAL SIGNAL HANDLER:
   // We just print "Ouch!" and return
   // The newline at start ensures it appears on a new line

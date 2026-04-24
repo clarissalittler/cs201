@@ -13,12 +13,12 @@ int main(){
     printf("bigArray[%d] = %d\n",i,bigArray[i]);
   }
 
-  printf("The address of bigArray is: %p\n",bigArray);
-  printf("Oh and btw sizeof(int) is: %ld\n",sizeof(int));
+  printf("The address of bigArray is: %p\n",(void*)bigArray);
+  printf("Oh and btw sizeof(int) is: %zu\n",sizeof(int));
 
   free(bigArray);
   bigArray = NULL;
-  printf("Now the address of bigArray is: %p\n",bigArray);
+  printf("Now the address of bigArray is: %p\n",(void*)bigArray);
   
   return 0;
 }

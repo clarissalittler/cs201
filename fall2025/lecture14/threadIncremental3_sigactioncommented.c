@@ -32,16 +32,18 @@ char menuString[] = "Press 1 to tick up your income\nPress 2 to buy a first-leve
 // Simple and safe - just sets flag
 // No output here (unlike threadIncremental3.c)
 void cleanup(int signum){
+  (void)signum;
   toContinue = 0;
 }
 
 void printMenu(){
   printf("Money %d\nGen1: %d\nGen2: %d\nGen3: %d\n",
 	 income,gen1,gen2,gen3);
-  printf(menuString);
+  printf("%s", menuString);
 }
 
 void* heartbeat(void* arg){
+  (void)arg;
   while(toContinue){
     pthread_mutex_lock(&mut);
     printMenu();

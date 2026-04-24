@@ -1,7 +1,9 @@
 # CS201 Systems Programming - Top-Level Makefile
 # This Makefile provides convenient targets for building all examples across the repository
 
-.PHONY: all help clean test tutorials exercises lectures fall2024 fall2025 winter2025 spring2025
+.PHONY: all all-examples help clean clean-all test tutorials exercises lectures \
+	fall2024 fall2025 winter2025 spring2025 concurrency assembly ipc deadlock \
+	file-io sockets rust
 
 # Default target
 all: help
@@ -77,7 +79,7 @@ sockets:
 
 rust:
 	@echo "Building Rust examples..."
-	@cd rust-intro && cargo build
+	@$(MAKE) -C rust-intro
 
 # Exercise builds
 exercises:
@@ -155,6 +157,7 @@ clean-all: clean
 	@$(MAKE) -C deadlock-lecture clean 2>/dev/null || true
 	@$(MAKE) -C file-intro clean 2>/dev/null || true
 	@$(MAKE) -C socket-examples clean 2>/dev/null || true
+	@$(MAKE) -C rust-intro clean 2>/dev/null || true
 	@echo "Cleaning all lectures..."
 	@for dir in fall2024/lecture* fall2025/lecture* fall2025/file-lecture fall2025/pointerExtras winter2025/lecture* winter2025/finalproj spring2025/*; do \
 		if [ -d "$$dir" ] && [ -f "$$dir/Makefile" ]; then \

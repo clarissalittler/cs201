@@ -20,11 +20,6 @@
 
 int main(){
 
-  // UNUSED VARIABLE:
-  // This structure is declared but never used in this program
-  // Likely left over from experimentation or planned functionality
-  struct stat fileStat;
-
   // SERVER CONFIGURATION:
   // Same as sock1.c - listening on port 8080
   int port = 8080;       // The port number the server will listen on

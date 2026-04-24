@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 void* weirdFunction(void* arg){
+  (void)arg;
 
   int* sleepPointer = malloc(sizeof(int));
 

@@ -112,4 +112,7 @@ int main() {
     // Parent and child processes exit here
     return 0;
 }
+
+/* Example output:
 Survey says! 10
+*/

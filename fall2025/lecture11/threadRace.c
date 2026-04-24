@@ -6,6 +6,7 @@
 int counter = 0;
 
 void* incer(void* arg){
+  (void)arg;
 
   int temp = counter;
   sleep(rand()%3+1); // simulated work

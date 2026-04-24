@@ -57,8 +57,8 @@
 
         .section .data             # DATA SECTION: Initialized writable data
 
-arr1:   .long 1,2,3,4              # ARRAY DECLARATION: Four 32-bit integers
-                                  # .long = 4 bytes per element
+arr1:   .quad 1,2,3,4              # ARRAY DECLARATION: Four 64-bit integers
+                                  # .quad = 8 bytes per element
                                   # arr1 is the label (address of first element)
                                   # Comma-separated values create consecutive elements
                                   #
@@ -210,29 +210,29 @@ loopBody:                          # LOOP LABEL: Start of loop body
                                   # For positive counters 0-4, both work
                                   # jge is more intuitive for counting loops
 
-        add (%rbx,%rcx,4),%rax     # ACCUMULATE: sum += arr1[i]
+        add (%rbx,%rcx,8),%rax     # ACCUMULATE: sum += arr1[i]
                                   # Add current array element to running sum
                                   #
                                   # INSTRUCTION BREAKDOWN:
                                   # add              - Add values
-                                  # (%rbx,%rcx,4)    - Source: array element (memory)
+                                  # (%rbx,%rcx,8)    - Source: array element (memory)
                                   # %rax             - Destination: accumulator (register)
                                   #
-                                  # COMPLEX ADDRESSING: (%rbx,%rcx,4)
+                                  # COMPLEX ADDRESSING: (%rbx,%rcx,8)
                                   # This is BASE + (INDEX * SCALE) addressing
                                   # Format: (base,index,scale)
-                                  # Address calculation: %rbx + (%rcx * 4)
+                                  # Address calculation: %rbx + (%rcx * 8)
                                   #
                                   # BREAKDOWN:
                                   # %rbx  - base address (pointer to arr1[0])
                                   # %rcx  - index (which element: 0, 1, 2, 3)
-                                  # 4     - scale (bytes per element: sizeof(int))
+                                  # 8     - scale (bytes per element: sizeof(long)/quad)
                                   #
                                   # CONCRETE EXAMPLES:
-                                  # When %rcx = 0: address = %rbx + (0*4) = %rbx + 0  → arr1[0] = 1
-                                  # When %rcx = 1: address = %rbx + (1*4) = %rbx + 4  → arr1[1] = 2
-                                  # When %rcx = 2: address = %rbx + (2*4) = %rbx + 8  → arr1[2] = 3
-                                  # When %rcx = 3: address = %rbx + (3*4) = %rbx + 12 → arr1[3] = 4
+                                  # When %rcx = 0: address = %rbx + (0*8) = %rbx + 0   → arr1[0] = 1
+                                  # When %rcx = 1: address = %rbx + (1*8) = %rbx + 8   → arr1[1] = 2
+                                  # When %rcx = 2: address = %rbx + (2*8) = %rbx + 16  → arr1[2] = 3
+                                  # When %rcx = 3: address = %rbx + (3*8) = %rbx + 24  → arr1[3] = 4
                                   #
                                   # C EQUIVALENT:
                                   # rax += arr1[rcx];

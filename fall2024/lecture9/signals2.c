@@ -5,6 +5,7 @@
 #include <signal.h>
 
 void alarm_handler(int sig){
+  (void)sig;
   printf("The bells have been rung!\n");
 }
 

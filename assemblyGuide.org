@@ -4,7 +4,7 @@
 #+identifier: 20250130T150222
 
 * Goals of this document
-What you're reading are my supplementary notes on how to write x86-64 assembly, with an eye towards making entire programs so that you can finish your assignments!
+What you're reading are my supplementary notes on how to write x86-64 assembly, with an eye towards writing complete programs so you can finish your assignments!
 * Introduction to assembly
 ** What is assembly?
 When we say "assembly" we're often being a little sloppy. What a processor actually runs is /its instruction set/. The instruction set is just a sequence of bytes that tells the processor, the literal physical hardware that processes high and low voltages, what operations to execute. I cannot stress enough that the instruction set is a /physical/ thing implemented in /physical/ hardware. 
@@ -17,7 +17,7 @@ Different assemblers allow for different syntaxes for writing assembly and have 
 
 In this class, we're specifically going to use the gnu assembler, written as =as= on the command line, which uses a particular style of syntax called "AT&T" syntax. Now, AT&T syntax is a little weird and is easy to mess up, but it's also what oldschool linux/unix tools are based on and is the syntax you might be expected to know in future classes. So that constrains our curriculum a bit. 
 ** Why learn it?
-Okay and obvious question is "why bother learning assembly?". I mean, we have compilers, right? What's the actual thing that it does for us?
+Okay, an obvious question is "why bother learning assembly?". I mean, we have compilers, right? What's the actual thing that it does for us?
 
 So my argument is that
  - it's good to understand the guts of how things work
@@ -28,9 +28,9 @@ So my argument is that
    - reverse engineering (the act of taking a binary and figuring out what it does)
    - operating system research and development 
 ** Registers: what are they and why do we need them?
- So we're going to spend a lot of time talking about /registers/. All processors have some form of registers. These are the most low-level storage space, which act basically like "scratch paper" for the processor: a place where computations are done quickly and results are thrown away when no longer needed. Memory is /slow/, and we'll talk more about why later in the course, but the reality is that a register can be accessed in a /billionth/ of a second while memory might be 1000x or 10000x slower than that. So you need to use registers as much as possible. In fact, while some instructions let you load or save data directly to memory you generally can't load from a location in memory, do an operation, then save to a location in memory as a single step. You have to use at least one register as an intermediary storage space, a kind of workspace, before finalizing your work. So while having more registers would be good, the problem, though, is that each register complicates the physical hardware of the chip.
+ So we're going to spend a lot of time talking about /registers/. All processors have some form of registers. These are the most low-level storage space, which act basically like "scratch paper" for the processor: a place where computations are done quickly and results are thrown away when no longer needed. Memory is /slow/, and we'll talk more about why later in the course, but the reality is that a register can be accessed in a fraction of a nanosecond while a trip all the way out to main memory can take hundreds of nanoseconds — easily 100x slower. So you need to use registers as much as possible. In fact, while some instructions let you load or save data directly to memory you generally can't load from a location in memory, do an operation, then save to a location in memory as a single step. You have to use at least one register as an intermediary storage space, a kind of workspace, before finalizing your work. So while having more registers would be good, the problem, though, is that each register complicates the physical hardware of the chip.
 
- For example, on x86-64 systems, you have /16/ (ordinary) registers[fn:2]. Each of which can hold 64bits (8 bytes) of data. That's not much! 
+ For example, on x86-64 systems, you have /16/ (ordinary) registers[fn:2]. Each of which can hold 64 bits (8 bytes) of data. That's not much!
 
  It's even worse when you consider that the registers aren't "per program running" they're per processor (well, really, per /core/ which you can think of as one of a number of sub-processors that share circuitry with each other), so whenever your computer switches which programs are running at a given moment that program is competing for using those registers.
 ** By convention
@@ -41,9 +41,8 @@ But most of the time you're not going to do that, right? You're going to need to
 Now that being said, usually when you're using a language with a compiler you literally never have to think about any of this because that's what the compiler writers did for you! They generated the correct assembly from your program!
 
 But in this chunk of the course you're going to be /writing/ assembly, which means that you do need to learn some of these conventions.
-* Quick reference
-** Register reference
- Basic registers
+* Register reference
+** The 16 general-purpose registers
  + =%rax=: accumulator register (for operations like mul, div, etc.)
  + =%rbx=: base register (historically used for array base address)
  + =%rcx=: counter register (used in loops and rep instructions)
@@ -54,48 +53,113 @@ But in this chunk of the course you're going to be /writing/ assembly, which mea
  + =%rsp=: stack pointer (points to top of the stack)
  + =%r8= – =%r15=: additional general-purpose registers
  + =%rip= (special case, you won't use it except in rip-relative addressing)
- For floating-point and vector/SIMD registers, see the reference section at the end of this document.
 
-** Calling convention reference
- + Functions must return values via =%rax=
- + Arguments are passed into functions via the registers (presented in order):
-   + =%rdi=
-   + =%rsi=
-   + =%rdx=
-   + =%rcx=
-   + =%r8=
-   + =%r9=
- + Functions are called with =call= after putting their arguments into the appropriate registers and saving (if needed) the caller saved registers
- + When a function is called it should save the callee saved registers (if needed) and then prepare the stack
- + To prepare the stack
-   #+begin_src asm
-     fun:
-             push %rbp               # save the base pointer
-             mov %rsp,%rbp           # move the top of the stack to be the new base pointer
-             sub $xx,%rsp            # make room for local variables, the number you fill in for the xx must be multiple of 16
-             ## some time later
-             mov %rbp,%rsp           #can replace the mov and pop with leave
-             pop %rbp
-             ret                     #
-   #+end_src
- + Caller saved registers must be saved before you call a function since they can be overwritten at will
-   + rax
-   + rcx
-   + rdx
-   + rsi
-   + rdi
-   + r8
-   + r9
-   + r10
-   + r11
- + Callee saved registers must be saved inside the body of a function and restored before =ret=
-   + rbx
-   + rbp
-   + r12 - r15
+For the calling convention (which registers hold arguments, which are caller-/callee-saved, etc.), see the *Full calling convention reference* section near the end of this document. For floating-point and vector/SIMD registers, see the reference section at the very end.
+
+** Sub-register sizes
+ Each of those 64-bit registers has smaller "views" into its lower bits. So when you want to work with just 32, 16, or 8 bits of data, you use a different name for the same register. This matters because instructions often care about operand size (e.g. =movb= works on bytes, =movq= works on quads), and you'll see compiler output using the smaller names all the time.
+
+ For the "legacy" registers (=rax=, =rbx=, =rcx=, =rdx=), the naming goes:
+
+ | 64-bit (quad) | 32-bit (long) | 16-bit (word) | lower 8-bit (byte) |
+ |---------------+---------------+---------------+--------------------|
+ | =%rax=        | =%eax=        | =%ax=         | =%al=              |
+ | =%rbx=        | =%ebx=        | =%bx=         | =%bl=              |
+ | =%rcx=        | =%ecx=        | =%cx=         | =%cl=              |
+ | =%rdx=        | =%edx=        | =%dx=         | =%dl=              |
+
+ For =%rsi=, =%rdi=, =%rbp=, =%rsp=, the pattern is slightly different:
+
+ | 64-bit | 32-bit  | 16-bit | 8-bit   |
+ |--------+---------+--------+---------|
+ | =%rsi= | =%esi=  | =%si=  | =%sil=  |
+ | =%rdi= | =%edi=  | =%di=  | =%dil=  |
+ | =%rbp= | =%ebp=  | =%bp=  | =%bpl=  |
+ | =%rsp= | =%esp=  | =%sp=  | =%spl=  |
+
+ And for the newer =%r8= – =%r15=, you just add a suffix:
+
+ | 64-bit | 32-bit  | 16-bit  | 8-bit   |
+ |--------+---------+---------+---------|
+ | =%r8=  | =%r8d=  | =%r8w=  | =%r8b=  |
+ | =%r9=  | =%r9d=  | =%r9w=  | =%r9b=  |
+
+ And so on for =%r10= – =%r15=.
+
+ *Important gotcha:* when you write to a 32-bit register (e.g. =movl $5, %eax=), the CPU /automatically zeros out/ the upper 32 bits of the full 64-bit register. But when you write to an 8-bit or 16-bit register, the upper bits are left alone. That's why you'll often see =movzbl= ("move with zero-extend byte to long") when loading a single byte into a register — it forces the upper bits to zero so you don't get garbage from whatever was there before.
+
 * Sections
  + =.text= is the section you declare for your code
  + =.data= for initialized data you want to modify (global variables)
  + =.rodata= for initialized data you don't want to modify (global constants)
+ + =.bss= for uninitialized data that will be zeroed when your program starts
+
+A couple of spellings you'll see that mean the same thing:
+ + =.text= and =.section .text= are equivalent. Same for =.data=, =.rodata=, =.bss=.
+ + =.global= and =.globl= are aliases. The =.globl= spelling is older and more common in the wild.
+
+I use both forms throughout this guide so you'll recognize them in other people's code, but feel free to pick whichever you prefer for your own programs.
+
+* Data directives
+When you put data in =.data=, =.rodata=, or =.bss=, you use /directives/ to tell the assembler what kind of data and how many bytes to emit.
+
+| Directive | Size     | Use for                                                   |
+|-----------+----------+-----------------------------------------------------------|
+| =.byte=   | 1 byte   | characters, small integers, booleans                      |
+| =.word=   | 2 bytes  | 16-bit integers                                           |
+| =.long=   | 4 bytes  | 32-bit integers                                           |
+| =.quad=   | 8 bytes  | 64-bit integers (= one register-sized value!)             |
+| =.ascii=  | varies   | string, /no/ null terminator                              |
+| =.asciz=  | varies   | string, automatically null-terminated                     |
+| =.skip N= | N bytes  | reserve N uninitialized (or zero-filled in .bss) bytes    |
+| =.zero N= | N bytes  | same as =.skip=, both emit N zero bytes                   |
+
+*A warning worth reading twice:* =.long= is *32 bits*, not 64. This trips people up constantly. If you're putting an integer into the =.data= section and you want to load it into a 64-bit register with =movq=, you almost certainly want =.quad=, not =.long=. Using =.long= means you've reserved only 4 bytes, and =movq= will happily read the next 4 bytes (probably some other variable!) along with it.
+
+Examples:
+#+begin_src asm
+  .section .data
+  counter:   .quad 0               # 64-bit counter, starts at 0
+  numbers:   .quad 10, 20, 30, 40  # array of four 64-bit ints
+  flags:     .byte 1, 0, 1, 1      # four bytes
+  name:      .asciz "Clarissa"     # 9 bytes: 8 chars + null terminator
+  greeting:  .ascii "hi"           # 2 bytes, no null
+
+  .section .bss
+  inputBuf:  .skip 256             # 256 uninitialized bytes
+#+end_src
+
+* Addressing modes
+Whenever you see parentheses in an operand, you're dereferencing memory. The fully general form of an x86-64 memory operand is:
+
+#+begin_example
+disp(base, index, scale)
+#+end_example
+
+which the CPU evaluates as:
+
+#+begin_example
+address = base + (index × scale) + disp
+#+end_example
+
+where:
++ =base= is a register (or omitted)
++ =index= is a register (or omitted)
++ =scale= is =1=, =2=, =4=, or =8= (or omitted — defaults to 1)
++ =disp= is a constant offset (or omitted — defaults to 0)
+
+You almost never use all four parts at once. Here are the patterns you'll actually see:
+
+| Example            | Meaning                          | Typical use                               |
+|--------------------+----------------------------------+-------------------------------------------|
+| =(%rax)=           | value at the address in =%rax=   | dereference a pointer                     |
+| =8(%rax)=          | value at =%rax + 8=              | access a struct field                     |
+| =-16(%rbp)=        | value at =%rbp - 16=             | access a local variable                   |
+| =(%rbx, %rcx, 8)=  | value at =%rbx + %rcx * 8=       | =arr[i]= where each element is 8 bytes    |
+| =num(%rip)=        | value at =num + %rip-offset=     | access a global via RIP-relative          |
+
+One important thing to keep in your back pocket: =lea= uses the exact same syntax but /doesn't dereference/. It just computes the address and puts it in the destination. So =lea 8(%rbx, %rcx, 4), %rax= gives you =%rax = %rbx + %rcx*4 + 8=, not the value at that address. That's why =lea= sneaks into code as a cheap arithmetic instruction — you can compute =base + index * scale + disp= in one instruction without ever touching memory.
+
 * Example programs
 ** A first program
 This is a simple program that exits with a status of -1 when you run it. You can check the exit code of the program with =echo $?= at the command line. Now here's something that trips people up: you'll actually see 255, not -1. That's because exit codes are unsigned bytes (0-255), and -1 in two's complement is 0xFF, which is 255.
@@ -117,7 +181,28 @@ This is a simple program that exits with a status of -1 when you run it. You can
 
 #+end_src
 
-If you /don't/ properly exit the program you'll see a segfault as the program attempts to move to executing the next region of memory after the last instruction as though /it/ is an instruction. 
+If you /don't/ properly exit the program you'll see a segfault as the program attempts to move to executing the next region of memory after the last instruction as though /it/ is an instruction.
+** How to actually compile and run this
+Okay, before we go any further — how do you actually turn that text file into a running program? There are two steps: /assembling/ (turning your =.s= file into an object file of machine code) and /linking/ (stitching that object file together into a real executable).
+
+Save the program above as =first.s= and then run:
+#+begin_example
+as first.s -o first.o        # assemble into an object file
+ld first.o -o first          # link into an executable
+./first                      # run it
+echo $?                      # check the exit code (will print 255, see above)
+#+end_example
+
+That's it. If you're getting linker errors about "undefined reference to =_start=", double-check that you wrote =.global _start= (or =.globl _start=, they're the same thing — more on that later) and that your label is spelled exactly =_start=, with the underscore.
+
+If you want to debug your program, compile with extra info:
+#+begin_example
+as -g first.s -o first.o
+ld first.o -o first
+gdb ./first
+#+end_example
+
+There's a whole section on gdb later in this guide once we have more interesting programs to poke at.
 ** Basic arithmetic and registers
  Basic arithmetic is done with the =add= and =sub= instructions. Note that, like most binary operations in assembly, they take only two arguments and store the result of the operation in the second argument
 #+begin_src asm
@@ -143,15 +228,17 @@ If you /don't/ properly exit the program you'll see a segfault as the program at
 ** cmp and jmp
 Now assembly doesn't have if-statements like you're used to. Instead you have to do a =cmp= instruction and then different kinds of /jump/ based on the result of the =cmp=. Jumps need to take an address of where to go next, generally in the form of a label. You can make labels by just writing a name and then a =:=.
 
-We can summarize this in the following table where we assume that we've just done =cmp a,b= (I always double-check this table when I need it, and you should too)
+We can summarize this in the following table where we assume that we've just done =cmp a,b= (I always double-check this table when I need it, and you should too). These are the /signed/ conditional jumps — there are unsigned variants (=jb=, =ja=, =jbe=, =jae=) that you should use when comparing unsigned values, like loop indices against a length; see the Common Gotchas section.
 
-| jmp | unconditional jump                    |
-| jl  | jump if b less than a                 |
-| jle | jump if b less-than-or-equal to a     |
-| je  | jump if a = b                         |
-| jne | jump if a != b                        |
-| jg  | jump if b greater than a              |
-| jge | jump if b greater than or equal to a  |
+| Instruction | When it jumps                        |
+|-------------+--------------------------------------|
+| =jmp=       | always (unconditional)               |
+| =jl=        | b < a                                |
+| =jle=       | b <= a                               |
+| =je=        | a == b                               |
+| =jne=       | a != b                               |
+| =jg=        | b > a                                |
+| =jge=       | b >= a                               |
 
 
 #+begin_src asm
@@ -169,14 +256,14 @@ We can summarize this in the following table where we assume that we've just don
                           # Flags are set based on this subtraction
 
           # Conditional jump based on the comparison
-          jne less        # Jump to 'less' label if NOT equal
+          jne notEqual    # Jump to 'notEqual' label if NOT equal
                           # This means the jump happens if rax != rbx
 
           # If values are equal, set exit code to -1
           mov $-1,%rdi    # Load -1 as the exit status
           jmp finish      # Unconditionally jump to finish
 
-  less:
+  notEqual:
           # If values are not equal, set exit code to 10
           mov $10,%rdi    # Load 10 as the exit status
 
@@ -189,7 +276,7 @@ We can summarize this in the following table where we assume that we've just don
 *** Anonymous labels
 A feature I didn't even learn myself until recently is that you can re-use label names by giving a /number/ in the label and then referring to it with a direction:
 
-Writng =#f= means jump forward to the next label with that name =#= and =#b= means jump backwards to the previous label with the name =#=. Try changing the fs and bs in the following code to break it in different ways.
+Writing a digit followed by =f= (e.g. =1f=) means jump forward to the next label with that number, and a digit followed by =b= (e.g. =1b=) means jump backward to the previous one. So you can sprinkle =1:= labels throughout your code and use =jmp 1f= / =jmp 1b= to hop between them. Try changing the fs and bs in the following code to break it in different ways.
 
 [please note this example uses concepts that are explained elsewhere in the document]
 #+begin_src asm
@@ -460,7 +547,7 @@ First is our "hello world", that we're finally getting to:
           ## call the write syscall
           ## and exit appropriately
           mov $1,%rax        # Set %rax to 1 (syscall number for write)
-          mov $2,%rdi        # File descriptor: 2 is stderr (could be 1 for stdout)
+          mov $1,%rdi        # File descriptor: 1 is stdout (2 would be stderr)
           lea msg(%rip),%rsi # Load effective address of message relative to instruction pointer
           mov $hellolen,%rdx # Move message length into %rdx (third argument for write)
 
@@ -472,7 +559,7 @@ First is our "hello world", that we're finally getting to:
 
 #+end_src
 
-We don't strictly need to have null-terminated strings here because read and write don't actually care about this: they're too low of level! But it's a good habit to be in. Note that, much like how the variable for a buffer in C is pointing to the start of the buffer, see that when we pass the buffer to a function we're just passing the address to the start of the buffer!
+We don't strictly need to have null-terminated strings here because read and write don't actually care about this: they're too low-level! But it's a good habit to be in. Note that, much like how the variable for a buffer in C is pointing to the start of the buffer, see that when we pass the buffer to a function we're just passing the address to the start of the buffer!
 
 Neat, right?
 
@@ -566,6 +653,23 @@ So why do we need this for functions? Well, when you =call= a function, the proc
 
 The base pointer =%rbp= is used as a fixed reference point within a function's "stack frame" (the chunk of stack belonging to that particular function call). While =%rsp= moves around as you push and pop things, =%rbp= stays put for the duration of the function, so you can always find your local variables at fixed offsets like =-8(%rbp)= or =-16(%rbp)=.
 
+*** Stack alignment
+One more thing before we look at the example: the System V ABI (the calling-convention spec everyone on Linux agrees to follow) says that =%rsp= must be /16-byte aligned/ right before any =call= instruction. That is, =%rsp % 16 == 0= at the moment you execute =call=.
+
+Why? Because some instructions, especially the SSE/AVX ones, require their memory operands to be 16-byte aligned. Functions are allowed to assume the stack is aligned when they start, and things go sideways (usually a segfault inside printf or similar) if that assumption is violated.
+
+Let's trace how alignment works:
++ Right before you execute =call=, =%rsp= must be 16-byte aligned.
++ The =call= instruction pushes the return address (8 bytes), so on entry to your function =%rsp % 16 == 8=.
++ =push %rbp= pushes 8 more bytes, bringing =%rsp % 16 == 0= again.
++ If you then =sub $N, %rsp= for local variables, *N should be a multiple of 16* to keep alignment.
+
+This is why you keep seeing =sub $16, %rsp= or =sub $32, %rsp= in the examples — even if you only need 8 bytes of locals, you round up to 16. If you need to push things in addition to the prologue and then make a =call=, you need to account for that too (e.g. push an extra 8 to compensate, or save the value in a local stack slot instead).
+
+*A common subtle bug:* pushing and popping registers across a =call= inside a function is the classic way to misalign the stack. After the prologue (=push %rbp / mov %rsp, %rbp / sub $16, %rsp=), =%rsp= is aligned. If you then do =push %rdi= to save an argument across a recursive call, =%rsp= is now off by 8, and the recursive call enters misaligned. The safe pattern is to save the value in a local slot (=mov %rdi, -16(%rbp)=) instead of pushing it.
+
+*What about =_start=?* At process entry, the kernel hands you =%rsp= already 16-byte aligned (=%rsp % 16 == 0=) — as if you were a caller about to make a =call=. So if you =call= a function directly from =_start= without having pushed anything first, the =call= itself pushes 8 bytes and the callee starts with =%rsp % 16 == 8=, exactly what it expects. You only get in trouble if you push an odd number of 8-byte values before the first =call=.
+
 Now we're ready to demonstrate how to properly handle the stack!
 #+begin_src asm
           .text                   # Start of the code section
@@ -653,18 +757,19 @@ It turns out this is already pretty simple! Here's a readInt function but note t
   # Parameters:
   #   - %rdi: Address of the buffer containing the input string
   #   - %rsi: Number of characters to process
-  #   - %rcx: Index into the buffer (should be initialized to 0 before calling)
+  # Internals:
+  #   - %rcx: Index into the buffer (caller sets to 0 before calling)
+  #   - %rax: Accumulator for the result (caller clears to 0 before calling)
   # Returns:
   #   - %rax: The resulting integer value
   parseInt:
-  intRead:
       movzbl (%rdi,%rcx,1), %r8d   # Load one byte from buffer[%rcx], zero-extended into %r8
       sub $'0', %r8                # Convert ASCII character to its numeric value
       imul $10, %rax               # Multiply accumulator (%rax) by 10 (shifting left in decimal)
       add %r8, %rax                # Add the numeric value of current digit to accumulator
       inc %rcx                     # Increment buffer index (%rcx)
       cmp %rsi, %rcx               # Compare index with total number of characters to process
-      jl intRead                  # If index < total, repeat the loop
+      jb parseInt                  # If index < total (unsigned), repeat the loop
       ret                          # Return from function with result in %rax
 
   # Function: readInt
@@ -722,32 +827,37 @@ We can use it now, though in other functions by importing it with =.extern= and 
       .extern readInt           # Declare that readInt function is defined externally (provided elsewhere)
 
   # Define the Fibonacci function
+  # Stack frame layout (below %rbp):
+  #   -8  : holds fib(n - 1) across the second recursive call
+  #   -16 : holds the original n across both recursive calls
   fib:
       # Function prologue - set up the stack frame
       push %rbp                 # Save the base pointer of the previous frame (caller)
       mov %rsp, %rbp            # Set up the base pointer for this function's stack frame
-      sub $16, %rsp             # Allocate 16 bytes of space on the stack for local variables (ensure 16-byte alignment)
+      sub $16, %rsp             # Allocate 16 bytes for local variables (keeps %rsp 16-byte aligned)
 
       # Check if n <= 1 (base case)
       cmp $1, %rdi              # Compare input n (%rdi) with 1
       jle .base                 # If n <= 1, jump to .base label (base case)
 
+      # Save n in a local slot before modifying %rdi.
+      # We *don't* push %rdi here — pushing would make %rsp % 16 == 8, which would
+      # misalign the stack for the upcoming recursive call.
+      mov %rdi, -16(%rbp)       # save n
+
       # Recursive case: compute fib(n - 1)
-      push %rdi                 # Save current n on the stack before modifying it
-      dec %rdi                  # Decrement n by 1; compute n - 1
-      call fib                  # Recursive call to fib(n - 1); result returned in %rax
-      mov %rax, -8(%rbp)        # Store fib(n - 1) result at offset -8(%rbp) (local variable)
-      pop %rdi                  # Restore n from the stack
+      dec %rdi                  # n - 1
+      call fib                  # result in %rax
+      mov %rax, -8(%rbp)        # stash fib(n - 1)
 
       # Compute fib(n - 2)
-      push %rdi                 # Save n on the stack again before modifying it
-      dec %rdi                  # Decrement n by 1; now n = n - 1
-      dec %rdi                  # Decrement n by 1 again; now n = n - 2
-      call fib                  # Recursive call to fib(n - 2); result in %rax
-      pop %rdi                  # Restore n from the stack
+      mov -16(%rbp), %rdi       # reload n
+      dec %rdi
+      dec %rdi                  # n - 2
+      call fib                  # result in %rax
 
       # Add fib(n - 1) and fib(n - 2)
-      add -8(%rbp), %rax        # Add fib(n - 1) (from memory) to fib(n - 2) (in %rax); result is fib(n)
+      add -8(%rbp), %rax        # %rax = fib(n - 1) + fib(n - 2) = fib(n)
 
       # Function epilogue - restore the stack frame
       mov %rbp, %rsp            # Restore the stack pointer to the base pointer
@@ -755,6 +865,8 @@ We can use it now, though in other functions by importing it with =.extern= and 
       ret                       # Return to the caller; result is in %rax
 
       # Base case: when n <= 1, fib(n) = n
+      # (Label starts with '.' so it's a local symbol, won't collide with
+      # anything the linker might also define.)
   .base:
       mov %rdi, %rax            # Set return value to n (%rdi)
       mov %rbp, %rsp            # Restore the stack pointer to the base pointer
@@ -782,13 +894,37 @@ ld -o fib fib.o readInt.o
 
 Test it out!
 
-Although at this point it's kind of annoying that we're checking the exit code every time. We need to finally introduce a function that will let us write out the data we need:
+Although at this point it's kind of annoying that we're checking the exit code every time. We need to finally introduce a function that will let us write out the data we need.
 
+But first, one quick aside, because the =writeInt= function is going to use one of x86's weirder instructions.
+
+*** A quick detour: =div= and =idiv=
+Unlike =add= or =sub=, which take a source and destination, =divq= only takes /one/ operand — the divisor — and implicitly uses the *pair* of registers =%rdx:%rax= as a 128-bit dividend. Yes, 128 bits.
+
+The mechanics:
++ /Before/ =divq <src>=: =%rdx:%rax= holds a 128-bit unsigned integer, where =%rdx= is the high 64 bits and =%rax= is the low 64 bits. =<src>= is the 64-bit divisor.
++ /After/ =divq <src>=: =%rax= holds the quotient, =%rdx= holds the remainder.
+
+So if you want to divide a regular 64-bit number (say, the value in =%rax=) by something, you /must/ zero =%rdx= first, otherwise you'll be dividing some 128-bit garbage and getting garbage out. You'll see =xorq %rdx, %rdx= right before a =divq= basically everywhere.
+
+=idivq= is the signed version. Same register gymnastics, but it treats the values as signed.
+
+This is what's going on in the conversion loop inside =writeInt= below:
+#+begin_src asm
+  xorq %rdx, %rdx       # zero out the high half so %rdx:%rax = just %rax
+  movq $10, %rbx        # divisor
+  divq %rbx             # %rax = quotient, %rdx = remainder
+#+end_src
+That's how you peel off the last decimal digit of a number: divide by 10, and the remainder is the digit. Repeat until the quotient is zero and you've got all the digits (in reverse order).
+
+(Tiny note for =idivq=: if the value in =%rax= might be negative, you need to /sign-extend/ it into =%rdx= instead of zeroing it. The =cqo= instruction does that — it fills =%rdx= with copies of the sign bit of =%rax=. But =writeInt= works with the absolute value, so =xorq %rdx, %rdx= is fine.)
+
+Now, finally, =writeInt=:
 #+begin_src asm
           .text
-          .global write_int
+          .global writeInt
 
-      # Function: write_int
+      # Function: writeInt
       # -------------------
       # Writes the integer value in %rdi to the standard output.
       #
@@ -798,11 +934,16 @@ Although at this point it's kind of annoying that we're checking the exit code e
       # Inputs:
       #   %rdi - The integer to be printed.
       #
-      # Registers used (clobbered):
-      #   %rax, %rbx, %rcx, %rdx, %rsi, %r8
+      # Clobbers (caller-saved, so no need to preserve):
+      #   %rax, %rcx, %rdx, %rsi, %r8
       #
-      # Stack layout:
-      #   Uses a local buffer of 32 bytes on the stack to store the string.
+      # Preserves (callee-saved, saved/restored in the prologue/epilogue):
+      #   %rbx, %rbp
+      #
+      # Stack layout (below %rbp):
+      #   -32 .. -1   : 32-byte buffer for the string representation
+      #   -40         : saved %rbx
+      #   -48         : padding (keeps %rsp 16-byte aligned)
       #
       # Notes:
       #   - The function handles negative integers, including INT_MIN (-2^63),
@@ -810,11 +951,12 @@ Although at this point it's kind of annoying that we're checking the exit code e
       #   - The integer is converted to a string by repeatedly dividing by 10
       #     and storing the digits in reverse order in the buffer.
 
-  write_int:
+  writeInt:
           # Function prologue: set up the stack frame
           pushq   %rbp                # Save the caller's base pointer on the stack
           movq    %rsp, %rbp          # Set base pointer (%rbp) to current stack pointer (%rsp)
-          subq    $40, %rsp           # Allocate 40 bytes on the stack for local variables
+          subq    $48, %rsp           # 32-byte buffer + 8 for saved %rbx + 8 pad (keeps %rsp aligned)
+          movq    %rbx, -40(%rbp)     # Save callee-saved %rbx (we use it as the divisor below)
 
           # Variables:
           # We will use a buffer of 32 bytes on the stack to store the string representation
@@ -845,7 +987,9 @@ Although at this point it's kind of annoying that we're checking the exit code e
           negq    %rax                # Negate %rax to get the absolute value
           jno     convert_number      # If no overflow, proceed to convert_number
           # Handle INT_MIN (-2^63), which cannot be negated
-          movq    $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
+          # Note: we need movabsq here, not movq — the value 2^63 doesn't fit
+          # in a 32-bit sign-extended immediate, so a plain movq won't encode it.
+          movabsq $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
 
   convert_number:
           # Convert the integer to its string representation
@@ -883,13 +1027,497 @@ Although at this point it's kind of annoying that we're checking the exit code e
           movq    %rcx, %rdx          # Set %rdx to digit count (number of bytes)
           syscall                     # Make the system call
 
-          # Function epilogue: restore stack frame and return
+          # Function epilogue: restore callee-saved register and stack frame
+          movq    -40(%rbp), %rbx     # Restore %rbx before we tear down the frame
           leave                       # Restore stack frame (movq %rbp, %rsp; popq %rbp)
           ret                         # Return from the function
 
 #+end_src
 
 You can include this just like the =readInt= function by putting the integer you want to print in =%rdi=. This code is fun because it allocates a buffer on the stack locally!
+
+* Debugging with gdb
+Assembly is the language where you most need a debugger, and luckily =gdb= is perfectly happy to step through it with you. You just have to teach yourself a few commands.
+
+First, compile with debug info:
+#+begin_example
+as -g prog.s -o prog.o
+ld prog.o -o prog
+gdb ./prog
+#+end_example
+
+Once you're in gdb, the commands you'll actually use:
+
+| Command             | What it does                                                            |
+|---------------------+-------------------------------------------------------------------------|
+| =layout asm=        | Split-pane view showing the assembly, with the current instruction highlighted |
+| =layout regs=       | Add a pane showing the current register values                          |
+| =start=             | Start the program and break at =_start=                                 |
+| =break fib=         | Set a breakpoint at a label                                             |
+| =break *0x4000b0=   | Set a breakpoint at a specific address                                  |
+| =si= (step instr)   | Execute one instruction, stepping /into/ function calls                 |
+| =ni= (next instr)   | Execute one instruction, stepping /over/ function calls                 |
+| =continue= / =c=    | Run until the next breakpoint                                           |
+| =info registers=    | Print all register values                                               |
+| =print/x $rax=      | Print =%rax= in hex (or =/d= for decimal, =/t= for binary)              |
+| =x/8xb &buff=       | Examine 8 bytes at the address of =buff=, in hex                        |
+| =x/s &msg=          | Examine memory at =msg= as a null-terminated string                     |
+| =x/4gx $rsp=        | Show 4 "giant" (64-bit) words starting at =%rsp= (peek at the stack)    |
+
+A typical debugging session looks like:
+#+begin_example
+$ gdb ./prog
+(gdb) layout asm
+(gdb) layout regs
+(gdb) start
+(gdb) si           # step one instruction
+(gdb) si           # step another
+(gdb) p/d $rax     # oh, that's not what I expected
+#+end_example
+
+A few tips that took me embarrassingly long to learn:
+
++ The TUI layouts (=layout asm=, =layout regs=) can get visually glitchy; =Ctrl-L= redraws the screen.
++ If you want to inspect the stack after a crash, =info frame= tells you where you are and =backtrace= shows you how you got there (though the backtrace may be fuzzy in hand-rolled assembly because gdb is guessing at frame layout).
++ =tui disable= gets you back to plain-text gdb if the split-pane view is annoying you.
++ You can pass input to the program you're debugging via =run < input.txt=.
++ If your program loops forever, =Ctrl-C= in gdb interrupts it and drops you back at the prompt.
+
+The single most useful habit is: when you're confused about what a piece of code is doing, step through it instruction-by-instruction with =si= and watch the registers change. Ninety percent of assembly bugs become obvious when you actually see the values.
+
+* Common gotchas
+These are the bugs I've seen students hit every single term. If something is mysteriously wrong with your assembly program, check this list first.
+
+** =.long= where you meant =.quad=
+This is *by far* the most common assembly bug. =.long= is 4 bytes (32 bits), not 8. If you write:
+#+begin_src asm
+  .section .data
+  myNum: .long 42           # only 4 bytes!
+
+  .section .text
+  mov myNum(%rip), %rax     # reads 8 bytes — 4 of yours + 4 of whatever comes next
+#+end_src
+then =%rax= gets your 42 in the low 4 bytes and *whatever is sitting in the next 4 bytes of memory* in the high bytes. If you want 64-bit integers, use =.quad=.
+
+** Loading a byte without zero-extending
+If you do =movb (%rsi), %al=, the upper 56 bits of =%rax= are left alone — so if =%rax= had garbage in it, you'll interpret that garbage as part of your value. Use =movzbl= ("move, zero-extend, byte to long") or =movzbq= to force the upper bits to zero:
+#+begin_src asm
+  movzbl (%rsi), %eax       # %rax = 0-extended byte from memory
+#+end_src
+Writes to 32-bit registers automatically clear the upper 32 bits, so =%eax= here is enough.
+
+** Clobbering =%rbx= without saving it
+=%rbx= is a callee-saved register. If your function uses it without =push %rbx= / =pop %rbx= around the body, you'll corrupt the caller's =%rbx= silently. The same goes for =%rbp=, =%r12=, =%r13=, =%r14=, =%r15=.
+#+begin_src asm
+  myFunc:
+      push %rbx             # save it first
+      mov %rdi, %rbx        # now safe to use
+      # ... do stuff ...
+      pop %rbx              # restore before returning
+      ret
+#+end_src
+
+** Using fd=0 when you meant fd=1
+For the =write= syscall, stdout is file descriptor *1*, not 0. File descriptor 0 is stdin and writing to it often produces no visible output and no error — your program just silently does nothing. If "my program prints nothing", check the =%rdi= value before the =write= syscall.
+
+** Forgetting that =cmp a,b= reads right-to-left in AT&T
+In AT&T syntax, =cmp %rbx, %rax= does =%rax - %rbx= internally and sets flags based on that. So =jl label= jumps if =%rax < %rbx=, *not* if =%rbx < %rax=. Read the table back in the cmp/jmp section whenever you're unsure — I still do.
+
+** Stack not 16-byte aligned at =call=
+If you call a function (especially a libc function like =printf=) and get a segfault inside it that makes no sense, 90% of the time it's because =%rsp % 16 != 0= right before the =call=. Re-read the stack alignment section above and double-check the math.
+
+** Using signed jumps for unsigned comparisons (or vice versa)
+=jl=/=jg=/=jle=/=jge= are signed comparisons. =jb=/=ja=/=jbe=/=jae= are unsigned. If you're iterating a loop counter against a length, you want unsigned (=jb= for "below"). If you compare a negative number with signed jumps you'll get the sign-aware answer; with unsigned jumps you'll get "negative numbers are enormous positive numbers" which is usually not what you want.
+
+** Forgetting to actually exit
+If your program falls off the end of =_start= without making an exit syscall, the CPU tries to execute whatever bytes come next in memory and you get a mysterious segfault. Always finish =_start= with =mov $60, %rax / syscall=.
+
+* Common idioms
+A handful of patterns show up in basically every x86-64 program — both compiler output and handwritten code. Recognizing them at a glance makes reading assembly much faster.
+
+** Zeroing a register: =xor %reg, %reg=
+#+begin_src asm
+  xor %rax, %rax        # %rax = 0
+#+end_src
+XOR-ing a register with itself gives zero. You'll see this in basically every =_start= epilogue in this guide, zeroing out =%rdi= before the exit syscall. Why prefer it over =mov $0, %rax=?
++ /Shorter encoding/: 3 bytes vs. 7 bytes for =mov=.
++ /Faster/: the CPU recognizes this idiom specifically and can execute it without reading the register's old value, which breaks what would otherwise be a data dependency. On modern chips =xor %rax, %rax= is essentially free.
+
+** Checking if a value is zero: =test %reg, %reg=
+#+begin_src asm
+  test %rax, %rax       # sets flags based on %rax
+  je   someplace        # jump if %rax was zero
+#+end_src
+=test= computes the bitwise AND of its two operands and sets flags based on the result, but /throws away/ the result itself. When both operands are the same register, the AND is just the register's value, so the flags reflect whether the register is zero. Shorter and no slower than =cmp $0, %rax=, so it's the idiomatic way to test for zero. The =writeInt= function uses this to check if its input was negative.
+
+** =leave= for the epilogue
+=leave= is a one-byte shorthand for =mov %rbp, %rsp; pop %rbp=. You'll see it at the end of almost every function that set up a normal stack frame. The guide uses it throughout — it's purely a space/readability win, no performance difference.
+
+** =inc= / =dec= for counters
+#+begin_src asm
+  inc %rcx              # equivalent to: add $1, %rcx
+  dec %rdx              # equivalent to: sub $1, %rdx
+#+end_src
+Shorter encoding and very common in loops. One subtlety: =inc= and =dec= don't touch the carry flag, while =add= and =sub= do. In code that needs the carry flag (e.g. multi-word arithmetic), you'll see =add $1= instead. For normal counter loops, =inc=/=dec= is the idiom.
+
+** =mov= between registers vs. =xor reg, reg=-then-=mov=
+Sometimes you'll see things like:
+#+begin_src asm
+  xor %rax, %rax        # zero %rax
+  mov %dil, %al         # put a byte in the low 8 bits
+#+end_src
+which is doing a zero-extended byte copy into =%rax=. This is almost always better written as =movzbq %dil, %rax=, but you might see the xor-then-mov pattern in older or handwritten code.
+
+* Exercises
+Here are a few exercises that exercise (ha) the specific concepts from this guide. I'd really encourage you to try each one yourself before peeking at the solution. Even if you just stare at the problem for a minute and think "how would I approach this?" before scrolling down, you'll get way more out of them.
+
+Each one is small enough to fit in a single file. Build with:
+#+begin_example
+as -g ex.s -o ex.o
+ld ex.o -o ex
+./ex
+echo $?
+#+end_example
+The last couple use =readInt= and =writeInt= from the guide — for those, link with the object files you've already built:
+#+begin_example
+ld ex.o readInt.o writeInt.o -o ex
+#+end_example
+
+** Exercise 1: Sign of a number
+/Concepts: =cmp=, conditional jumps, three-way branch/
+
+Write a program that loads some number into a register and exits with:
++ =1= if the number is positive,
++ =0= if it's zero,
++ =-1= (which will show up as =255=) if it's negative.
+
+Change the value by hand in the source and re-assemble to test all three cases.
+
+/Hint: you'll need a =cmp= against =$0= and two different conditional jumps (one for "greater than", one for "equal"). Everything else falls through to the negative case./
+
+*** Solution
+#+begin_src asm
+          .text
+          .global _start
+
+  _start:
+          mov $-42, %rax          # change to 0 or positive to test other branches
+          cmp $0, %rax
+          jg  positive
+          je  zero
+          # fall through: negative
+          mov $-1, %rdi
+          jmp done
+  positive:
+          mov $1, %rdi
+          jmp done
+  zero:
+          mov $0, %rdi
+  done:
+          mov $60, %rax
+          syscall
+#+end_src
+
+The key pattern: =cmp= against zero sets flags, then you pick conditional jumps based on which case you want to /skip to/ — the "default" case (negative, here) is whatever falls through when no jump is taken.
+
+** Exercise 2: Sum from 1 to 10
+/Concepts: loops, accumulators/
+
+Compute =1 + 2 + ... + 10= and exit with the result (should be =55=). Use a counter register, an accumulator register, and a simple loop.
+
+*** Solution
+#+begin_src asm
+          .text
+          .global _start
+
+  _start:
+          xor %rax, %rax          # accumulator = 0
+          mov $1, %rcx            # counter i = 1
+  loop:
+          cmp $10, %rcx
+          jg  done                # i > 10, exit loop
+          add %rcx, %rax          # sum += i
+          inc %rcx                # i++
+          jmp loop
+  done:
+          mov %rax, %rdi          # exit code = sum
+          mov $60, %rax
+          syscall
+#+end_src
+
+The shape of every counter loop in assembly: set up accumulator and counter → at the top, check the exit condition with =cmp= + conditional jump → do the body → =inc= the counter → =jmp= back. You'll write this pattern hundreds of times.
+
+** Exercise 3: Max of an array
+/Concepts: indexed addressing, looping over an array/
+
+Hard-code an array of 5 integers in =.data=. Find the largest one and exit with it.
+
+/Hint: start with =max = arr[0]=, loop from =i = 1= to the end, and update =max= whenever you find something bigger. The array length can be computed at assembly time with =(. - arr) / 8=./
+
+*** Solution
+#+begin_src asm
+          .section .data
+  arr:    .quad 7, 3, 11, 4, 9
+  arrlen = (. - arr) / 8          # number of elements: 5
+
+          .section .text
+          .global _start
+
+  _start:
+          lea arr(%rip), %rbx     # base address
+          mov (%rbx), %rax        # max = arr[0]
+          mov $1, %rcx            # index i = 1
+  loop:
+          cmp $arrlen, %rcx
+          jge done
+          mov (%rbx, %rcx, 8), %rdx   # %rdx = arr[i]
+          cmp %rax, %rdx          # compare current max with arr[i]
+          jle skip                # if arr[i] <= max, skip
+          mov %rdx, %rax          # new max
+  skip:
+          inc %rcx
+          jmp loop
+  done:
+          mov %rax, %rdi
+          mov $60, %rax
+          syscall
+#+end_src
+
+Note the =(%rbx, %rcx, 8)= addressing mode — base + (index × element-size). This is the direct assembly counterpart to C's =arr[i]= for an array of 8-byte elements. If it were an array of 4-byte =.long= values, the scale would be 4.
+
+** Exercise 4: Absolute value function
+/Concepts: defining a function, calling conventions/
+
+Write a function =abs= that takes an integer in =%rdi= and returns its absolute value in =%rax=. Call it from =_start= with some negative number and exit with the result.
+
+/Hint: you don't need a stack frame for this — no locals, no call to other functions, no callee-saved registers. Just a conditional =neg= and a =ret=./
+
+*** Solution
+#+begin_src asm
+          .text
+          .global _start
+
+  # abs(x): returns |x|. x in %rdi, result in %rax.
+  abs:
+          mov %rdi, %rax
+          cmp $0, %rax
+          jge abs_done
+          neg %rax
+  abs_done:
+          ret
+
+  _start:
+          mov $-42, %rdi
+          call abs
+          mov %rax, %rdi          # expect 42
+          mov $60, %rax
+          syscall
+#+end_src
+
+This is the minimal shape of a function: label → do the work → =ret=. No prologue/epilogue because we don't need a stack frame. This only works when your function (a) doesn't need local variables, (b) doesn't call any other function, and (c) doesn't use callee-saved registers. Violate any of those and you need the full =push %rbp / mov %rsp, %rbp / leave / ret= song and dance.
+
+** Exercise 5: Function with local variables
+/Concepts: stack frames, locals at negative offsets from =%rbp=/
+
+Write a function =diffsq(a, b)= that computes =(a + b)² - (a - b)²= using two local variables on the stack — one for =(a+b)²= and one for =(a-b)²=. Return the result.
+
+(Yes, algebraically this equals =4ab=, so you could do it without locals. The point is to practice using stack slots!)
+
+/Hint: standard prologue, allocate 16 bytes (two 8-byte locals, and 16 keeps the stack aligned), store your intermediates at =-8(%rbp)= and =-16(%rbp)=, and use =leave; ret= at the end./
+
+*** Solution
+#+begin_src asm
+          .text
+          .global _start
+
+  # diffsq(a, b) = (a + b)^2 - (a - b)^2   (which equals 4*a*b)
+  # a in %rdi, b in %rsi, returns in %rax.
+  diffsq:
+          push %rbp
+          mov %rsp, %rbp
+          sub $16, %rsp           # two 8-byte locals, keeps %rsp aligned
+
+          # local at -8(%rbp) = (a + b)^2
+          mov %rdi, %rax
+          add %rsi, %rax
+          imul %rax, %rax
+          mov %rax, -8(%rbp)
+
+          # local at -16(%rbp) = (a - b)^2
+          mov %rdi, %rax
+          sub %rsi, %rax
+          imul %rax, %rax
+          mov %rax, -16(%rbp)
+
+          # return local[0] - local[1]
+          mov -8(%rbp), %rax
+          sub -16(%rbp), %rax
+
+          leave
+          ret
+
+  _start:
+          mov $3, %rdi
+          mov $5, %rsi
+          call diffsq
+          mov %rax, %rdi          # expect 4 * 3 * 5 = 60
+          mov $60, %rax
+          syscall
+#+end_src
+
+The useful thing to get comfortable with here is the mental map from "local variable" to "address at a negative offset from =%rbp=". A C compiler would generate essentially this same code for =long c = a + b; c = c*c;= — the =c= lives at =-8(%rbp)=.
+
+** Exercise 6: Recursive factorial
+/Concepts: recursion, stack alignment, saving arguments across recursive calls/
+
+Write =fact(n)= that recursively computes =n!=. Base case: =fact(0) = fact(1) = 1=. Recursive case: =fact(n) = n * fact(n-1)=.
+
+/Hint: this is very similar to =fib= from the guide. The tricky part is that you need =n= both before and after the recursive call (you need =n= to compute =n-1= for the recursion, and you need =n= again to multiply by the result). Save =n= in a local stack slot — don't =push %rdi= before the call, because that would misalign the stack for =call fact=./
+
+*** Solution
+#+begin_src asm
+          .text
+          .global _start
+
+  # fact(n): returns n!. n in %rdi, result in %rax.
+  # Stack frame layout (below %rbp):
+  #   -8 : saved copy of n across the recursive call
+  fact:
+          push %rbp
+          mov %rsp, %rbp
+          sub $16, %rsp           # 16-byte aligned; -8 used for saved n
+
+          cmp $1, %rdi
+          jle fact_base
+
+          mov %rdi, -8(%rbp)      # save n in a local slot
+          dec %rdi                # compute (n - 1)
+          call fact               # %rax = (n - 1)!
+          mov -8(%rbp), %rdi      # reload n
+          imul %rdi, %rax         # %rax = n * (n - 1)! = n!
+
+          leave
+          ret
+
+  fact_base:
+          mov $1, %rax            # 0! = 1! = 1
+          leave
+          ret
+
+  _start:
+          mov $5, %rdi
+          call fact
+          mov %rax, %rdi          # expect 5! = 120
+          mov $60, %rax
+          syscall
+#+end_src
+
+The key subtlety: the temptation is to write =push %rdi / dec %rdi / call fact / pop %rdi=, which feels natural. But that =push= moves =%rsp= by 8 bytes, so =%rsp % 16 == 8= at the =call=, which violates the ABI. In this particular example nothing crashes because the callee doesn't use instructions that require alignment — but it's modeling the wrong pattern. Stash =n= in a local slot you already allocated instead.
+
+One more note: =fact(n)= overflows a 64-bit register at =n = 21=. So this program works for =n= up to 20. Exit codes are truncated to a byte, so you won't see the full result for =n >= 6= unless you use =writeInt= (see the next exercise).
+
+** Exercise 7: Sum of 1 to N, with I/O
+/Concepts: putting it all together — read input, loop, write output/
+
+Write a program that reads an integer =N= from stdin using =readInt=, computes =1 + 2 + ... + N=, and prints the result using =writeInt=.
+
+/Hint: this is just Exercise 2 with two changes — get =N= from =readInt= instead of hardcoding 10, and call =writeInt= instead of stuffing the result into the exit code./
+
+*** Solution
+#+begin_src asm
+          .text
+          .global _start
+          .extern readInt
+          .extern writeInt
+
+  _start:
+          call readInt            # N -> %rax
+          mov %rax, %rcx          # %rcx = counter, starts at N
+          xor %rax, %rax          # %rax = running sum
+  sum_loop:
+          test %rcx, %rcx
+          jz   sum_done           # counter hit 0, done
+          add %rcx, %rax          # sum += counter
+          dec %rcx                # counter--
+          jmp sum_loop
+  sum_done:
+          mov %rax, %rdi
+          call writeInt
+
+          xor %rdi, %rdi
+          mov $60, %rax
+          syscall
+#+end_src
+
+Build and run:
+#+begin_example
+as ex7.s -o ex7.o
+ld ex7.o readInt.o writeInt.o -o ex7
+echo 100 | ./ex7
+#+end_example
+Expected output: =5050=.
+
+Small stylistic thing to notice: this version loops /down/ from =N= to =1= instead of up from =1= to =N=. That way we don't need a separate termination register — we just loop until the counter hits zero, which =test %rcx, %rcx / jz= checks cheaply. Little tricks like this come naturally once you've written enough loops.
+
+* Full calling convention reference
+This is the stuff you /need/ while writing a function but don't want to re-read every time. Bookmark this section.
+
+** Passing arguments
+Integer/pointer arguments go in these registers, in order:
++ =%rdi= (1st)
++ =%rsi= (2nd)
++ =%rdx= (3rd)
++ =%rcx= (4th)
++ =%r8= (5th)
++ =%r9= (6th)
+
+Any arguments beyond the 6th go on the stack, pushed in reverse order.
+
+** Return values
++ Integer/pointer return value goes in =%rax=.
++ 128-bit return values use =%rax= (low) and =%rdx= (high).
++ Floating-point return values go in =%xmm0=.
+
+** Caller-saved registers
+These can be clobbered by any function you call. If you care about their value across a call, save them yourself (usually by pushing them before the =call= and popping after).
++ =%rax=, =%rcx=, =%rdx=
++ =%rsi=, =%rdi=
++ =%r8=, =%r9=, =%r10=, =%r11=
+
+** Callee-saved registers
+If your function wants to use any of these, it must save and restore them (typically with =push= at the top and =pop= at the bottom).
++ =%rbx=
++ =%rbp=
++ =%r12=, =%r13=, =%r14=, =%r15=
+
+=%rsp= is of course always preserved — a function that leaves =%rsp= in a different place than it found it is broken.
+
+** Standard prologue and epilogue
+#+begin_src asm
+  fun:
+          push %rbp               # save the caller's base pointer
+          mov  %rsp,%rbp          # set up this frame's base pointer
+          sub  $N,%rsp            # make room for N bytes of locals (multiple of 16)
+          ## ... function body ...
+          leave                   # shorthand for: mov %rbp,%rsp; pop %rbp
+          ret
+#+end_src
+
+Remember: =sub $N, %rsp= where N is a multiple of 16, to keep the stack aligned for any =call= instructions in the body.
+
+** Syscall calling convention
+Syscalls look a lot like function calls — but they're different in ways that will bite you if you confuse the two.
+
++ The syscall number goes in =%rax= (not in =%rdi= like a function argument).
++ Arguments go in =%rdi=, =%rsi=, =%rdx=, =%r10=, =%r8=, =%r9= — in that order. A maximum of 6.
++ *The 4th argument is =%r10=, not =%rcx=.* This is the single biggest difference between syscall and function-call conventions, and it's very easy to get wrong if you're used to calling C functions. The =syscall= instruction clobbers =%rcx= (it stashes the return address there), which is why the ABI couldn't use it.
++ Return value comes back in =%rax=. A negative result (roughly −4095 ≤ rc < 0) indicates an error, and its absolute value is the =errno= code.
++ The kernel clobbers =%rcx= and =%r11=. Everything else (including all the argument registers) is preserved across the =syscall= — you don't need to save them yourself.
++ The stack does /not/ need to be 16-byte aligned for =syscall= the way it does for =call=.
+
+This guide uses three syscalls — 0 (=read=), 1 (=write=), 60 (=exit=) — all of which take three or fewer arguments, so you don't hit the =%r10= gotcha. But if you ever reach for =mmap= (9), =pread64= (17), =select= (23), or anything else with four or more args, remember to load the fourth arg into =%r10=.
+
+For a full list of syscall numbers and their argument lists, see =/usr/include/asm/unistd_64.h= or run =man 2 syscall=.
 
 * Floating point and vector registers (reference)
 You don't need these for the main assignments, but they're good to know about for the future and for your own reference.
@@ -970,6 +1598,7 @@ You don't need these for the main assignments, but they're good to know about fo
  Most modern x86-64 CPUs support at least SSE2, many support AVX2, and newer server/workstation CPUs support AVX-512.
 
 * Footnotes
+[fn:1] haha
+
 [fn:2] There are special registers for vector operations and floating point operations but we're going to just use the basic ones that hold "integer-like" data rather than more complicated data
 
-[fn:1] haha 

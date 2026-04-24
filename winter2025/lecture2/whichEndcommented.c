@@ -55,7 +55,7 @@ int main(){
   // i=1: second byte in memory
   // i=2: third byte in memory
   // i=3: fourth byte in memory (highest address)
-  for(int i = 0; i < sizeof(int); i++){
+  for(size_t i = 0; i < sizeof(num); i++){
 
     // PRINT EACH BYTE IN HEXADECIMAL:
     // *(pointy+i) dereferences the pointer at offset i

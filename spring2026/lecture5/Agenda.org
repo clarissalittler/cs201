@@ -1,0 +1,118 @@
+* Agenda
+(I'll still start at 10:05)
+** Hello World, again
+ + Making a message in .data or .rodata
+ + calculating length of the message
+ + syscall number 1 for writing
+ + arguments for the write syscall
+   + fd (in unices/*nixes files are just numbers that point into some kind of table in the kernel that itself contains all the information to use the file)
+   + pointer
+   + length
+ + it puts a result into %rax but what is it?
+** Reading in messages
+ + .section .bss (un-init-ed data)
+ + .skip len
+ + syscall 0
+ + read arguments
+   + fd (stdin is 0)
+   + pointer
+   + max length
+ + returns the length in %rax
+** Echo program
+ (borrowed from past notes, but we'll go through and explain it)
+** Labels, again
+** Jumping between labels to make subroutines
+ Why doesn't this scale?
+
+ You have to hardcode where you jump back!
+
+ This isn't encapsulated or re-usable!
+** Functions, done properly
+ + call
+ + ret
+ special instructions that save and restore the state of the program
+** whither local variables
+ + each process has its own storage for local variables
+ + all the function calls have to share this storage
+   + which operates as a stack (like the way an array does, a contiguous region of memory)
+ + this is generally fine if functions don't call that many other functions
+ + or don't recursively call themselves in naive ways
+** We gotta explain the stack 
+*** Stack pointer
+ %rsp <-- points to the "top" of the stack
+*** Base pointer
+ %rbp <-- points to the "bottom" of the current stack frame
+*** The stack grows down
+ Top and bottom is a little weird with the stack here
+
+ The "top" is actually the lowest address, which means when we add to a stack we make the %rsp value *smaller*
+
+ A stack "frame" is the portion of the stack a function uses
+
+ We store this as %rbp
+*** push
+*** pop
+*** Make way for variables
+* Terrible ascii attemps
+I'm going to draw this "upside down"
+
+current state before calling a function
+
+rsp ------v
+  data
+    data
+      data
+       data
+rbp ------>
+
+now to call a new function
+
+we first have to save the OLD rbp
+so we push, now our picture looks more like
+
+rsp ------v
+  rbp (frozen)
+  data
+    data
+      data
+       data
+rbp ------>
+
+then we copy %rsp to %rbp
+
+so the picture looks like
+rbp,rsp ------v
+  rbp (frozen)
+  data
+    data
+      data
+       data
+
+rsp ------v
+  data <-- %rbp-16
+  data <-- %rbp-8
+rbp-------v
+ rbp (frozen)
+ data
+ data
+ data
+ data
+
+to clean up we need to restore the old stack pointer, which means
+mov %rbp,%rsp
+
+rsp,rbp ------v
+rbp (frozen)
+data
+data
+data
+data
+
+pop %rbp
+
+rsp------v
+data
+data
+data
+data
+rbp --->

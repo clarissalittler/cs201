@@ -21,32 +21,30 @@ struct drawing_board {
     int num_updates;
 };
 
-int shm_fd;
-struct drawing_board *board_ptr;
-sem_t *sem_ptr;
+int shm_fd = -1;
+struct drawing_board *board_ptr = NULL;
+sem_t *sem_ptr = NULL;
+volatile sig_atomic_t stop_requested = 0;
 
 void cleanup(int sig) {
-    // Clean up resources
-    printf("\nCleaning up resources...\n");
-    
-    // Unmap shared memory
-    if (board_ptr) {
+    static const char msg[] = "\nCleaning up resources...\n";
+    (void)sig;
+    stop_requested = 1;
+    write(STDOUT_FILENO, msg, sizeof(msg) - 1);
+}
+
+static void cleanup_resources(void) {
+    if (board_ptr && board_ptr != MAP_FAILED) {
         munmap(board_ptr, SHM_SIZE);
     }
-    
-    // Close and unlink shared memory
     if (shm_fd != -1) {
         close(shm_fd);
         shm_unlink(SHM_NAME);
     }
-    
-    // Close and unlink semaphore
-    if (sem_ptr) {
+    if (sem_ptr && sem_ptr != SEM_FAILED) {
         sem_close(sem_ptr);
         sem_unlink(SEM_NAME);
     }
-    
-    exit(0);
 }
 
 void display_board(struct drawing_board *board_ptr) {
@@ -71,8 +69,11 @@ void display_board(struct drawing_board *board_ptr) {
 }
 
 int main() {
+    struct sigaction sa = {0};
     // Set up signal handler
-    signal(SIGINT, cleanup);
+    sa.sa_handler = cleanup;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
     
     // Create shared memory
     shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
@@ -84,7 +85,8 @@ int main() {
     // Set the size of the shared memory object
     if (ftruncate(shm_fd, SHM_SIZE) == -1) {
         perror("ftruncate");
-        cleanup(0);
+        cleanup_resources();
+        return EXIT_FAILURE;
     }
     
     // Map the shared memory object into memory
@@ -93,14 +95,16 @@ int main() {
                                            shm_fd, 0);
     if (board_ptr == MAP_FAILED) {
         perror("mmap");
-        cleanup(0);
+        cleanup_resources();
+        return EXIT_FAILURE;
     }
     
     // Create semaphore for synchronization
     sem_ptr = sem_open(SEM_NAME, O_CREAT, 0666, 1);
     if (sem_ptr == SEM_FAILED) {
         perror("sem_open");
-        cleanup(0);
+        cleanup_resources();
+        return EXIT_FAILURE;
     }
     
     // Initialize drawing board
@@ -115,11 +119,12 @@ int main() {
     printf("Drawing board created. Waiting for clients...\n");
     
     // Monitor and display the board
-    while (1) {
+    while (!stop_requested) {
         // Display board
         display_board(board_ptr);
         sleep(1);
     }
-    
+
+    cleanup_resources();
     return 0;
 }

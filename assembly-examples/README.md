@@ -13,7 +13,8 @@ This directory contains a collection of x86-64 AT&T syntax assembly language exa
 
 ## Three-Tier Learning System
 
-Each key example is available in **three versions** to support different learning needs:
+Many of the examples, especially the introductory ones, are available in
+**three versions** to support different learning needs:
 
 ### 1. **Bare Version** (`filename.s`)
 - **Purpose**: Reference and practice
@@ -58,6 +59,9 @@ lea hello2(%rip), %rsi  # arg2: address of string (RIP-relative)
 3. Consult **Deep-Dive** versions when you need deeper understanding
 4. Use **Bare** versions for practice and quick reference
 
+If a particular example does not have a `Guided` file yet, use the
+`commented` version as the teaching-oriented reference.
+
 **For Quick Learners:**
 1. Skim the **Guided** version to understand the concept
 2. Practice with the **Bare** version
@@ -70,7 +74,7 @@ lea hello2(%rip), %rsi  # arg2: address of string (RIP-relative)
 
 **File Naming Convention:**
 - `filename.s` - Bare (minimal comments)
-- `filenameGuided.s` - Guided (moderate, focused comments)
+- `filenameGuided.s` - Guided (moderate, focused comments, when present)
 - `filenamecommented.s` - Deep-Dive (comprehensive documentation)
 
 ## Example Index

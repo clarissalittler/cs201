@@ -21,6 +21,7 @@ void printMenu(){
 
 // now the heartbeat is a threadworker
 void* heartbeat(void* arg){
+  (void)arg;
   while(1){
     pthread_mutex_lock(&mut);
     printMenu();

@@ -91,7 +91,7 @@ int main(){
   // - 0x prefix indicates hexadecimal
   // - On 64-bit systems, addresses are typically 8 bytes (16 hex digits)
   // - On 32-bit systems, addresses are 4 bytes (8 hex digits)
-  printf("%p\n",&num);
+  printf("%p\n",(void*)&num);
 
   // STEP 3: STORE THE ADDRESS IN A POINTER VARIABLE
   // int* np declares a pointer to int
@@ -123,7 +123,7 @@ int main(){
   //
   // OUTPUT:
   // The variable with address 0x7ffc8b2a9a3c has a value of 0
-  printf("The variable with address %p has a value of %d\n", np, *np);
+  printf("The variable with address %p has a value of %d\n", (void*)np, *np);
 
   // STEP 5: MODIFY THE VARIABLE THROUGH THE POINTER (FIRST CALL)
   // We pass np (which contains the address of num)
@@ -151,7 +151,7 @@ int main(){
   // - The address is the same (still num)
   // - The value has changed (0 -> 1 -> 2)
   // - We modified num without directly touching it in main!
-  printf("The variable with address %p now has a value of %d\n", np, *np);
+  printf("The variable with address %p now has a value of %d\n", (void*)np, *np);
 
   return 0;
 }

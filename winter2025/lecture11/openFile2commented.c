@@ -17,6 +17,7 @@
 #include <stdlib.h>
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   // CONSTANTS:
   // Define sizes for our buffers and arrays

@@ -16,6 +16,7 @@ volatile bool won = true;
 
 // Signal handler for SIGUSR1, which simulates an enemy hit
 void hitHandler(int sig) {
+  (void)sig;
   // Check if the process is still alive
   if (hp > 0) {
     // Generate random damage between 1 and 5
@@ -36,6 +37,7 @@ void hitHandler(int sig) {
 
 // Signal handler for SIGUSR2, which signals the end of the fight
 void endHandler(int sig) {
+  (void)sig;
   // Set 'stillFighting' to false to end the fight loop
   stillFighting = false;
 }

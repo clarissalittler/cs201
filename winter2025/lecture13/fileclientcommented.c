@@ -20,6 +20,7 @@ const int port = 8080;   // Server's port
 const int bsize = 1024;  // Buffer size for reading file data
 
 int main(int argc, char *argv[]) {
+    (void)argc;
     int sock = 0;
     struct sockaddr_in servAddr;
     char buffer[bsize];

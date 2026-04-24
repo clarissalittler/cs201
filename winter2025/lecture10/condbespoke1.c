@@ -25,6 +25,7 @@ void* adder(void* arg){
 }
 
 void* reader(void* arg){
+  (void)arg;
   pthread_mutex_lock(&mut);
   while(numInputs < 2){
     printf("Enter a number:\n");

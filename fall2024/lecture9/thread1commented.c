@@ -62,7 +62,10 @@ int main(){
     // Return 0 to indicate that the program finished successfully
     return 0;
 }
+
+/* Example build and run:
 gcc -pthread -o thread_example thread_example.c
 ./thread_example
 Our thread says: Hi there, I'm one thread
 Our thread says: Hi there, I'm a different thread
+*/

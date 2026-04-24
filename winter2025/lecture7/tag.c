@@ -12,12 +12,14 @@
 volatile sig_atomic_t num = 0;
 
 void handler1(int sig){
+  (void)sig;
   // this will be for the child receiving sigusr1
   printf("I've been tagged by my parent %d times\n",num);
   num++;
 }
 
 void handler2(int sig){
+  (void)sig;
   printf("I've been tagged by my child %d times\n",num);
   num++;
 }

@@ -198,7 +198,7 @@ Supplementary materials and additional examples beyond the regular lectures.
 ### Inter-Process Communication (IPC)
 - **Message Queues** - Structured messaging between processes
 - **Shared Memory** - High-speed data sharing
-- **Named Pipes (FIFOs)** - Bidirectional communication
+- **Named Pipes (FIFOs)** - Stream-based local IPC (typically one-way per FIFO)
 - **Sockets** - Network and local communication
 - **Semaphores** - Synchronization primitives
 

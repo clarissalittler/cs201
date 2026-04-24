@@ -19,8 +19,8 @@ int main(){
   //printf("The first byte of our number is: %x\n", pointy[3]);
 
   //the bytes in memory order of ourNum
-  for(int i=0; i < sizeof(typeof(ourNum)); i++){
-    printf("byte #%d = %x\n",i,pointy[i]);
+  for(size_t i = 0; i < sizeof(ourNum); i++){
+    printf("byte #%zu = %x\n",i,pointy[i]);
   }
   
   return 0;

@@ -176,18 +176,18 @@ printStr:
 	# Syscall number 1 = sys_write
 	# Write data to a file descriptor
 
-        mov $0,%rdi
-	# File descriptor 0 = stdin
-	# WAIT - this looks wrong! We want to write to stdout!
-	# BUG: Should be mov $1,%rdi (stdout)
-	# This code has a bug - it's trying to write to stdin
-	# On most systems, writing to stdin redirects to stdout, so it works
-	# But this is technically incorrect
+        mov $1,%rdi
+	# File descriptor 1 = stdout
+	# This is the standard output stream.
+	# (Earlier revisions of this example had `mov $0,%rdi` here, which
+	# is stdin — writing to stdin often *appears* to work on a terminal
+	# because stdin/stdout share the same tty, but it fails silently
+	# under pipes/redirection. Always use fd=1 for stdout.)
 
         syscall
 	# Invoke the system call
-	# Kernel executes: write(0, string, length)
-	# Despite the bug, usually prints to terminal
+	# Kernel executes: write(1, string, length)
+	# Prints the string to standard output
 
         ret
 	# Return from printStr function

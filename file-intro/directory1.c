@@ -21,6 +21,7 @@ void listDir(const char *path) {
 }
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   listDir(argv[1]);
   

@@ -36,7 +36,7 @@ void popStack(struct Node** s, int* r){
 
 void addressTraverse(struct Node* s){
   if(s != NULL){
-    printf("Address of node %p with value %d \n",s,s->v);
+    printf("Address of node %p with value %d \n",(void*)s,s->v);
     addressTraverse(s->next);
   }
 }

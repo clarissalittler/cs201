@@ -8,6 +8,7 @@
 int ourCounter = 0;
 
 void* threadCounter(void* arg){
+  (void)arg;
   // retrieve the value here
   int temp = ourCounter;
 

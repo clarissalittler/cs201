@@ -18,7 +18,7 @@ int main() {
   struct sockaddr_in address;
   socklen_t addrlen = sizeof(address);
   char buffer[bsize];
-  ssize_t bytesRead, bytesSent;
+  ssize_t bytesRead;
 
   serverFd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -43,7 +43,7 @@ int main() {
     int fileFd = open(buffer, O_RDONLY);
 
     while ((bytesRead = read(fileFd, buffer, bsize)) > 0) {
-      bytesSent = write(newSocket, buffer, bytesRead);
+      write(newSocket, buffer, bytesRead);
     }
     close(fileFd);
     close(newSocket);

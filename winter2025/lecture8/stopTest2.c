@@ -4,6 +4,7 @@
 #include <signal.h>
 
 void handler(int sig){
+  (void)sig;
   printf("Mwhahaha\n");
 }
 

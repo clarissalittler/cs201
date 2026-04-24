@@ -31,7 +31,7 @@ int main(){
   // WHY? Because arr is an int*, so +1 means "move forward by sizeof(int) bytes"
   // On most systems, this moves forward 4 bytes
   // %p format specifier prints the pointer in hexadecimal
-  printf("If we don't cast at all arr+1 is: %p\n", arr+1);
+  printf("If we don't cast at all arr+1 is: %p\n", (void*)(arr + 1));
 
   // DEMONSTRATION 2: LONG* ARITHMETIC
   // Casting arr to long* changes how pointer arithmetic works
@@ -39,7 +39,7 @@ int main(){
   // On 64-bit systems, sizeof(long) = 8 bytes
   // So this moves 8 bytes forward from arr (skipping TWO integers)
   // IMPORTANT: We're not changing the data, just how we're interpreting it!
-  printf("If we cast to long, arr+1 is: %p\n", ((long*)arr) + 1);
+  printf("If we cast to long, arr+1 is: %p\n", (void*)(((long*)arr) + 1));
 
   // DEMONSTRATION 3: CHAR* ARITHMETIC
   // Casting arr to char* makes the finest-grained pointer arithmetic
@@ -47,7 +47,7 @@ int main(){
   // This only advances ONE byte from the start of arr
   // This demonstrates we can access memory at the byte level
   // PRACTICAL USE: This technique is used to examine byte-by-byte memory layout
-  printf("If we cast to char, arr+1 is: %p\n", ((char*)arr) + 1);
+  printf("If we cast to char, arr+1 is: %p\n", (void*)(((char*)arr) + 1));
 
   // VISUAL REPRESENTATION (assuming arr starts at address 0x1000):
   // Memory Layout (each box is 1 byte):

@@ -10,6 +10,7 @@ int ourCounter = 0; // Declare a global integer variable 'ourCounter' to store t
 // Define a thread function named 'threadCounter' that takes a void pointer as an argument
 // and returns a void pointer.
 void* threadCounter(void* arg){ 
+  (void)arg;                    // This example does not use thread arguments.
   int temp = ourCounter; // Create a local copy 'temp' of the global counter variable 'ourCounter'.
 
   // Sleep for a random number of seconds between 0 and 2.
@@ -49,46 +50,8 @@ int main(){
   
   return 0; // Return 0 to indicate successful program termination.
 }
-#include <pthread.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
 
-int ourCounter = 0;
-pthread_mutex_t counterMutex; // Declare a mutex
-
-void* threadCounter(void* arg){
-  int temp;
-  
-  sleep(rand()%3);
-
-  pthread_mutex_lock(&counterMutex); // Acquire the mutex before accessing the counter
-  temp = ourCounter;
-  ourCounter = temp + 1;
-  pthread_mutex_unlock(&counterMutex); // Release the mutex after accessing the counter
-
-  return NULL;
-}
-
-int main(){
-  srand(time(0));
-  pthread_t threads[10];
-
-  pthread_mutex_init(&counterMutex, NULL); // Initialize the mutex
-
-  for(int i = 0; i < 10; i++){
-    pthread_create(&threads[i],NULL,threadCounter,NULL);
-  }
-
-  for(int i = 0; i < 10; i++){
-    pthread_join(threads[i],NULL);
-  }
-
-  printf("What's the value of the counter? %d\n",ourCounter);
-  
-  pthread_mutex_destroy(&counterMutex); // Destroy the mutex
-
-  return 0;
-}
+/*
+ * Compare this racy example with threadmutexcommented.c for the
+ * corrected version that protects the shared counter with a mutex.
+ */

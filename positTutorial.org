@@ -2,26 +2,28 @@
 
 ** Introduction
 
-Posits (Positive Interval System) are an alternative to the widely used IEEE 754 floating-point standard. They aim to provide better accuracy and a wider dynamic range for the same number of bits, especially near the values +1 and -1.
+Posits are an alternative to the widely used IEEE 754 floating-point standard. They aim to provide better accuracy and a wider dynamic range for the same number of bits, especially near the values +1 and -1.
 
 This tutorial focuses on a specific, small Posit format: Posit<8,3>.
 - *N=8*: The total number of bits used to represent a number is 8.
 - *es=3*: The maximum number of bits allocated to the exponent field is 3.
 
-We will learn how to take an 8-bit pattern and decode it into the numerical value it represents according to the Posit<8,3> standard.
+This is a teaching example using the older/generalized =posit<nbits,es>= notation. The 2022 Posit Standard defines standard formats such as =posit8= by precision alone; standard =posit8= uses a two-bit exponent field and regime scaling by powers of 16. In this tutorial, =Posit<8,3>= means an 8-bit pedagogical format with =es=3, so =useed = 256=.
+
+We will learn how to take an 8-bit pattern and decode it into the numerical value it represents in this Posit<8,3> teaching format.
 
 ** Bit Representation Overview
 
-An 8-bit Posit<8,3> number is conceptually divided into four fields:
+An 8-bit Posit<8,3> number is parsed from left to right. After the sign bit, the remaining bits are consumed by a variable-length regime, then up to three exponent bits, then whatever fraction bits are left. For example, if the regime run has length 1 and is followed by a terminator, the layout can look like this:
 
 | Bit Index | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 |-----------+---+---+---+---+---+---+---+---|
-| Field     | S | R | R | R | E | E | F | F |
+| Field     | S | R | T | E | E | E | F | F |
 
 Where:
 - *S*: Sign bit (1 bit)
-- *R*: Regime bits (Variable length)
-- *E*: Exponent bits (Variable length, max 'es' bits)
+- *R/T*: Regime run bits and their terminating bit (Variable length)
+- *E*: Exponent bits (Variable length, max =es= bits)
 - *F*: Fraction/Mantissa bits (Variable length)
 
 *Important Note:* Unlike fixed-width fields in IEEE 754, the boundaries between the Regime, Exponent, and Fraction fields are *dynamic*. Determining these boundaries is the core of decoding a Posit.
@@ -149,8 +151,8 @@ Let's decode some 8-bit patterns using Posit<8,3>.
     - Bits used for regime: 6, 5, 4. Next bit is Bit 3.
 3.  *Exponent (E)*:
     - Max =es= = 3 bits. Available bits start at Bit 3.
-    - Bits are: Bit 3='0', Bit 2='1', Bit 1='0'. (Using 3 bits: 010)
-    - =e = 0*2^2 + 1*2^1 + 0*2^0 = 0 + 2 + 0 = 2=.
+    - Bits are: Bit 3='1', Bit 2='0', Bit 1='1'. (Using 3 bits: 101)
+    - =e = 1*2^2 + 0*2^1 + 1*2^0 = 4 + 0 + 1 = 5=.
     - Bits used for exponent: 3, 2, 1. Next bit is Bit 0.
 4.  *Fraction (F)*:
     - Remaining bits start at Bit 0. Only Bit 0='0'.
@@ -159,11 +161,11 @@ Let's decode some 8-bit patterns using Posit<8,3>.
     - Mantissa =m = 1 + f = 1 + 0 = 1.0=.
     - Bits used for fraction: 0.
 5.  *Final Calculation*:
-    - =Value = (-1)^1 * 256^1 * 2^2 * 1.0=
-    - =Value = -1 * 256 * 4 * 1.0=
-    - =Value = -1024=
+    - =Value = (-1)^1 * 256^1 * 2^5 * 1.0=
+    - =Value = -1 * 256 * 32 * 1.0=
+    - =Value = -8192=
 
-    Therefore, =10010110= represents the value =-1024=.
+    Therefore, =10010110= represents the value =-8192=.
 
 *** Example 3: =00000011=
 

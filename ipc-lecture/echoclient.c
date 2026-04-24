@@ -14,8 +14,9 @@ int clientSocket;
 
 
 void cleanup(int signum){
+  (void)signum;
   close(clientSocket);
-  exit(0);
+  _exit(0);
 }
 
 int main(){

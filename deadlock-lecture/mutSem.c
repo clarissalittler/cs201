@@ -8,6 +8,7 @@ long counter = 0;
 sem_t counterMutex;
 
 void* inc(void* arg){
+  (void)arg;
   for(int i = 0; i < 100000; i++){
     sem_wait(&counterMutex);
     counter++;

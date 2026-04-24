@@ -1,5 +1,5 @@
         .section .data
-arr1:   .long 1,2,3,4
+arr1:   .quad 1,2,3,4
 
         .section .text
         .global _start
@@ -14,8 +14,8 @@ _start:
 loopBody:
         cmp $4,%rcx             # i < 4
         jge done
-        add (%rbx,%rcx,4),%rax
-        ## *(%rbx + 4 * %rcx)
+        add (%rbx,%rcx,8),%rax
+        ## *(%rbx + 8 * %rcx)
         ## arr1[rcx]
         ## arr1[rcx] -> *(arr1 + rcx)
         add $1,%rcx             #i++

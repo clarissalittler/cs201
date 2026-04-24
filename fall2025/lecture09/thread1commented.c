@@ -30,6 +30,7 @@
 // - Return void* allows returning ANY type of data from the thread
 // - This is C's way of being "generic" (no templates like C++)
 void* thread_function(void* arg) {
+    (void)arg;
     // THIS CODE RUNS IN THE NEW THREAD:
     // The new thread executes this function concurrently with main()
     //
@@ -60,6 +61,7 @@ int main() {
     // This variable is declared but never used - probably left over
     // from a more complex example where data would be passed to thread
     char* message = "Hello from main thread";
+    (void)message;
     // In a real program, we might pass this to thread_function via arg
 
     // CREATE THE THREAD:

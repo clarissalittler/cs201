@@ -50,6 +50,7 @@ void delLine(int line, char** ls, int* nL){
 }
 
 void editLine(int line, char** ls, int nL){
+  (void)nL;
   printf("Type the text you want to replace line %d:\n",line);
   char c;
   
@@ -64,10 +65,11 @@ void editLine(int line, char** ls, int nL){
 }
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   FILE *ourFile = fopen(argv[1],"r+");
 
-  if(ourFile < 0){
+  if(ourFile == NULL){
     return 1;
   }
   

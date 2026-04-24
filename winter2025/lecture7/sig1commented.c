@@ -17,6 +17,7 @@
 // SIGNAL HANDLER FUNCTION:
 // This function is called when SIGINT (Ctrl+C) is received
 void handler(int sig){
+  (void)sig;
   // PARAMETER: sig
   // - Contains the signal number that triggered this handler
   // - For SIGINT, sig will equal SIGINT (typically 2)

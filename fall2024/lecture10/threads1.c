@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 void* myFun(void* arg){
+  (void)arg;
   
   int temp = rand()%3+1;
   sleep(temp);

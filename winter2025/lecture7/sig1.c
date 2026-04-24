@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 void handler(int sig){
+  (void)sig;
   printf("Caught that sigint!\n");
   exit(0);
 }

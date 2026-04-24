@@ -22,6 +22,7 @@
 // and that's a thing that takes a void*
 // and returns a void*
 void* func(void* arg){
+  (void)arg;
   
   printf("Hi I'm a thread!\n");
   

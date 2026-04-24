@@ -6,8 +6,8 @@ int main(){
 
   unsigned char* c = (unsigned char*) &n;
 
-  for(int i=0; i<sizeof(typeof(n)); i++){
-    printf("The %d th byte of n is: %x \n",i,*(c+i));
+  for(size_t i = 0; i < sizeof(n); i++){
+    printf("The %zu th byte of n is: %x \n",i,*(c+i));
   }
   
   return 0;

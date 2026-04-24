@@ -35,6 +35,7 @@ pthread_mutex_t mut;
 // THREAD WORKER FUNCTION:
 // All three threads execute this same function
 void* threadWorker(void* arg){
+  (void)arg;
 
   // RANDOM DELAY:
   // Sleep 1-3 seconds (rand()%3 gives 0-2, add 1 for 1-3)
@@ -87,7 +88,7 @@ void* threadWorker(void* arg){
   // printf() is slow (I/O operation)
   // We want to hold locks as briefly as possible
   // Only protect the MINIMUM necessary code
-  printf(msgs[temp]);
+  printf("%s", msgs[temp]);
 
   return NULL;
 }
@@ -294,7 +295,7 @@ int main(){
 // 4. This demonstrates why mutexes are necessary!
 //
 // ANOTHER EXPERIMENT:
-// Move printf(msgs[temp]) INSIDE the critical section (before unlock)
+// Move printf("%s", msgs[temp]) INSIDE the critical section (before unlock)
 // Recompile and run
 // Notice:
 //   - Still works correctly

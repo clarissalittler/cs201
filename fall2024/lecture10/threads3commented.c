@@ -11,6 +11,7 @@ pthread_mutex_t mutex;  // Declare a mutex variable to protect the counter from 
 
 // Define a thread function that increments the counter by 1
 void* threadCounter(void* arg) {
+  (void)arg;
   // Acquire the mutex to protect the counter from concurrent access
   pthread_mutex_lock(&mutex); 
 
@@ -32,6 +33,7 @@ void* threadCounter(void* arg) {
 
 // Define a thread function that allows the user to increment the counter by an arbitrary amount
 void* wildCounter(void* arg) {
+  (void)arg;
   // Prompt the user to enter a number
   printf("Enter a number, right quick: ");
 

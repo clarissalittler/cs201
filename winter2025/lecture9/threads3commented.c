@@ -31,6 +31,7 @@
 // That data is allocated with malloc
 // The main thread will receive and use this data
 void* func1(void* arg){
+  (void)arg;
 
   // ALLOCATE MEMORY FOR RETURN VALUE:
   // malloc allocates memory on the HEAP

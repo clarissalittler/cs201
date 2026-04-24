@@ -6,6 +6,7 @@
 
 // Function prototype for the signal handler
 void alarm_handler(int sig){
+    (void)sig;
     // This function is called when the SIGALRM signal is received
     // 'sig' parameter holds the signal number, which is SIGALRM in this case
     printf("The bells have been rung!\n");

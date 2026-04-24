@@ -13,6 +13,7 @@ volatile sig_atomic_t won = 1;
 #define STDOUT 1
 
 void hitHandler(int sig){
+  (void)sig;
   if(hp > 0){
     int d = rand()%5+1;
     char str[50];
@@ -28,6 +29,7 @@ void hitHandler(int sig){
 }
 
 void endHandler(int sig){
+  (void)sig;
   stillFighting = 0;
 }
 

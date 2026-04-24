@@ -32,6 +32,7 @@
  * return &sleepTime;  // BAD! sleepTime disappears when function returns!
  */
 void* weirdFunction(void* arg){
+  (void)arg;
 
   /*
    * Allocate memory on the HEAP for the return value

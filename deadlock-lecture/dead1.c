@@ -9,6 +9,7 @@ pthread_mutex_t lockLevel1;
 pthread_mutex_t lockLevel2;
 
 void* inc1(void* arg){
+  (void)arg;
   pthread_mutex_lock(&lockLevel1);
   printf("Inc1 has acquired lock 1\n");
   sleep(1);
@@ -23,6 +24,7 @@ void* inc1(void* arg){
 }
 
 void* inc2(void* arg){
+  (void)arg;
   pthread_mutex_lock(&lockLevel2);
   printf("Inc2 has acquired lock 2\n");
   sleep(1);

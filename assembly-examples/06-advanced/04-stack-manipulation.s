@@ -18,12 +18,12 @@ msg3len = . - msg3
         ## of a string in %rdi
         ## prints it
 printStr:
-        mov %rsi,%rdx
-        mov %rdi,%rsi     # load message address
-        mov $1,%rax
-        mov $0,%rdi
+        mov %rsi,%rdx     # message length -> 3rd syscall arg
+        mov %rdi,%rsi     # message address -> 2nd syscall arg
+        mov $1,%rax       # sys_write
+        mov $1,%rdi       # fd = 1 (stdout)
         syscall
-        ret 
+        ret
 
         
 ## This is a function that demonstrates:

@@ -44,6 +44,7 @@ sig_atomic_t simulationRunning = 1;
 // Called when user presses Ctrl+C (SIGINT)
 // IMPORTANT: Signal handlers must only use async-signal-safe functions
 void handler(int signum){
+  (void)signum;
   char msg[] = "Alright everyone clean up and go!\n";
 
   // Set flag to 0 to tell all threads to stop

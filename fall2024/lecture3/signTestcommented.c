@@ -16,5 +16,8 @@ int main(){ // This is the main function of the program, the entry point for exe
 
   return 0; // This line indicates successful program execution. 0 is the standard return value for a program that exits without errors.
 }
+
+/* Example output:
 Signed: -2
 Unsigned: 254
+*/

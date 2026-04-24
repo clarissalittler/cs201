@@ -31,8 +31,8 @@ int main(){
   // %p prints pointer addresses in hexadecimal
   // arr1 and arr2 are array names, which decay to pointers
   // They point to the first element of each array
-  printf("The start of arr1 is: %p\n",arr1);
-  printf("The start of arr2 is: %p\n",arr2);
+  printf("The start of arr1 is: %p\n",(void*)arr1);
+  printf("The start of arr2 is: %p\n",(void*)arr2);
 
   // EXPECTED OUTPUT (example):
   // The start of arr1 is: 0x7ffe5c6b1a10
@@ -55,7 +55,7 @@ int main(){
     //   arr1 + 2 = 0x1008 (arr1[2]) ← 8 bytes from start
     //   arr1 + 3 = 0x100C (arr1[3]) ← 12 bytes from start
     //   arr1 + 4 = 0x1010 (arr1[4]) ← 16 bytes from start
-    printf("The %dth element of arr1 is at: %p\n",i,arr1 +i);
+    printf("The %dth element of arr1 is at: %p\n",i,(void*)(arr1 + i));
 
     // POINTER ARITHMETIC WITH DOUBLE ARRAY:
     // arr2 + i means:
@@ -69,7 +69,7 @@ int main(){
     //   arr2 + 2 = 0x2010 (arr2[2]) ← 16 bytes from start
     //   arr2 + 3 = 0x2018 (arr2[3]) ← 24 bytes from start
     //   arr2 + 4 = 0x2020 (arr2[4]) ← 32 bytes from start
-    printf("The %dth element of arr2 is at: %p\n",i,arr2 +i);
+    printf("The %dth element of arr2 is at: %p\n",i,(void*)(arr2 + i));
   }
 
   return 0;

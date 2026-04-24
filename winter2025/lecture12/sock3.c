@@ -8,8 +8,6 @@
 
 int main(){
 
-  struct stat fileStat;
-  
   int port = 8080;       // The port number the server will listen on
 
   int server_fd;         // File descriptor for the server socket

@@ -11,11 +11,16 @@
     # Inputs:
     #   %rdi - The integer to be printed.
     #
-    # Registers used (clobbered):
-    #   %rax, %rbx, %rcx, %rdx, %rsi, %r8
+    # Clobbers (caller-saved, so no need to preserve):
+    #   %rax, %rcx, %rdx, %rsi, %r8
     #
-    # Stack layout:
-    #   Uses a local buffer of 32 bytes on the stack to store the string.
+    # Preserves (callee-saved, saved/restored in the prologue/epilogue):
+    #   %rbx, %rbp
+    #
+    # Stack layout (below %rbp):
+    #   -32 .. -1   : 32-byte buffer for the string representation
+    #   -40         : saved %rbx
+    #   -48         : padding (keeps %rsp 16-byte aligned)
     #
     # Notes:
     #   - The function handles negative integers, including INT_MIN (-2^63),
@@ -27,7 +32,8 @@ writeInt:
         # Function prologue: set up the stack frame
         pushq   %rbp                # Save the caller's base pointer on the stack
         movq    %rsp, %rbp          # Set base pointer (%rbp) to current stack pointer (%rsp)
-        subq    $40, %rsp           # Allocate 40 bytes on the stack for local variables
+        subq    $48, %rsp           # 32-byte buffer + 8 for saved %rbx + 8 pad (keeps %rsp aligned)
+        movq    %rbx, -40(%rbp)     # Save callee-saved %rbx (we use it as the divisor below)
 
         # Variables:
         # We will use a buffer of 32 bytes on the stack to store the string representation
@@ -58,7 +64,9 @@ check_negative:
         negq    %rax                # Negate %rax to get the absolute value
         jno     convert_number      # If no overflow, proceed to convert_number
         # Handle INT_MIN (-2^63), which cannot be negated
-        movq    $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
+        # Note: we need movabsq here, not movq — the value 2^63 doesn't fit
+        # in a 32-bit sign-extended immediate, so a plain movq won't encode it.
+        movabsq $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
 
 convert_number:
         # Convert the integer to its string representation
@@ -96,7 +104,8 @@ write_output:
         movq    %rcx, %rdx          # Set %rdx to digit count (number of bytes)
         syscall                     # Make the system call
 
-        # Function epilogue: restore stack frame and return
+        # Function epilogue: restore callee-saved register and stack frame
+        movq    -40(%rbp), %rbx     # Restore %rbx before we tear down the frame
         leave                       # Restore stack frame (movq %rbp, %rsp; popq %rbp)
         ret                         # Return from the function
 

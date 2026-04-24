@@ -41,6 +41,7 @@ int num = 0;            // Should end up being 10,000 (100 threads * 100 increme
 // Expected result: 100 threads * 100 increments = 10,000
 // Actual result: Much less! (race condition causes lost updates)
 void* thread_function(void* arg) {
+  (void)arg;
   // EACH THREAD LOOPS 100 TIMES:
   for(int i=0; i<100; i++){
     // THE RACE CONDITION HAPPENS HERE:

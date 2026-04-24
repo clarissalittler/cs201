@@ -239,13 +239,19 @@ readInt:
 
 intRead:
 	# STEP 3a: Read one character from buffer
-	movb (%rdi,%rcx,1),%r8b        # temp = buffer[i] (load one byte)
-                                   # movb = move byte (8-bit operation)
+	movzbl (%rdi,%rcx,1),%r8d      # temp = buffer[i] (load one byte, zero-extended)
+                                   # movzbl = move with zero-extend, byte -> long
+                                   # WHY NOT plain movb into %r8b?
+                                   #   movb only writes the low 8 bits and leaves the
+                                   #   upper 56 bits of %r8 holding whatever garbage
+                                   #   was there — which would corrupt the sub/add below.
+                                   # movzbl writes to %r8d (low 32 bits of %r8). On
+                                   #   x86-64, writes to a 32-bit register *also* clear
+                                   #   the upper 32 bits, so the full %r8 ends up holding
+                                   #   just the byte with everything else zero.
                                    # (%rdi,%rcx,1) = indexed addressing
                                    # Address = %rdi + %rcx * 1 = buffer + i
-                                   # %r8b is the low 8 bits of %r8 (one byte)
-                                   # This loads the ASCII character at position i
-                                   # Example: if buffer[i] = '2', then %r8b = 0x32
+                                   # Example: if buffer[i] = '2', then %r8 = 0x32
 
 	# STEP 3b: Convert ASCII character to numeric value
 	sub $'0',%r8 		           # temp = temp - '0' (convert ASCII to digit)
@@ -280,8 +286,12 @@ intRead:
                                    # Sets flags based on (%rcx - %rbx)
                                    # Are we done processing all digits?
 
-	jl intRead		               # if i < numBytes-1, continue loop
-                                   # jl = jump if less (signed comparison)
+	jb intRead		               # if i < numBytes-1 (unsigned), continue loop
+                                   # jb = jump if below (UNSIGNED comparison)
+                                   # We want unsigned because these are indices/counts,
+                                   # not potentially-negative integers. Using jl (signed)
+                                   # would do the wrong thing if %rbx ever had its
+                                   # high bit set.
                                    # Loop continues while %rcx < %rbx
                                    # When %rcx == %rbx, we've processed all digits
 

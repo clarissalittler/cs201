@@ -9,6 +9,7 @@ int ourCounter = 0;
 pthread_mutex_t mutex;
 
 void* threadCounter(void* arg){
+  (void)arg;
   pthread_mutex_lock(&mutex);
   int temp = ourCounter;
   sleep(rand()%3+1);

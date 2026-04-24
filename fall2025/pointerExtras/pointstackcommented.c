@@ -190,7 +190,7 @@ void addressTraverse(struct Node* s){
     // It helps us see memory reuse when we pop and push
     // Notice: after popping node with value 3, then pushing 4,
     // the same address might be reused!
-    printf("Address of node %p with value %d \n",s,s->v);
+    printf("Address of node %p with value %d \n",(void*)s,s->v);
 
     // RECURSIVE CALL:
     // s->next is the pointer to the next node

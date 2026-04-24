@@ -33,7 +33,7 @@ int main(){
   //   - Memory addresses are easier to read in hex
   //   - Each hex digit represents exactly 4 bits
   //   - On 64-bit systems, addresses are 8 bytes = 16 hex digits
-  printf("The address of num1 is: %p\n",&num1);
+  printf("The address of num1 is: %p\n",(void*)&num1);
 
   // DEMONSTRATION 2: POINTER ARITHMETIC ON ADDRESS
   // &num1 gives us a pointer to num1 (type: int*)
@@ -56,7 +56,7 @@ int main(){
   //   First address:  0x7ffee4b2a8fc
   //   Second address: 0x7ffee4b2a900  (note: fc + 4 = 100, but in hex!)
   //   Difference: 4 bytes (size of an int)
-  printf("The address of &num1 + 1 is: %p \n",&num1 + 1);
+  printf("The address of &num1 + 1 is: %p \n",(void*)(&num1 + 1));
 
   // VISUAL REPRESENTATION:
   // Memory layout (assuming num1 starts at address 0x1000):

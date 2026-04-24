@@ -35,6 +35,7 @@ volatile sig_atomic_t num = 3;
 
 // SIGNAL HANDLER FUNCTION:
 void handler(int sig){
+  (void)sig;
   // This handler is called each time SIGINT arrives
   // It maintains a countdown state
 

@@ -6,6 +6,7 @@
 
 // Function executed by each thread
 void* weirdFunction(void* arg) {
+    (void)arg;
     // Allocate memory to store the sleep duration
     int* sleepPointer = malloc(sizeof(int));
 

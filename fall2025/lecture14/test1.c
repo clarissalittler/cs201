@@ -20,6 +20,7 @@ struct lilguyData {
 sig_atomic_t simulationRunning = 1;
 
 void handler(int signum){
+  (void)signum;
   char msg[] = "Alright everyone clean up and go!\n";
   simulationRunning = 0;
   write(1,msg,strlen(msg));

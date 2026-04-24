@@ -50,13 +50,14 @@
 int main(){
 
   int num;  // Declared but not used in this version
+  (void)num;
 
   // SIZE OF CHAR:
   // char is the smallest addressable unit in C (always 1 byte)
   // sizeof(char) is GUARANTEED to be 1 by the C standard
   // %ld is the format specifier for long integers
   // sizeof returns size_t, which should be printed with %zu, but %ld works too
-  printf("The size of a char is: %ld\n",sizeof(char));
+  printf("The size of a char is: %zu\n",sizeof(char));
 
   // ARRAY OF CHARACTERS:
   // Create an array of 10 chars (10 bytes of memory)
@@ -79,7 +80,7 @@ int main(){
     // - Memory addresses align nicely with hex (powers of 2)
     // - Each byte is exactly 2 hex digits
     // - Easier to see byte boundaries and alignment
-    printf("The address of the %d th element is %p\n",i,arr+i);
+    printf("The address of the %d th element is %p\n",i,(void*)(arr+i));
   }
 
   // WHAT YOU'LL SEE:

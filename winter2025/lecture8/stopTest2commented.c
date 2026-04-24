@@ -17,6 +17,7 @@
 // SIGNAL HANDLER FOR SIGTSTP:
 // Called when user presses Ctrl+Z
 void handler(int sig){
+  (void)sig;
   // PARAMETER: sig
   // Will be SIGTSTP (signal number 20 on most systems)
 

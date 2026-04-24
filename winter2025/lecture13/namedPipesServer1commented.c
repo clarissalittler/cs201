@@ -16,25 +16,21 @@
 #include <fcntl.h>       // Provides open(), O_RDONLY, O_WRONLY
 #include <sys/stat.h>    // Provides mkfifo(), file permissions
 #include <string.h>      // Provides memset()
-#include <signal.h>      // Provides signal(), SIGINT
+#include <signal.h>      // Provides sigaction(), SIGINT
+#include <errno.h>       // Provides errno and EEXIST/EINTR
 
-// GLOBAL FILE DESCRIPTORS:
-// WHY GLOBAL?
-//   - Needed in signal handler (cleaner function)
-//   - Signal handler can't access local variables
-//   - Must be accessible from both main() and cleaner()
-//
-// IMPORTANT: Initialized to prevent cleanup of invalid FDs
-int fdRead, fdWrite;
+// GLOBAL STATE:
+// File descriptors live here so regular cleanup code can see them.
+// stop_requested is the signal-safe flag shared with the handler.
+int fdRead = -1, fdWrite = -1;
+volatile sig_atomic_t stop_requested = 0;
 
 // SIGNAL HANDLER FOR CLEANUP:
 // Called when user presses Ctrl+C (SIGINT)
 //
 // PURPOSE:
-//   - Clean up resources before exiting
-//   - Close file descriptors
-//   - Remove FIFO files from filesystem
-//   - Provide graceful shutdown
+//   - Request shutdown when Ctrl+C arrives
+//   - Keep the handler async-signal-safe
 //
 // WHY NECESSARY?
 //   - FIFOs persist in filesystem
@@ -42,39 +38,21 @@ int fdRead, fdWrite;
 //   - Can cause issues on next run
 //   - Closing FDs releases kernel resources
 void cleaner(int sig){
-  printf("\n Cleaning up! Goodbye!\n");
+  static const char msg[] = "\n Cleaning up! Goodbye!\n";
+  (void)sig;
+  stop_requested = 1;
+  write(STDOUT_FILENO, msg, sizeof(msg) - 1);
+}
 
-  // CLOSE FILE DESCRIPTORS:
-  // Release kernel resources
-  // Signals to client that server is closing
-  close(fdRead);
-  close(fdWrite);
-
-  // REMOVE FIFO FILES:
-  // unlink() removes file from filesystem
-  //
-  // "serverToClient": FIFO for server→client data
-  // "clientToServer": FIFO for client→server data
-  //
-  // WHY UNLINK?
-  //   - FIFOs are files - they persist
-  //   - Next run would fail if files already exist
-  //   - Clean slate for next execution
-  //   - Good resource management
-  //
-  // WHAT IF FILES DON'T EXIST?
-  //   - unlink() fails silently (we don't check return)
-  //   - Not a problem - we're exiting anyway
+static void cleanup_resources(void){
+  if(fdRead != -1) close(fdRead);
+  if(fdWrite != -1) close(fdWrite);
   unlink("serverToClient");
   unlink("clientToServer");
-
-  // EXIT PROCESS:
-  // 0 indicates success
-  // Program terminates here
-  exit(0);
 }
 
 int main(){
+  struct sigaction sa = {0};
 
   // PRINT SERVER PID:
   // Useful for debugging and process management
@@ -122,8 +100,19 @@ int main(){
   //   - Common when server crashed without cleanup
   //   - Solution: rm clientToServer serverToClient
   //   - Or: check error and continue if EEXIST
-  mkfifo("clientToServer", 0666);
-  mkfifo("serverToClient", 0666);
+  sa.sa_handler = cleaner;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGINT, &sa, NULL);
+
+  if(mkfifo("clientToServer", 0666) == -1 && errno != EEXIST){
+    perror("mkfifo");
+    return EXIT_FAILURE;
+  }
+  if(mkfifo("serverToClient", 0666) == -1 && errno != EEXIST){
+    perror("mkfifo");
+    unlink("clientToServer");
+    return EXIT_FAILURE;
+  }
 
   printf("Server started. Waiting for yapping...\n");
 
@@ -151,6 +140,11 @@ int main(){
   //   - Both ends are now open
   //   - Communication can begin
   fdWrite = open("serverToClient", O_WRONLY);
+  if(fdWrite < 0){
+    if(!stop_requested) perror("open");
+    cleanup_resources();
+    return stop_requested ? 0 : EXIT_FAILURE;
+  }
 
   // fdRead = open("clientToServer", O_RDONLY):
   //   - Open for reading only
@@ -158,6 +152,11 @@ int main(){
   //   - May block if client hasn't opened write end yet
   //   - Usually doesn't block because client opens write end after read end
   fdRead = open("clientToServer", O_RDONLY);
+  if(fdRead < 0){
+    if(!stop_requested) perror("open");
+    cleanup_resources();
+    return stop_requested ? 0 : EXIT_FAILURE;
+  }
 
   // STEP 3: SET UP SIGNAL HANDLER
   //
@@ -171,13 +170,11 @@ int main(){
   //   - If signal handler was set earlier and user hit Ctrl+C during mkfifo,
   //     we'd try to close invalid FDs
   //   - Setting it here ensures resources exist before cleanup
-  signal(SIGINT, cleaner);
-
   // STEP 4: MAIN ECHO LOOP
   // Server echoes back whatever client sends
   //
   // while(1): Infinite loop - server runs until interrupted
-  while(1){
+  while(!stop_requested){
     // CLEAR BUFFER:
     // Prevent old data from contaminating new reads
     // Essential for correct string handling
@@ -195,6 +192,13 @@ int main(){
     //   - Blocks if FIFO is empty (no data available)
     //   - Waits for client to write data
     int bytesRead = read(fdRead, buffer, bSize);
+    if(bytesRead < 0){
+      if(stop_requested && errno == EINTR){
+        break;
+      }
+      perror("read");
+      break;
+    }
 
     if(bytesRead > 0){
       // CLIENT SENT DATA
@@ -261,18 +265,9 @@ int main(){
     }
   }
 
-  // CLEANUP ON NORMAL EXIT:
-  // If loop exits normally (not via signal)
-  // Close file descriptors
-  close(fdRead);
-  close(fdWrite);
-
-  // REMOVE FIFO FILES:
-  // Clean up filesystem
-  unlink("clientToServer");
-  unlink("serverToClient");
-
-  // Note: If server exits via signal (Ctrl+C), cleaner() does cleanup
+  // Note: If server exits via signal (Ctrl+C), cleaner() only sets the flag.
+  cleanup_resources();
+  return 0;
   // This code only runs if loop breaks (client error or shutdown)
 }
 

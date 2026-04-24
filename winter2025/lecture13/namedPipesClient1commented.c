@@ -55,6 +55,7 @@ int fdWrite, fdRead;
 //   - With threads: can do both simultaneously
 //   - Like having two people: one listening, one talking
 void *readFromServer(void *arg){
+  (void)arg;
   char buffer[bSize];
 
   // INFINITE LOOP:

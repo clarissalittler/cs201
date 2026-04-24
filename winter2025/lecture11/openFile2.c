@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   int lineSize = 1024;
   int fileSize = 10000;

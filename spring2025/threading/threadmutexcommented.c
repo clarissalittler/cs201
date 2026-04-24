@@ -56,6 +56,7 @@ pthread_mutex_t mutex;
  * The only difference: we added lock/unlock around the critical section!
  */
 void* threadCounter(void* arg){
+  (void)arg;
   /*
    * LOCK THE MUTEX before accessing shared data
    *

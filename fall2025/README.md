@@ -20,6 +20,8 @@ This directory contains current lecture materials for Fall 2025, covering C prog
 ### Topic-Specific Directories
 - `file-lecture/` - File I/O operations in C
 - `pointerExtras/` - Additional pointer examples and exercises
+- `sockets-lecture/` - Socket programming lecture examples
+- `finalProj/` - Final project scaffolding and reference code
 
 ## Note About Missing Lectures
 
@@ -113,7 +115,11 @@ gcc -pthread threads.c -o threads
 
 **Inter-Process Communication:**
 - lecture13
-- Also see `/ipc-lecture/` and `/IPC_TUTORIAL.md`
+- Also see `/ipc-lecture/`, `/IPC_TUTORIAL.md`, and `sockets-lecture/`
+
+**Networking and Final Project Work:**
+- sockets-lecture/
+- finalProj/
 
 ## Key Topics Covered
 

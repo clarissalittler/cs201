@@ -127,6 +127,7 @@ void* adder(void* arg){
 // This thread produces data that adder thread needs
 // After producing, it signals adder to wake up
 void* reader(void* arg){
+  (void)arg;
 
   // LOCK THE MUTEX:
   // Must lock before accessing shared data

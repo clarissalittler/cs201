@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <signal.h>
+#include <errno.h>
 
 /*
  * Global file descriptors for the named pipes
@@ -14,7 +15,8 @@
  * for cleanup. This follows the pattern of initializing resources early and
  * cleaning them up on program termination or interruption.
  */
-int fdRead, fdWrite;
+int fdRead = -1, fdWrite = -1;
+volatile sig_atomic_t stop_requested = 0;
 
 /*
  * Signal handler for clean termination
@@ -27,30 +29,21 @@ int fdRead, fdWrite;
  * the server terminates, potentially causing issues on restart.
  */
 void cleaner(int sig){
-  printf("\n Cleaning up! Goodbye!\n");
-  
-  /*
-   * Close the pipe file descriptors
-   */
-  close(fdRead);
-  close(fdWrite);
-  
-  /*
-   * Remove the named pipes from the filesystem
-   * 
-   * TEACHING POINT: Named pipes (FIFOs) persist in the filesystem
-   * and must be explicitly unlinked when no longer needed.
-   */
+  static const char msg[] = "\n Cleaning up! Goodbye!\n";
+  (void)sig;
+  stop_requested = 1;
+  write(STDOUT_FILENO, msg, sizeof(msg) - 1);
+}
+
+static void cleanup_resources(void){
+  if(fdRead != -1) close(fdRead);
+  if(fdWrite != -1) close(fdWrite);
   unlink("serverToClient");
   unlink("clientToServer");
-  
-  /*
-   * Terminate the program
-   */
-  exit(0);
 }
 
 int main(){
+  struct sigaction sa = {0};
   /*
    * Print the server's process ID
    * 
@@ -74,8 +67,19 @@ int main(){
    * 
    * The 0666 parameter specifies permissions (read/write for all users)
    */
-  mkfifo("clientToServer", 0666);
-  mkfifo("serverToClient", 0666);
+  sa.sa_handler = cleaner;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGINT, &sa, NULL);
+
+  if(mkfifo("clientToServer", 0666) == -1 && errno != EEXIST){
+    perror("mkfifo");
+    return EXIT_FAILURE;
+  }
+  if(mkfifo("serverToClient", 0666) == -1 && errno != EEXIST){
+    perror("mkfifo");
+    unlink("clientToServer");
+    return EXIT_FAILURE;
+  }
 
   printf("Server started. Waiting for yapping...\n");
   
@@ -93,7 +97,17 @@ int main(){
    * pattern, preventing deadlock.
    */
   fdWrite = open("serverToClient", O_WRONLY);
+  if(fdWrite < 0){
+    if(!stop_requested) perror("open");
+    cleanup_resources();
+    return stop_requested ? 0 : EXIT_FAILURE;
+  }
   fdRead = open("clientToServer", O_RDONLY);
+  if(fdRead < 0){
+    if(!stop_requested) perror("open");
+    cleanup_resources();
+    return stop_requested ? 0 : EXIT_FAILURE;
+  }
 
   /*
    * Register the signal handler for SIGINT (Ctrl+C)
@@ -101,15 +115,13 @@ int main(){
    * TEACHING POINT: This ensures resources are properly cleaned up
    * even if the server is terminated with Ctrl+C.
    */
-  signal(SIGINT, cleaner);
-
   /*
    * Main server loop
    * 
    * TEACHING POINT: This implements a simple echo server: it reads
    * messages from the client and writes them back unchanged.
    */
-  while(1){
+  while(!stop_requested){
     /*
      * Clear the buffer before reading
      * 
@@ -122,6 +134,13 @@ int main(){
      * Read from the "clientToServer" pipe
      */
     int bytesRead = read(fdRead, buffer, bSize);
+    if(bytesRead < 0){
+      if(stop_requested && errno == EINTR){
+        break;
+      }
+      perror("read");
+      break;
+    }
     
     if(bytesRead > 0){
       /*
@@ -147,8 +166,8 @@ int main(){
        * This allows the server to handle multiple sequential client
        * connections without restarting.
        */
-      close(fdRead);
-      fdRead = open("clientToServer", O_RDONLY);
+	      close(fdRead);
+	      fdRead = open("clientToServer", O_RDONLY);
       if(fdRead < 0){
         break;
       }
@@ -161,15 +180,6 @@ int main(){
     }
   }
 
-  /*
-   * Clean up resources before exiting
-   * 
-   * TEACHING POINT: Always clean up resources, even in error cases:
-   * 1. Close file descriptors to release system resources
-   * 2. Unlink named pipes to remove them from the filesystem
-   */
-  close(fdRead);
-  close(fdWrite);
-  unlink("clientToServer");
-  unlink("serverToClient");
+  cleanup_resources();
+  return 0;
 }

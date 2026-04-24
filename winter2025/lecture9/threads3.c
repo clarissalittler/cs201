@@ -8,6 +8,7 @@
 // when you see void*, that's
 // polymorphism in C
 void* func1(void* arg){
+  (void)arg;
   int* sleepPointer = malloc(sizeof(int));
 
   *sleepPointer = rand()%5+1;

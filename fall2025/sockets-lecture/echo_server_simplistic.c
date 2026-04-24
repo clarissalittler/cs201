@@ -13,6 +13,8 @@
 #include <arpa/inet.h>
 
 int main(int argc, char *argv[]) {
+  (void)argc;
+  (void)argv;
 
   int port = 8080;
 
@@ -59,7 +61,7 @@ int main(int argc, char *argv[]) {
 
         while ((bytes_received = recv(client_fd, buffer, sizeof(buffer), 0)) > 0) {
             // Echo back what we received
-	  ssize_t bytes_sent = send(client_fd, buffer, bytes_received, 0);
+	  send(client_fd, buffer, bytes_received, 0);
         }
 
         close(client_fd);

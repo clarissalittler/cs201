@@ -27,7 +27,7 @@ int main() {
   struct sockaddr_in address;
   socklen_t addrlen = sizeof(address);
   char buffer[bsize];
-  ssize_t bytesRead, bytesSent;
+  ssize_t bytesRead;
 
   // STEP 1: CREATE SERVER SOCKET
   serverFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -87,7 +87,7 @@ int main() {
 
       // WRITE TO SOCKET:
       // Send exactly what we read
-      bytesSent = write(newSocket, buffer, bytesRead);
+      write(newSocket, buffer, bytesRead);
 
       // NOTE: Should check bytesSent == bytesRead
       // Could have partial write (rare but possible)

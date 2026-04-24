@@ -37,6 +37,7 @@ int echoFile(char* fName, bool showSize){
 }
 
 int main(int argc, char* argv[]){
+  (void)argc;
   // change this so that if you pass in a -s argument
   // then it also prints the size using lstat
 

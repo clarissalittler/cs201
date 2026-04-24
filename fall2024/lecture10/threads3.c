@@ -10,6 +10,7 @@ int ourCounter = 0;
 pthread_mutex_t mutex;
 
 void* threadCounter(void* arg){
+  (void)arg;
   pthread_mutex_lock(&mutex);
   int temp = ourCounter;
 
@@ -20,6 +21,7 @@ void* threadCounter(void* arg){
 }
 
 void* wildCounter(void* arg){
+  (void)arg;
   printf("Enter a number, right quick: ");
   int inc;
   scanf("%d",&inc);

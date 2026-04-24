@@ -18,6 +18,7 @@ int main(){
   // The compiler may warn about this with -Wall flag
   // Likely left over from experimentation or incomplete code
   int num = 1;
+  (void)num;
 
   // RIGHT SHIFT DEMONSTRATION:
   // This line demonstrates the >> (right shift) operator

@@ -6,9 +6,9 @@ int main(){
 
   // *(pointer + i) = pointer[i]
   
-  printf("The address of num1 is: %p\n",&num1);
+  printf("The address of num1 is: %p\n",(void*)&num1);
   
-  printf("The address of &num1 + 1 is: %p \n",&num1 + 1);
+  printf("The address of &num1 + 1 is: %p \n",(void*)(&num1 + 1));
   
   return 0;
 }

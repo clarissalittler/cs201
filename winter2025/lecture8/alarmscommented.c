@@ -18,6 +18,7 @@
 // ALARM SIGNAL HANDLER:
 // Called when the alarm timer expires (SIGALRM arrives)
 void alarm_handler(int sig){
+  (void)sig;
   // ANNOUNCE ALARM:
   printf("The bells have been rung!\n");
   // Metaphorical "bells" indicate the alarm has gone off

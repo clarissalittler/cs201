@@ -26,11 +26,14 @@ Current Fall 2025 lecture materials (lectures 01, 02, 03, 05, 06, 07, 08, 09, 11
 - Source code examples demonstrating concepts covered in that lecture
 - Both original and commented versions of code for learning
 
+This semester also includes topic-specific directories such as `file-lecture/`,
+`pointerExtras/`, `sockets-lecture/`, and `finalProj/`.
+
 **Note**: Some lecture numbers are missing (04, 10, 12) as content may have been reorganized or combined with other lectures.
 
 #### `winter2025/`
 Winter 2025 lecture materials (lectures 1-13 plus lecture-inf). Covers similar foundational topics with different pacing and organization. Each folder includes:
-- `agenda.org` - Lecture plans and topics
+- `Agenda.org` - Lecture plans and topics
 - Code examples and demonstrations
 - Additional resources and guides
 
@@ -156,7 +159,7 @@ Throughout this repository you'll find:
 gcc filename.c -o filename
 
 # With threading support
-gcc filename.c -o filename -lpthread
+gcc filename.c -o filename -pthread
 
 # Run
 ./filename

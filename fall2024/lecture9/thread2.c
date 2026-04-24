@@ -12,6 +12,7 @@ int ourCounter = 0;
 sem_t ourSem;
 
 void* threadCounter(void* arg){
+  (void)arg;
   sem_wait(&ourSem);
   int temp = ourCounter;
   sleep(rand()%3);

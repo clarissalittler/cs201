@@ -15,6 +15,7 @@ sem_t ourSem;
 
 // Function that each thread will execute
 void* threadCounter(void* arg){
+    (void)arg;
     // Wait (decrement) the semaphore before entering critical section
     sem_wait(&ourSem);
 

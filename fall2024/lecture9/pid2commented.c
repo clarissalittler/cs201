@@ -33,7 +33,10 @@ int main(){
     
     return 0; // Exit the program successfully
 }
+
+/* Example run:
 This is the child process.
 This message is printed by both the parent and the child
 This is the parent process.
 This message is printed by both the parent and the child
+*/

@@ -18,6 +18,7 @@ int gen3 = 0;
 char menuString[] = "Press 1 to tick up your income\nPress 2 to buy a first-level generator (cost 10)\nPress 3 to buy a second-level generator (cost 1000)\nPress 4 to buy a third-level generator (cost 100000)\n";
 
 void cleanup(int signum){
+  (void)signum;
   toContinue = 0;
   char final[] = "Make one last purchase before you go!\n";
   write(1,final,strlen(final));
@@ -31,6 +32,7 @@ void printMenu(){
 
 // now the heartbeat is a threadworker
 void* heartbeat(void* arg){
+  (void)arg;
   while(toContinue){
     pthread_mutex_lock(&mut);
     printMenu();

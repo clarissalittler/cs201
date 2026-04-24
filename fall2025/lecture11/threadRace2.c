@@ -10,6 +10,7 @@ pthread_mutex_t mutex;
 
 
 void* incer(void* arg){
+  (void)arg;
   pthread_mutex_lock(&mutex); // only one thread will win, everyone else waits until the mutex is *un* locked
   
   int temp = counter;

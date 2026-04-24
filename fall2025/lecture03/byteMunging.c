@@ -7,11 +7,11 @@ int main(){
     arr[i] = i*i;
   }
 
-  printf("If we don't cast at all arr+1 is: %p\n", arr+1);
+  printf("If we don't cast at all arr+1 is: %p\n", (void*)(arr + 1));
 
-  printf("If we cast to long, arr+1 is: %p\n", ((long*)arr) + 1);
+  printf("If we cast to long, arr+1 is: %p\n", (void*)(((long*)arr) + 1));
 
-  printf("If we cast to char, arr+1 is: %p\n", ((char*)arr) + 1);
+  printf("If we cast to char, arr+1 is: %p\n", (void*)(((char*)arr) + 1));
   
   return 0;
 }

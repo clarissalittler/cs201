@@ -73,7 +73,7 @@ void* threadWorker(void* arg){
   //   - If signal interrupts printf(), handler's printf() deadlocks
   //   - That's why we use write() in signal handlers
   //   - But no problem in regular thread code
-  printf(msg);
+  printf("%s", msg);
 
   // RETURN VALUE:
   // Can return any void* value (pointer to data, status code, etc.)

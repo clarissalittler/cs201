@@ -4,6 +4,7 @@
 #include "signal.h"
 
 void uninterruptable(int signum){
+  (void)signum;
   write(1,"\nOuch!\n",6);
 }
 

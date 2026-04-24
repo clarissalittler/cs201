@@ -22,9 +22,15 @@ void insLine(int line, char** ls, int* nL){
 }
 
 void editLine(int line, char** ls, int nL){
+  (void)line;
+  (void)ls;
+  (void)nL;
 }
 
 void delLine(int line, char** ls, int* nL){
+  (void)line;
+  (void)ls;
+  (void)nL;
 }
 
 void cleanUp(FILE* f, char** ls, int nL){
@@ -40,6 +46,7 @@ void cleanUp(FILE* f, char** ls, int nL){
 }
 
 int main(int argc,char* argv[]){
+  (void)argc;
 
   FILE *ourFile = fopen(argv[1],"r+");
 

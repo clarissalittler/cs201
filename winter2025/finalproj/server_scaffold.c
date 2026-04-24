@@ -30,6 +30,9 @@ struct clientData {
  * 4. Close the file
  */
 void cleanUp(FILE* f, char** ls, int nL) {
+    (void)f;
+    (void)ls;
+    (void)nL;
     // Your implementation here
 }
 
@@ -67,6 +70,7 @@ char* getStr(struct clientData* d, const char* prompt) {
  * 4. Add spacing for better readability
  */
 void printLines(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -101,6 +105,7 @@ int getInt(struct clientData* d, const char* prompt) {
  * 6. Insert the new line and update line count
  */
 void insLine(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -115,6 +120,7 @@ void insLine(struct clientData* d) {
  * 6. Update line count
  */
 void delLine(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -128,6 +134,7 @@ void delLine(struct clientData* d) {
  * 5. Replace the old line with the new content
  */
 void editLine(struct clientData* d) {
+    (void)d;
     // Your implementation here
 }
 
@@ -142,6 +149,8 @@ void editLine(struct clientData* d) {
  * 6. Handle errors and maximum line count
  */
 void loadFile(FILE* f, struct clientData* d) {
+    (void)f;
+    (void)d;
     // Your implementation here
 }
 

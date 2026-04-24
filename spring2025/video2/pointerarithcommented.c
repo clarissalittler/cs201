@@ -32,7 +32,7 @@ int main(){
                         // Total size: 10 * 1 = 10 bytes
                         // Memory layout: [char][char]...[char]
 
-  printf("The addr of arr1 is %p and the addr of arr1+1 is %p\n",arr1,arr1+1);
+  printf("The addr of arr1 is %p and the addr of arr1+1 is %p\n",(void*)arr1,(void*)(arr1+1));
                         // PRINT INTEGER ARRAY ADDRESSES:
                         // %p is the format specifier for pointers (prints in hex)
                         // arr1: address of the first element (arr1[0])
@@ -54,7 +54,7 @@ int main(){
                         //
                         // The difference: arr1+1 - arr1 = 4 bytes (one int)
 
-  printf("The addr of arr2 is %p and the addr of arr2+1 is %p\n",arr2,arr2+1);
+  printf("The addr of arr2 is %p and the addr of arr2+1 is %p\n",(void*)arr2,(void*)(arr2+1));
                         // PRINT DOUBLE ARRAY ADDRESSES:
                         // arr2+1 adds sizeof(double) bytes (typically 8)
                         //
@@ -65,7 +65,7 @@ int main(){
                         //
                         // The difference: arr2+1 - arr2 = 8 bytes (one double)
 
-  printf("The addr of arr3 is %p and the addr of arr3+1 is %p\n",arr3,arr3+1);
+  printf("The addr of arr3 is %p and the addr of arr3+1 is %p\n",(void*)arr3,(void*)(arr3+1));
                         // PRINT CHARACTER ARRAY ADDRESSES:
                         // arr3+1 adds sizeof(char) bytes (always 1)
                         //

@@ -265,6 +265,7 @@ void delLine(int line, char** ls, int* nL){
 // ls: Array of line pointers
 // nL: Number of lines (not modified for edit)
 void editLine(int line, char** ls, int nL){
+  (void)nL;
 
   // PROMPT USER:
   printf("Type the text you want to replace line %d:\n",line);
@@ -297,6 +298,7 @@ void editLine(int line, char** ls, int nL){
 }
 
 int main(int argc, char* argv[]){
+  (void)argc;
 
   // OPEN FILE:
   // argv[1] is the filename (from command line)
@@ -322,7 +324,7 @@ int main(int argc, char* argv[]){
   // Not: if(ourFile < 0)
   // FILE* is a pointer, can't be < 0
   // Should be: if(!ourFile) or if(ourFile == NULL)
-  if(ourFile < 0){
+  if(ourFile == NULL){
     return 1;
   }
 

@@ -51,6 +51,7 @@ pthread_mutex_t mutex;
 // The code between lock and unlock is the "critical section"
 // Only ONE thread can execute this code at any given time
 void* threadCounter(void* arg){
+  (void)arg;
 
   // LOCK THE MUTEX:
   // pthread_mutex_lock acquires the mutex

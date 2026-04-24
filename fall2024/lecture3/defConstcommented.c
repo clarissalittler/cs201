@@ -34,7 +34,7 @@ int main(){
 
   //printf("Here's a thing: %d\n",myMax("10",20)); // This line is commented out because it would lead to undefined behavior. The macro 'myMax' expects integer values as arguments, but "10" is a string literal.
 
-  printf("Here's a thing: %d\n",size2(5.0)); // This line prints the size of a double-precision floating-point number, which is typically 8 bytes. 
+  printf("Here's a thing: %zu\n",size2(5.0)); // This line prints the size of a double-precision floating-point number, which is typically 8 bytes. 
 
   return 0; // Indicates that the program executed successfully.
 }
