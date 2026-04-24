@@ -695,4 +695,571 @@ Next time we'll close this out with an \texttt{echo}-style program
 that \emph{reads} from stdin and writes back, which means handling
 buffers properly.
 
+\section{Lecture 5 --- Hello Again, \texttt{echo}, and the Road from Jumps to Proper Functions}
+
+Today was the big one for putting structure around assembly: we
+re-did ``hello, world'' carefully, wrote an \texttt{echo} that reads
+and writes a buffer, then walked the whole arc from
+\texttt{jmp}-style subroutines to \texttt{call}/\texttt{ret} and
+finally to real stack frames with local variables. By the end, we
+had a function in assembly that looks and behaves like a function in C.
+
+\subsection*{Hello, world --- this time with feeling}
+
+We re-examined \texttt{hello.s} slowly, focusing on the pieces we
+glossed over last time:
+
+\begin{lstlisting}
+    .section .data
+msg:    .asciz "Hello world!\n"
+hellolen = . - msg
+
+    .section .text
+    .global _start
+
+_start:
+    mov $1,%rax        # write syscall
+    mov $1,%rdi        # fd = 1 (stdout)
+    lea msg(%rip),%rsi # buffer
+    mov $hellolen,%rdx # length
+    syscall
+
+    xor %rdi,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+A few things worth restating:
+\begin{itemize}
+  \item File descriptors in Unix are just integers indexing into a
+    per-process table the kernel maintains. \texttt{0} is stdin,
+    \texttt{1} is stdout, \texttt{2} is stderr, and anything you
+    \texttt{open} returns the next free slot. \texttt{write} doesn't
+    care what kind of thing the fd refers to --- pipe, socket, file,
+    terminal --- it all looks the same from up here.
+  \item The \texttt{write} syscall \emph{returns} something in
+    \texttt{\%rax}: the number of bytes it actually wrote (or a
+    negative errno on failure). We didn't use it here, but we will.
+\end{itemize}
+
+\texttt{helloRet.s} is the tiny variant that does use it:
+
+\begin{lstlisting}
+    mov $1,%rax
+    mov $1,%rdi
+    lea msg(%rip),%rsi
+    mov $hellolen,%rdx
+    syscall
+
+    mov %rax,%rdi      # return value of write becomes our exit status
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+Run it and then \texttt{echo \$?} --- you'll see the byte count of
+``Hello world!\textbackslash n'' come out as the exit status. This is
+the idea I want you to carry forward: \texttt{\%rax} holds the return
+value of whatever you just called (syscall or function), and you can
+feed it into whatever comes next.
+
+\subsection*{Reading input: \texttt{.bss} and the \texttt{read} syscall}
+
+To read we need somewhere to read \emph{into}, which is what the
+\texttt{.bss} section is for --- uninitialized, zero-filled storage
+that costs nothing on disk because the loader knows to just hand us
+zeroed pages:
+
+\begin{lstlisting}
+    .section .bss
+buff:   .skip 128
+\end{lstlisting}
+
+\texttt{.skip 128} reserves 128 bytes at the label \texttt{buff}.
+
+\texttt{read} is syscall \texttt{0}, and its arguments mirror
+\texttt{write}:
+\begin{itemize}
+  \item \texttt{\%rdi}: fd (0 = stdin)
+  \item \texttt{\%rsi}: pointer to the buffer
+  \item \texttt{\%rdx}: maximum number of bytes
+\end{itemize}
+And just like \texttt{write}, \texttt{read} returns the number of
+bytes actually read in \texttt{\%rax}.
+
+\subsection*{\texttt{echo.s}: read and then write}
+
+Here's \texttt{echo.s} end-to-end:
+
+\begin{lstlisting}
+    .section .bss
+buff:   .skip 128
+
+    .section .text
+    .global _start
+
+_start:
+    mov $0,%rax             # read
+    mov $0,%rdi             # stdin
+    lea buff(%rip),%rsi
+    mov $128,%rdx
+    syscall
+
+    mov %rax,%rdx           # bytes-read becomes the count for write
+    mov $1,%rax             # write
+    lea buff(%rip),%rsi
+    mov $1,%rdi             # stdout
+    syscall
+
+    xor %rdi,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+The clever step is the first line after \texttt{syscall}:
+\texttt{mov \%rax,\%rdx}. \texttt{read} told us how much it got; we
+immediately funnel that into the byte-count argument of \texttt{write},
+so we only echo back what was actually typed. If we hardcoded 128
+there instead, we'd dump the uninitialized tail of the buffer too ---
+not a crash, but garbage.
+
+\subsection*{Jump-based ``subroutines'' --- and why they don't scale}
+
+Before \texttt{call}/\texttt{ret} existed conceptually for us, the
+hack was to use labels and unconditional jumps. \texttt{routine.s} is
+that hack:
+
+\begin{lstlisting}
+rdadder:
+    add %rdi,%rdi
+    mov %rdi,%rax
+    jmp rdret
+
+_start:
+    mov $20,%rdi
+    jmp rdadder
+rdret:
+    mov %rax,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+It works: we jump to \texttt{rdadder}, it doubles \texttt{\%rdi},
+then \texttt{jmp rdret} gets us back. But look at what we had to do
+--- the ``return address'' is hardcoded into the function body. If we
+wanted to call \texttt{rdadder} from two different places, we'd have
+to either duplicate it or add some awful switch. It's not reusable,
+it's not encapsulated, it's not a function.
+
+\subsection*{Real functions: \texttt{call} and \texttt{ret}}
+
+\texttt{call} and \texttt{ret} are two special instructions that fix
+the whole thing. Conceptually:
+
+\begin{itemize}
+  \item \texttt{call label} pushes the address of the \emph{next}
+    instruction onto the stack and then jumps to \texttt{label}.
+  \item \texttt{ret} pops that address off the stack and jumps to it.
+\end{itemize}
+
+So \texttt{call}/\texttt{ret} are just ``save your place, jump, come
+back'' --- and because the save uses the stack, you can call as many
+nested functions as you want.
+
+\texttt{fun1.s} is the first real function we wrote:
+
+\begin{lstlisting}
+rdadder:
+    add %rdi,%rdi
+    mov %rdi,%rax
+    ret
+
+_start:
+    mov $20,%rdi
+    call rdadder         # %rax = 40
+    mov %rax,%rdi
+    call rdadder         # %rax = 80
+    mov %rax,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+Now \texttt{rdadder} is reusable --- we call it twice in a row and
+compound the doubling. Exit status should be 80.
+
+\texttt{fun2.s} is a variant that uses \texttt{\%r9} as a scratch
+register instead of clobbering \texttt{\%rdi}:
+
+\begin{lstlisting}
+rdadder:
+    mov %rdi,%r9
+    add %r9,%r9
+    mov %r9,%rax
+    ret
+
+_start:
+    mov $20,%rdi
+    call rdadder       # %rdi still 20, %rax = 40
+    call rdadder       # %rdi still 20, %rax = 40 again
+    mov %rax,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+Notice what's different from \texttt{fun1.s}: the \texttt{\_start}
+here calls \texttt{rdadder} twice back-to-back without reloading
+\texttt{\%rdi} in between. Because \texttt{rdadder} no longer
+modifies \texttt{\%rdi} (that's the point of using \texttt{\%r9} as a
+scratch), both calls see the same input and produce the same output.
+Exit status is 40, not 80. If you want to compound the effect, you
+have to feed the previous result back in as the next argument ---
+exactly what \texttt{fun1.s} does with its \texttt{mov \%rax,\%rdi}
+between calls. The lesson: ``the function is pure'' and ``calling it
+twice doubles the answer'' are two very different statements.
+
+\subsection*{Local variables mean we need a stack frame}
+
+For anything more interesting than ``double a number,'' functions
+need scratch space --- local variables. Every process gets a big
+region of memory called the stack, and every function call gets a
+contiguous slice of it called a \emph{stack frame}.
+
+Two registers run the show:
+\begin{itemize}
+  \item \texttt{\%rsp} --- stack pointer, points at the ``top'' of
+    the stack.
+  \item \texttt{\%rbp} --- base pointer, points at the ``bottom'' of
+    the current frame.
+\end{itemize}
+
+Important weirdness: the stack \emph{grows downward}. ``Top'' is the
+lowest address. Pushing onto the stack \emph{decreases}
+\texttt{\%rsp}; popping \emph{increases} it. A function's local
+variables live at negative offsets from \texttt{\%rbp}
+(e.g.\ \texttt{-8(\%rbp)}, \texttt{-16(\%rbp)}).
+
+\texttt{push} and \texttt{pop} are the two primitives:
+\texttt{push \%rbx} subtracts 8 from \texttt{\%rsp} and stores
+\texttt{\%rbx} there; \texttt{pop \%rbx} does the inverse.
+
+The canonical function prologue:
+\begin{enumerate}
+  \item \texttt{push \%rbp} --- save the caller's base pointer.
+  \item \texttt{mov \%rsp,\%rbp} --- make our new frame start where
+    the stack currently is.
+  \item \texttt{sub \$N,\%rsp} --- carve out $N$ bytes of locals.
+\end{enumerate}
+
+And the epilogue undoes it:
+\begin{enumerate}
+  \item \texttt{mov \%rbp,\%rsp} --- drop all the locals in one move.
+  \item \texttt{pop \%rbp} --- restore the caller's base pointer.
+  \item \texttt{ret}.
+\end{enumerate}
+
+\subsection*{\texttt{funStack.s}: a function with locals, by hand}
+
+We're computing $f(x) = 20 + 2x$, but deliberately using local
+variables for both \texttt{a = 20} and the intermediate $2x$:
+
+\begin{lstlisting}
+fun:
+    push %rbp
+    mov %rsp,%rbp
+    sub $16,%rsp            # room for two quadword locals
+
+    mov %rdi,-8(%rbp)       # local1 = x
+    add %rdi,-8(%rbp)       # local1 += x   (so local1 = 2x)
+    movq $20,-16(%rbp)      # local2 = 20
+    movq -16(%rbp),%rax
+    add -8(%rbp),%rax       # %rax = 20 + 2x
+
+    mov %rbp,%rsp
+    pop %rbp
+    ret
+
+_start:
+    mov $10,%rdi
+    call fun
+    mov %rax,%rdi
+    mov $60,%rax
+    syscall
+\end{lstlisting}
+
+With input 10, this exits with status 40. Walk through it once
+on paper: draw a stack growing downward, watch \texttt{push \%rbp},
+\texttt{mov \%rsp,\%rbp}, and \texttt{sub \$16,\%rsp} carve out the
+frame. The \texttt{-8(\%rbp)} and \texttt{-16(\%rbp)} slots are
+\emph{your} two local variables; naming them in a comment alongside
+the code is a lifesaver when this gets bigger.
+
+One subtle detail we'll formalize later: after \texttt{push \%rbp}
+we've pushed one 8-byte value, which actually re-aligns \texttt{\%rsp}
+to a 16-byte boundary (assuming the caller's \texttt{call} left it
+8-aligned, which it does). That matters because the ABI requires
+\texttt{\%rsp} to be 16-aligned at the point of a \texttt{call},
+and some instructions (notably SSE moves) fault if it isn't.
+
+\section{Lecture 6 --- Reusing Functions Across Files, Recursion, and Summing an Array}
+
+With \texttt{call}/\texttt{ret} and stack frames in hand, today was
+about doing things that actually resemble programming: linking
+pre-written \texttt{readInt}/\texttt{writeInt} helpers in with our
+code, writing a recursive \texttt{factorial}, and walking an array to
+sum it up.
+
+\subsection*{Logistics}
+
+First, grades for the stack assignments are in --- nice work overall.
+
+Second, the next coding assignment: write an assembly program that
+\emph{(i)} declares an array, \emph{(ii)} reads input, \emph{(iii)}
+does something interesting combining the two, and \emph{(iv)} exits
+cleanly. Two constraints: you must assemble with \texttt{as} and link
+with \texttt{ld} (no \texttt{gcc} driver), and you're encouraged to
+pull in the \texttt{readInt}/\texttt{writeInt} helpers from the
+assembly guide. Due May 10th.
+
+Third, Discussion 3 is on \emph{posits}, an alternative to IEEE-754.
+Read \texttt{positTutorial.org} in the repo. The short pitch: posits
+spread their precision more evenly across the number line, so they
+give up some resolution at very small magnitudes in exchange for
+much better resolution at moderate ones, and they ditch the
+menagerie of special cases (no $\pm\infty$, no \texttt{NaN}, just a
+single \texttt{NaR}). A posit is made up of
+\begin{itemize}
+  \item a sign bit,
+  \item \emph{regime} bits (a kind of super-exponent, variable width),
+  \item exponent bits (variable width),
+  \item fraction bits (whatever's left).
+\end{itemize}
+The variable widths are what let posits reallocate precision
+dynamically. We'll leave the details for the tutorial.
+
+\subsection*{Linking in functions from other files}
+
+Up to now, everything we've built has been a single \texttt{.s} file
+with a \texttt{\_start}. Real programs are many files linked
+together. To use a function defined elsewhere you just need to tell
+the assembler ``this symbol is defined in another file''; the linker
+will wire it up later.
+
+\texttt{readInt.s} defines (and makes global with \texttt{.global})
+two functions:
+
+\begin{lstlisting}
+    .section .bss
+buffer: .zero 128
+
+    .section .text
+    .global readInt
+
+parseInt:
+    movzbl (%rdi,%rcx,1),%r8d   # read one byte, zero-extended
+    sub $'0',%r8
+    imul $10,%rax
+    add %r8,%rax
+    inc %rcx
+    cmp %rsi,%rcx
+    jb parseInt
+    ret
+
+readInt:
+    push %rbx
+    mov $0,%rax           # sys_read
+    mov $0,%rdi           # stdin
+    lea buffer(%rip),%rsi
+    mov $128,%rdx
+    syscall
+
+    mov %rax,%rbx         # bytes read
+    mov $0,%rcx
+    mov $0,%rax
+    lea buffer(%rip),%rdi
+    dec %rbx              # trim trailing newline
+    mov %rbx,%rsi
+    call parseInt
+    pop %rbx
+    ret
+\end{lstlisting}
+
+Two details worth pointing out. First, \texttt{movzbl} (``move byte
+to long, zero-extended'') loads a single byte of the input buffer
+into the low 8 bits of \texttt{\%r8} and clears the upper bits.
+Without the zero extension, garbage from whatever used \texttt{\%r8}
+last would corrupt your arithmetic --- classic bug. Second,
+\texttt{readInt} does \texttt{push \%rbx} / \texttt{pop \%rbx}
+around its body because \texttt{\%rbx} is \emph{callee-saved} in the
+Linux ABI. If we clobbered it, the caller would be entitled to
+complain.
+
+\texttt{writeInt.s} is the mirror image: it takes an integer in
+\texttt{\%rdi}, converts it to decimal digits by repeatedly dividing
+by 10, and prints them with \texttt{write}. A few lessons buried in
+there:
+\begin{itemize}
+  \item It allocates a 32-byte buffer \emph{on the stack} and fills
+    it \emph{from the end} --- that's how ``print digits in reverse
+    order'' naturally handles being emitted left-to-right later.
+  \item It handles negatives by remembering a flag and negating
+    \texttt{\%rax}, with a special case for \texttt{INT\_MIN}
+    ($-2^{63}$), which can't be negated in two's complement. The code
+    uses \texttt{movabsq} (not plain \texttt{movq}) because the
+    constant $2^{63}$ doesn't fit in a 32-bit sign-extended
+    immediate.
+  \item It preserves \texttt{\%rbx} (callee-saved again), and uses
+    \texttt{leave} as shorthand for ``\texttt{mov \%rbp,\%rsp} then
+    \texttt{pop \%rbp}.''
+\end{itemize}
+
+To actually call these from another file, we use \texttt{.extern} (a
+declaration, not a definition):
+
+\begin{lstlisting}
+    .section .text
+    .global _start
+    .extern readInt
+    .extern writeInt
+
+_start:
+    call readInt
+    mov %rax,%rdi
+    call writeInt
+
+    mov $60,%rax
+    xor %rdi,%rdi
+    syscall
+\end{lstlisting}
+
+That's \texttt{readWriteTest.s}. To build it you assemble each file
+separately with \texttt{as} and then link them all with \texttt{ld}:
+
+\begin{lstlisting}
+as -o readWriteTest.o readWriteTest.s
+as -o readInt.o readInt.s
+as -o writeInt.o writeInt.s
+ld -o readWriteTest readWriteTest.o readInt.o writeInt.o
+\end{lstlisting}
+
+Type a number, hit enter, and it prints the same number back. Not
+very exciting on its own, but it's the scaffolding for everything
+else today.
+
+\subsection*{Recursion: factorial in assembly}
+
+\texttt{fact.s} is the first recursive function we've written. The
+idea is familiar --- $n! = n \cdot (n-1)!$, with base case
+$0! = 1! = 1$ --- but implementing it in assembly forces you to be
+explicit about how the stack carries your intermediate state.
+
+\begin{lstlisting}
+fact:
+    push %rbp
+    mov %rsp,%rbp
+    sub $16,%rsp            # one local + padding for alignment
+
+    cmp $1,%rdi
+    jle basecase
+
+    mov %rdi,-8(%rbp)       # save n before the recursive call
+    dec %rdi                # %rdi = n - 1
+    call fact               # recursive call: returns (n-1)! in %rax
+    mov -8(%rbp),%rdi       # reload our saved n
+    imul %rdi,%rax          # %rax = n * (n-1)!
+    jmp leavefact
+
+basecase:
+    mov $1,%rax
+
+leavefact:
+    leave
+    ret
+\end{lstlisting}
+
+The essential move is \texttt{mov \%rdi,-8(\%rbp)} before the
+recursive call. \texttt{\%rdi} is \emph{caller-saved} --- any
+function you call is allowed to clobber it --- and recursion means we
+need \texttt{n} again after \texttt{fact(n-1)} returns. So we park it
+in our stack frame. Each recursive activation gets its own
+\texttt{-8(\%rbp)} slot, because each activation has its own
+\texttt{\%rbp}. That's the whole magic trick.
+
+The \texttt{sub \$16,\%rsp} is worth pausing on. We only need 8 bytes
+for our one local, but we carve out 16 to keep \texttt{\%rsp} 16-byte
+aligned at the next \texttt{call}. If this ever drifts you'll see
+mysterious crashes inside library functions that assume SSE
+alignment.
+
+The \texttt{\_start} that drives it:
+
+\begin{lstlisting}
+_start:
+    mov $1,%rax             # print "Enter a number: "
+    mov $1,%rdi
+    lea message(%rip),%rsi
+    mov $16,%rdx
+    syscall
+
+    call readInt
+    mov %rax,%rdi
+    call fact
+    mov %rax,%rdi
+    call writeInt
+
+    mov $60,%rax
+    xor %rdi,%rdi
+    syscall
+\end{lstlisting}
+
+Try 5 --- you should get 120. Try 20 --- 2432902008176640000. Try 21
+--- you'll overflow a 64-bit signed integer and get nonsense. That
+silent wraparound is worth remembering.
+
+\subsection*{Summing an array}
+
+\texttt{sumLoopArray.s} pulls together the array addressing from
+lecture 4, the counter-loop idiom, and \texttt{writeInt}:
+
+\begin{lstlisting}
+    .section .data
+arr:    .quad 1,2,3,4
+
+    .section .text
+    .global _start
+    .extern writeInt
+
+_start:
+    mov $0,%rcx             # i = 0
+    mov $0,%rax             # accumulator
+    lea arr(%rip),%r15      # base pointer
+
+compare:
+    cmp $4,%rcx
+    jge done
+loop:
+    add (%r15,%rcx,8),%rax  # %rax += arr[i]
+    inc %rcx
+    jmp compare
+done:
+    mov %rax,%rdi
+    call writeInt
+
+    mov $60,%rax
+    xor %rdi,%rdi
+    syscall
+\end{lstlisting}
+
+The key line is \texttt{add (\%r15,\%rcx,8),\%rax}: scale-index
+addressing again, with scale 8 because we're stepping through
+\texttt{.quad} elements. If you change \texttt{arr} to \texttt{.long}
+you must change the scale to 4 \emph{and} switch to the 32-bit
+forms (\texttt{addl}, \texttt{\%eax}) --- this is the same
+size/stride trap I warned about in lecture 4, and it will bite people
+in the assignment.
+
+Output for this program is \texttt{10}, because $1+2+3+4=10$. If you
+wanted to sum a user-supplied run of numbers instead of a hardcoded
+array, you already have all the pieces: \texttt{readInt} in a loop,
+accumulate in \texttt{\%rax}, \texttt{writeInt} at the end. That's a
+good shape for the upcoming assignment.
+
 \end{document}
