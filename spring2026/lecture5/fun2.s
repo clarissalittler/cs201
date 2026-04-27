@@ -6,7 +6,7 @@
 rdadder:
 	mov %rdi,%r9
 	add %r9,%r9
-	mov %rdi,%rax
+	mov %r9,%rax
 	ret # jumps back to the saved instruction pointer
 
 _start:

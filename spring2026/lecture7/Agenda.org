@@ -1,0 +1,61 @@
+* Agenda
+** This term's weirdness
+ + This term in particular "finals week" is happening during "week 10" of lecture
+ + I've shifted my classes to only use 9 weeks of lecture
+ + But! I also don't give in-class finals!
+ + The last week is time to work on your final big assignments and get caught up
+ + Wednesday night of "finals week" i.e. week 10 will be the deadline for turning in late homework
+   + and by "wednesday night" I generally define this as before I'm sitting at a computer ready to start grading on Thursday morning
+** Miscelania
+ + Next major project is due in 13 days
+ + May 10th
+ + This is your assembly project
+ + Discussions are still due each week
+ + Quizzes can be done any time *and* can be repeated
+ + Still unpublished but technically available to you new course site is on github (check the pinned announcement)
+** Questions? Homework help needed?
+ If you have any, you know where to find me
+** What's a process? Processes vs. threads of execution
+ In general what we call a "process" is the bundle of context and instructions and state that is an executing program
+
+ In the olden days, a process had /a/ thread of execution.
+
+ Multi-user/multi-processing systems in ye olden days each program had a single thread of execution and the operating system scheduled between them
+
+ Operating systems /still/ do scheduling, giving each thread execution a timeslice to sit and do its work before switching *but* a process can have multiple threads of execution now bundled into it /and/ a computer has (basically always) multiple cores that can each run a thread of execution
+** Tasks (how Linux represents it)
+ You can look in this file for details https://github.com/torvalds/linux/blob/master/include/linux/sched.h
+
+ Important things to note:
+  + parent
+  + thread_info
+  + pid
+** How to create a new process with fork
+ This is really the original concurrency primitive
+
+ It lets you spawn a new process that is a /clone/ of the current process
+
+ By /clone/ we mean that it makes a copy of the whole state of the original process
+** The weirdness of fork
+ Here are the implications of cloning:
+ + The new process starts /at/ the same next line as the parent (because it's a clone which means it also has the same state of the next instruction pointer)
+ + There is no shared state between them! (Basically)
+   + Modifying the variables of one doesn't change the variables of the other!
+   + What's neat is that modern implementations tend to save on storage space by having both processes point at the same actual memory /until/ someone does a write
+ + It's easy to write forking code that doesn't interfere with each other
+ + But it becomes harder to write code that coordinates and shares information
+** For contrast: threads
+ + You've probably heard people talk about /threads/ and /threading/
+ + Threads in the same process actually /do/ share state
+ + This makes it easier for them to coordinate, and by definition easier for them to interfere with each other
+ + In general: making new threads is lighter-weight (performance-wise) over making new processes
+ + But both have their place!
+** Process ids and how to check them
+ + If all forking could do was clone a process to give you two copies that did identical things, it wouldn't actually be that useful
+ + Instead, when you fork you generally dispatch over the /process id/
+** What makes running threads different:
+ + First off, we have explicit control flow:
+ + When you make a thread you have to tell it what function to execute
+ + The thread ends when it's performed this function
+** The danger of threads and shared state
+** A word on function pointers

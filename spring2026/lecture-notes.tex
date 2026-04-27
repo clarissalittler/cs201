@@ -1262,4 +1262,376 @@ array, you already have all the pieces: \texttt{readInt} in a loop,
 accumulate in \texttt{\%rax}, \texttt{writeInt} at the end. That's a
 good shape for the upcoming assignment.
 
+\section{Lecture 7 --- Processes, \texttt{fork}, Threads, and Why Sharing State Hurts}
+
+We're pivoting away from assembly for a bit and back into C, but with
+a new lens: \emph{concurrency}. Today's arc was processes vs.\ threads,
+\texttt{fork} from the bottom up, a quick detour through function
+pointers because the threading API needs them, and then a first taste
+of why shared state between threads is a minefield.
+
+\subsection*{Logistics}
+
+A few schedule notes worth surfacing: this term, ``finals week'' lands
+on what would have been week 10, so I've shifted lectures to fit in
+nine weeks. There's no in-class final --- the last week is buffer time
+to wrap up the big assignments. Wednesday night of finals week is the
+hard cutoff for late homework (concretely: before I sit down to grade
+on Thursday morning).
+
+The next major project --- the assembly project from lecture 6 --- is
+due in 13 days, on May 10th. Discussions are still due weekly,
+quizzes are open and repeatable, and the new course site (still
+unpublished) is on GitHub --- check the pinned announcement.
+
+\subsection*{What is a process?}
+
+A \emph{process} is the bundle of context, code, and state that
+\emph{is} an executing program: its memory, its open file descriptors,
+its registers, its position in the instruction stream, the works.
+
+In the olden days, a process had \emph{a} thread of execution ---
+exactly one. Multi-user/multi-tasking systems gave each running
+program a single thread and the OS scheduled between them. The OS
+\emph{still} schedules: each thread of execution gets a timeslice
+before being switched out. What's new (well, new-ish --- this has been
+true for decades now) is that one process can host \emph{multiple}
+threads of execution, and a real machine has multiple cores that can
+literally run threads in parallel.
+
+If you want to peek at how Linux represents all this, the relevant
+header is
+\href{https://github.com/torvalds/linux/blob/master/include/linux/sched.h}{\texttt{include/linux/sched.h}}.
+The interesting fields on a \texttt{task\_struct} for our purposes are
+\texttt{parent}, \texttt{thread\_info}, and \texttt{pid}. Linux
+internally calls both processes and threads ``tasks'' --- the
+distinction at the kernel level is mostly about what they share with
+their parent.
+
+\subsection*{\texttt{fork}: the original concurrency primitive}
+
+\texttt{fork} spawns a new process that is a \emph{clone} of the
+current one. Same code, same data, same open files, same next
+instruction. The implications are stranger than they sound:
+
+\begin{itemize}
+  \item The new process picks up at the same line as the parent,
+    because it has the same instruction pointer.
+  \item There's no shared state between them. Modifying a variable in
+    one does not change it in the other. (Modern kernels save space by
+    having both processes point at the same physical memory pages
+    until somebody writes --- ``copy-on-write'' --- but that's an
+    implementation detail.)
+  \item It's easy to write \texttt{fork}-style code that doesn't step
+    on itself.
+  \item It's \emph{harder} to write \texttt{fork}-style code that
+    coordinates and shares information, precisely because the state is
+    separate.
+\end{itemize}
+
+\texttt{fork1.c} is the bare minimum:
+
+\begin{lstlisting}[language=C]
+printf("We haven't forked yet\n");
+fork();
+printf("We've now forked\n");
+\end{lstlisting}
+
+Run it and you'll see ``We haven't forked yet'' once and ``We've now
+forked'' \emph{twice}. After \texttt{fork()} returns, there are two
+processes both sitting at the next line, both about to run that
+\texttt{printf}.
+
+\texttt{fork2.c} makes the ``no shared state'' point concrete:
+
+\begin{lstlisting}[language=C]
+int num = 5;
+fork();
+num++;
+printf("My number is: %d\n",num);
+\end{lstlisting}
+
+Each process has its own copy of \texttt{num}, so each one increments
+its own copy and prints \texttt{6}. Not \texttt{7}, not \texttt{6} and
+\texttt{7}: each process is bookkeeping its own state, full stop.
+(Aside: a polite program would call \texttt{wait()} in the parent so
+the child can finish before \texttt{main} returns. We're skipping that
+on purpose for now to keep the example short, but it's the kind of
+thing that bites you in shell pipelines.)
+
+\subsection*{Process IDs and dispatching}
+
+If \texttt{fork} could only give you two identical clones running in
+lockstep, it wouldn't be very useful. The trick that makes it useful
+is that \texttt{fork} \emph{returns} different things in the two
+processes:
+
+\begin{itemize}
+  \item In the parent, \texttt{fork()} returns the child's PID
+    (a positive integer).
+  \item In the child, \texttt{fork()} returns \texttt{0}.
+  \item On failure (e.g.\ out of process slots), it returns
+    \texttt{-1} in the original process and there is no child.
+\end{itemize}
+
+\texttt{fork3.c} just prints the return value:
+
+\begin{lstlisting}[language=C]
+pid_t pid = fork();
+printf("The value of pid is: %d\n",pid);
+\end{lstlisting}
+
+You'll see two lines: one with \texttt{0} (the child) and one with
+some big number (the parent's view of the child's PID).
+
+\texttt{fork4.c} adds \texttt{getpid()}, which always returns ``my own
+PID,'' so you can see who's who:
+
+\begin{lstlisting}[language=C]
+pid_t pid = fork();
+printf("The value of pid is: %d\n",pid);
+printf("My name is: %d\n",getpid());
+\end{lstlisting}
+
+The child's two lines will say ``pid is 0'' and ``my name is
+\texttt{N},'' where \texttt{N} is exactly the number the parent
+printed.
+
+\texttt{fork5.c} is the canonical \texttt{fork} idiom: \emph{branch on
+the return value} so parent and child do different things:
+
+\begin{lstlisting}[language=C]
+pid_t pid = fork();
+if(pid != 0){
+  printf("I'm the parent!\n");
+}
+else{
+  printf("I'm the child!\n");
+}
+printf("The value of pid is: %d\n",pid);
+printf("My name is: %d\n",getpid());
+\end{lstlisting}
+
+This is how every real \texttt{fork}-using program is shaped: the
+parent and the child take different branches and do different work.
+A shell calls \texttt{fork} to make a child, then has the child
+\texttt{exec} the command you typed while the parent waits. A web
+server forks one child per incoming connection. The pattern is always
+``one call, two return paths.''
+
+\subsection*{For contrast: threads}
+
+Threads are the other half of the picture. A thread of execution
+inside an existing process \emph{shares} state with the other threads
+in that process: same heap, same globals, same file descriptors. That
+makes them lighter to spawn (no copy of the whole address space) and
+makes coordination through shared memory trivial --- and it makes
+interfering with each other equally trivial. We'll get to that.
+
+The headlines:
+\begin{itemize}
+  \item Threads share state, processes don't.
+  \item Spawning a thread is cheaper than spawning a process.
+  \item Threads need explicit control flow: when you make one, you
+    have to hand it a function to run, and the thread ends when that
+    function returns.
+\end{itemize}
+
+That last point is the wedge for the next topic.
+
+\subsection*{A word on function pointers}
+
+To launch a thread you have to give the threading library a
+\emph{function} to run. C's way of saying ``here, take this function''
+is a function pointer, which a lot of folks haven't seen before.
+
+The point of function pointers is that they let you pass a function as
+a first-class argument. If you've used any modern language, you've
+probably used ``higher-order functions'' that take other functions ---
+\texttt{map}, \texttt{filter}, \texttt{sort}-with-a-comparator,
+event handlers. C has had this since forever, just with crunchier
+syntax.
+
+\texttt{funpoint1.c} is the warm-up:
+
+\begin{lstlisting}[language=C]
+int doubler(int n){
+  return 2*n;
+}
+
+void maparr(int arr[], int s,
+            int (*func)(int)){
+  for(int i=0; i<5; i++){
+    arr[i] = func(arr[i]);
+  }
+}
+
+int main(){
+  int arr[5] = {0,1,2,3,4};
+  maparr(arr,5,doubler);
+  for(int i=0; i<5; i++){
+    printf("%d\n",arr[i]);
+  }
+}
+\end{lstlisting}
+
+The type \texttt{int (*func)(int)} reads as ``a pointer to a function
+that takes an \texttt{int} and returns an \texttt{int}.'' The
+parentheses around \texttt{*func} matter --- without them you'd be
+declaring a \emph{function returning a pointer to int}, which is a
+totally different thing. Inside \texttt{maparr}, \texttt{func(arr[i])}
+calls through the pointer; you can also write \texttt{(*func)(arr[i])}
+if you want to be explicit, but the syntax sugar lets you drop the
+star.
+
+The output is \texttt{0 2 4 6 8}, because \texttt{doubler} got applied
+to each element in place.
+
+\subsection*{\texttt{pthread\_create}: actually launching a thread}
+
+Now the threading API. The standard on Linux is POSIX threads
+(\texttt{pthreads}). The two calls you'll see today are
+\texttt{pthread\_create}, which spawns a thread, and
+\texttt{pthread\_join}, which waits for one to finish.
+
+The signature of the thread function is fixed:
+\texttt{void* f(void* p)}. It takes a single \texttt{void*} argument
+and returns a \texttt{void*}. Why all the \texttt{void*}s? Because
+this is C's way of doing polymorphism: any pointer can be cast to
+\texttt{void*} and back, so the threading library can hand any
+function any kind of data without knowing what either of them is.
+
+\texttt{thread1.c} is the simplest thing that works:
+
+\begin{lstlisting}[language=C]
+void* threadFun(void* p){
+  printf("Hi from a thread!\n");
+  return NULL;
+}
+
+int main(){
+  pthread_t thread;
+  pthread_create(&thread,NULL,threadFun,NULL);
+  pthread_join(thread,NULL);
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{pthread\_create} takes:
+\begin{enumerate}
+  \item A \texttt{pthread\_t*} the library will fill in with the new
+    thread's handle.
+  \item Optional attributes (\texttt{NULL} = defaults).
+  \item The function to run.
+  \item The single argument to pass it.
+\end{enumerate}
+\texttt{pthread\_join} blocks until the thread exits, and optionally
+captures its return value (we pass \texttt{NULL} because we don't care).
+
+If you forget the join, \texttt{main} can return before the thread
+prints, and depending on timing the program ends without you ever
+seeing the message. Always join (or detach) your threads.
+
+You'll also notice the \texttt{return NULL} at the end of
+\texttt{threadFun}. Returning a pointer when you have nothing to
+return is C's way of doing an ``optional'' value: a non-null pointer
+is your result, \texttt{NULL} means ``nothing.'' Modern languages
+spell this \texttt{Maybe} or \texttt{Option}; in old-school C it's a
+pointer convention.
+
+\subsection*{Passing data into a thread}
+
+\texttt{thread2.c} actually \emph{uses} the argument:
+
+\begin{lstlisting}[language=C]
+void* threadFun(void* p){
+  int* arg = (int*)p;
+  (*arg)++;
+  return NULL;
+}
+
+int main(){
+  int counter = 0;
+  pthread_t thread;
+  pthread_create(&thread,NULL,threadFun,&counter);
+  pthread_join(thread,NULL);
+  printf("Counter is: %d\n",counter);
+}
+\end{lstlisting}
+
+We pass \texttt{\&counter} as the \texttt{void*} argument, the thread
+casts it back to \texttt{int*}, increments through it, and the parent
+sees \texttt{Counter is: 1} after the join. Crucially, this works
+because threads share memory: the thread's \texttt{*arg} and
+\texttt{main}'s \texttt{counter} are literally the same bytes. Try
+this with \texttt{fork} and you'd see no change in the parent ---
+that's the whole difference.
+
+\subsection*{The danger of shared state}
+
+Now the punchline of the lecture. \texttt{thread3.c} launches 100
+threads, each of which increments \texttt{counter} 10{,}000 times:
+
+\begin{lstlisting}[language=C]
+void* threadFun(void* p){
+  int* arg = (int*)p;
+  int temp = *arg;
+  for(int i=0; i<10000; i++){
+    temp++;
+  }
+  *arg = temp;
+  return NULL;
+}
+
+int main(){
+  int counter = 0;
+  pthread_t thread[100];
+  for(int i=0; i<100; i++){
+    pthread_create(&thread[i],NULL,threadFun,&counter);
+  }
+  for(int i=0; i<100; i++){
+    pthread_join(thread[i],NULL);
+  }
+  printf("Counter is: %d\n",counter);
+}
+\end{lstlisting}
+
+You'd hope, naively, for $100 \cdot 10{,}000 = 1{,}000{,}000$. You will
+not get $1{,}000{,}000$. Run it a few times and you'll get different
+numbers, all far short.
+
+The bug is the read-modify-write pattern in the body. Each thread:
+\begin{enumerate}
+  \item reads \texttt{*arg} into a local \texttt{temp},
+  \item does its 10{,}000 increments on \texttt{temp},
+  \item writes \texttt{temp} back to \texttt{*arg}.
+\end{enumerate}
+While thread A is doing its 10{,}000 increments, threads B, C, D,
+\ldots\ are also reading \texttt{*arg}, doing their increments, and
+writing back. Whoever writes last wins; everyone else's work is
+overwritten. This is a \emph{race condition}, and it is the canonical
+failure mode of shared-state concurrency.
+
+\texttt{thread4.c} is the same code with one tiny addition --- a
+\texttt{usleep(100)} inside the inner loop, and only 100 iterations
+per thread instead of 10{,}000:
+
+\begin{lstlisting}[language=C]
+for(int i=0; i<100; i++){
+  temp++;
+  usleep(100);
+}
+\end{lstlisting}
+
+The \texttt{usleep} forces the OS to interleave the threads more
+visibly --- it's much harder for one thread to ``win'' the race by
+finishing its loop in a single timeslice. The result: \texttt{counter}
+ends up close to \texttt{100}, not \texttt{10{,}000}. Each of the 100
+threads is essentially clobbering everyone else's writes.
+
+The moral isn't ``don't use threads.'' The moral is that \emph{any
+time multiple threads touch the same memory, you need some form of
+synchronization} --- mutexes, atomics, message passing, something. We
+covered the symptom today. The next chunk of the term is going to be
+about the cures.
 \end{document}
