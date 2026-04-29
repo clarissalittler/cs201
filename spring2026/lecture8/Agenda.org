@@ -1,0 +1,33 @@
+* Agenda
+** Questions
+** More on threads
+ + Last time:
+   + Showed a little bit about how to make threads
+   + Showed that there were synchronization problems
+   + Talked about function pointers
+   + Went through how to pass in functions to make threads
+** Returning values from threads
+** A caveat on passing information into a group of threads
+** How to use a mutex
+** The problem with overusing mutexes
+ The problem of using mutexes too aggressively is that you end up with synchronous code but with extra steps
+
+ The threads don't buy you anything in terms of efficiency, if anything it makes all of that worse because you have a semantic for-loop that involves telling the operating system to do a bunch of context switches and thread creations on top of it
+
+ That's pretty bad!
+
+ So the key insight is that we need to figure out /what/ things actually make sense to parallelize/do concurrently 
+** The concept of a critical section
+ The "critical section" is the part of the code that happens between locks.
+
+ It's the part that each thread handles one at a time.
+
+ A big part of successfully designing concurrent code is that you figure out what should and SHOULD NOT be in the critical section
+** Assignment 3 and how this connects
+ The point of your assignment 3 is that you need to figure out how to process a very, very, very large array (should be millions, 10s, 100s of millions of elements) in parallel with a fixed number of thread workers
+
+ If you have each thread do /all/ its work as a critical section, this will be ridiculously slow!
+
+ Instead, you need to figure out /what/ needs to actually be guarded in the critical section
+
+ My big hint for this assignment is that /if/ you make sure each thread gets its next chunk of work assigned synchronized then it can do its actual work asynchronously
