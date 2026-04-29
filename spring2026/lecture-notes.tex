@@ -1634,4 +1634,340 @@ time multiple threads touch the same memory, you need some form of
 synchronization} --- mutexes, atomics, message passing, something. We
 covered the symptom today. The next chunk of the term is going to be
 about the cures.
+
+\section{Lecture 8 --- Returning From Threads, Mutexes, and Critical Sections}
+
+Picking up where last lecture left us: we know how to spawn threads,
+we know how to pass them an argument, and we know that na\"ively
+sharing state between them is a recipe for lost updates. Today's arc
+is the natural follow-up: how do you get a value \emph{out} of a
+thread, what's the gotcha when you want to give a \emph{group} of
+threads each their own argument, and what is this ``mutex'' thing
+that's supposed to fix the race condition? And then, just as
+importantly: when does fixing the race condition with a mutex
+\emph{undo} the whole point of going concurrent in the first place?
+
+\subsection*{Returning a value from a thread}
+
+We've passed data \emph{into} threads via the \texttt{void*} argument.
+The flip side is the return value. Recall that the thread function's
+signature is \texttt{void* f(void* p)} --- it returns a \texttt{void*},
+and \texttt{pthread\_join} can capture that pointer for you if you
+hand it a \texttt{void**}.
+
+\texttt{threadRet.c} is the right way to do it:
+
+\begin{lstlisting}[language=C]
+void* worstIncrement(void* i){
+  // 1. make space for the return value (malloc)
+  // 2. put the value to be returned in it
+  // 3. return the pointer
+  int* p = malloc(sizeof(int));
+  *p = *((int*)i)+1;
+  return p;
+}
+
+int main(){
+  pthread_t thread;
+  int argVal = 10;
+  void* retVal;
+  pthread_create(&thread,NULL,worstIncrement,&argVal);
+  pthread_join(thread,&retVal);
+  printf("The returned value was: %d\n",*((int*)retVal));
+  return 0;
+}
+\end{lstlisting}
+
+The pattern is: \texttt{malloc} a fresh chunk of memory inside the
+thread, store the value there, and return the pointer. The caller
+joins, gets the pointer back via \texttt{retVal}, and can dereference
+it because that memory lives on the heap and outlives the thread that
+allocated it. (Yes, in real code you'd \texttt{free} it afterwards.
+We're keeping the example tight.)
+
+Now the ``why \texttt{malloc}'' part. \texttt{threadRetBad.c} is the
+exact same idea but with the value living on the stack instead:
+
+\begin{lstlisting}[language=C]
+void* worstIncrement(void* i){
+  int p; // lives in this stack frame, e.g. -4(%rbp)
+  p = *((int*)i)+1;
+  return &p; // returns a pointer into the about-to-die frame
+}
+\end{lstlisting}
+
+The function returns a pointer to a local variable. The instant the
+function returns, that stack frame is conceptually gone --- whatever
+the next function call does will reuse those bytes. By the time
+\texttt{main} dereferences \texttt{retVal} inside its \texttt{printf},
+that address is pointing at junk. (Or, on a bad day, at memory the
+process isn't allowed to read, and you segfault.)
+
+The whole reason we worked with the assembly view of stack frames
+earlier in the term is so this kind of bug stops being mysterious.
+``Returning the address of a stack local'' isn't a vague hazard --- it
+is concretely returning something like \texttt{-4(\%rbp)} after
+\texttt{\%rbp} has been restored to somebody else's frame.
+
+\subsection*{A caveat on passing arguments to a group of threads}
+
+Last time we saw a single thread happily share an integer with
+\texttt{main}. Things get subtler when you spin up \emph{many} threads
+and want each one to get its own distinct argument.
+
+\texttt{threadArgs.c} is the right way:
+
+\begin{lstlisting}[language=C]
+void* sayHi(void* p){
+  int id = *((int*)p);
+  printf("Hi my name is: %d\n",id);
+  return NULL;
+}
+
+int main(){
+  pthread_t threads[20];
+  int threadArgs[20];
+  for(int i=0; i<20; i++){
+    threadArgs[i] = i;
+  }
+  for(int i=0; i<20; i++){
+    pthread_create(&threads[i],NULL,sayHi,threadArgs+i);
+  }
+  for(int i=0; i<20; i++){
+    pthread_join(threads[i],NULL);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+Each thread gets the address of a \emph{different} slot in the
+\texttt{threadArgs} array, and those slots have already been
+initialized to \texttt{0, 1, 2, \dots, 19}. Each thread reads its own
+slot. Easy.
+
+\texttt{threadArgsBad.c} is what you'd write if you weren't paying
+attention --- pass each thread the address of the loop counter
+itself:
+
+\begin{lstlisting}[language=C]
+for(int i=0; i<20; i++){
+  pthread_create(&threads[i],NULL,sayHi,&i);
+}
+\end{lstlisting}
+
+Now every single thread is given the same pointer: \texttt{\&i}.
+Because the loop is racing ahead while the threads are spinning up,
+each thread reads \texttt{*p} \emph{whenever it happens to get
+scheduled}, which means by the time it actually runs, \texttt{i} may
+have already advanced. You'll see duplicate IDs, missing IDs, IDs of
+\texttt{20} (the post-loop value), all sorts of garbage. Worse, after
+\texttt{main} leaves the loop, \texttt{i} goes out of scope at some
+point, and now your threads are reading freed stack memory --- the
+same hazard as the previous section, dressed up differently.
+
+The fix and the bug both come from the same observation: in C,
+\texttt{\&i} is the address of \emph{the variable}, not a snapshot of
+its current value. If you want each thread to see a distinct value,
+you need a distinct \emph{location} per thread. That's what the
+\texttt{threadArgs} array buys you.
+
+\subsection*{Mutexes: the simplest fix for the race}
+
+Recall \texttt{thread3.c}/\texttt{thread4.c} from last lecture: 100
+threads each doing a read-modify-write against a shared
+\texttt{counter}, and the final answer being absolutely nowhere near
+\(100 \cdot 100\). \texttt{threadCounterBad.c} in this lecture's
+directory is the same idea, kept around for comparison:
+
+\begin{lstlisting}[language=C]
+void* threadFun(void* p){
+  int* arg = (int*)p;
+  int temp = *arg;
+  for(int i=0; i<100; i++){
+    temp++;
+    usleep(100);
+  }
+  *arg = temp;
+  return NULL;
+}
+\end{lstlisting}
+
+Each thread reads \texttt{*arg}, increments a local copy 100 times
+(with \texttt{usleep} in there to make sure the OS interleaves
+aggressively), and writes the local copy back. They clobber each
+other.
+
+The mechanical fix is a \emph{mutex} --- short for ``mutual
+exclusion.'' A mutex is a little flag managed by the OS that exactly
+one thread at a time can ``hold.'' If you try to lock a mutex that
+somebody else is already holding, your thread sleeps until the holder
+unlocks it.
+
+\texttt{threadCounterMutex.c} bolts a mutex onto the bad version:
+
+\begin{lstlisting}[language=C]
+pthread_mutex_t m;
+
+void* threadFun(void* p){
+  int* arg = (int*)p;
+  pthread_mutex_lock(&m);
+  // first thread here runs through; everyone else waits
+  // until somebody calls pthread_mutex_unlock
+  int temp = *arg;
+  for(int i=0; i<100; i++){
+    temp++;
+    //usleep(100);
+  }
+  *arg = temp;
+  pthread_mutex_unlock(&m);
+  return NULL;
+}
+
+int main(){
+  pthread_mutex_init(&m, NULL);
+  int counter = 0;
+  pthread_t thread[100];
+  for(int i=0; i<100; i++){
+    pthread_create(&thread[i],NULL,threadFun,&counter);
+  }
+  for(int i=0; i<100; i++){
+    pthread_join(thread[i],NULL);
+  }
+  printf("Counter is: %d\n",counter);
+  pthread_mutex_destroy(&m);
+  return 0;
+}
+\end{lstlisting}
+
+The pattern to internalize:
+\begin{itemize}
+  \item \texttt{pthread\_mutex\_init} once, before any threads see it.
+  \item \texttt{pthread\_mutex\_lock} at the top of the protected
+    region. This blocks if somebody else holds it.
+  \item \texttt{pthread\_mutex\_unlock} at the bottom. \emph{Every}
+    path out of the protected region needs to unlock, or the next
+    thread waits forever.
+  \item \texttt{pthread\_mutex\_destroy} once, after all the threads
+    have joined.
+\end{itemize}
+
+With the lock in place, the read-increment-write block becomes
+indivisible from any other thread's point of view. The final
+\texttt{counter} is now exactly $100 \cdot 100 = 10{,}000$, every
+single run.
+
+\texttt{threadCounterMutex2.c} is the same code but with the
+\texttt{usleep(100)} re-enabled inside the loop. The point is to show
+that the answer is \emph{still correct} --- you just have to wait a
+lot longer for it. We'll come back to that in a minute.
+
+\subsection*{Bundling the lock with the data}
+
+Putting the mutex in a global variable works, but in any nontrivial
+program you'd rather keep the lock and the data it protects together.
+\texttt{threadCounterStruct.c} does exactly that:
+
+\begin{lstlisting}[language=C]
+struct ThreadState {
+  pthread_mutex_t mut;
+  int counter;
+};
+
+void* threadFun(void* p){
+  struct ThreadState* arg = (struct ThreadState*)p;
+  pthread_mutex_lock(&arg->mut);
+  int temp = arg->counter;
+  for(int i=0; i<100; i++){
+    temp++;
+    usleep(100);
+  }
+  arg->counter = temp;
+  pthread_mutex_unlock(&arg->mut);
+  return NULL;
+}
+
+int main(){
+  struct ThreadState s;
+  s.counter = 0;
+  pthread_mutex_init(&s.mut, NULL);
+
+  pthread_t thread[100];
+  for(int i=0; i<100; i++){
+    pthread_create(&thread[i],NULL,threadFun,&s);
+  }
+  for(int i=0; i<100; i++){
+    pthread_join(thread[i],NULL);
+  }
+
+  printf("Counter is: %d\n",s.counter);
+  pthread_mutex_destroy(&s.mut);
+  return 0;
+}
+\end{lstlisting}
+
+Same answer, same correctness. The win is that the mutex and the
+counter it protects are now \emph{one object}: if you pass the struct
+to another function, the lock goes with it. There's no globally
+visible \texttt{m} for somebody else's code to accidentally lock
+``the same'' mutex against unrelated data. This is the shape you'll
+want for assignment 3.
+
+\subsection*{The problem with overusing mutexes}
+
+Here's the trap. Wrapping more code in a mutex makes more bugs go
+away --- so why not just wrap \emph{everything}?
+
+Look at \texttt{threadCounterMutex2.c} again. The lock is held across
+the entire 100-iteration loop, including the \texttt{usleep(100)}
+inside it. That means while thread A is sitting inside its loop
+(sleeping!), threads B, C, D, \ldots, all 99 others, are blocked on
+\texttt{pthread\_mutex\_lock}, doing nothing. Each thread runs in
+strict sequence after the last one finishes.
+
+If using mutexes too aggressively means each thread runs to
+completion before the next one starts, you've ended up with
+synchronous code with extra steps. The threads aren't buying you
+anything in terms of efficiency --- if anything, things are
+\emph{worse}, because you've got the cost of all those context
+switches and thread creations on top of a workload that is
+effectively a for loop.
+
+That's pretty bad! And it leads directly to the next idea.
+
+\subsection*{Critical sections}
+
+The \emph{critical section} is the part of the code that runs between
+a lock and its corresponding unlock --- the region only one thread can
+be inside at a time.
+
+A big part of designing concurrent code well is figuring out what
+should and what \emph{should not} be in the critical section. Things
+that have to be in there: any read-modify-write of shared state, any
+multi-step update where another thread reading the half-updated state
+would be wrong. Things that should \emph{not} be in there: actual
+work. Number-crunching on local variables. I/O that doesn't touch
+shared state. Anything that can be done without seeing the shared
+data.
+
+The mental rule of thumb: a critical section should be as small as
+possible while still being correct. You hold the lock just long enough
+to safely grab the next chunk of work or to commit the result of your
+chunk, and you do the chunk itself with the lock \emph{not} held.
+
+\subsection*{How this connects to assignment 3}
+
+Assignment 3 is going to ask you to process a very, very large array
+--- think millions to hundreds of millions of elements --- in parallel
+with a fixed pool of thread workers. If each thread does \emph{all} of
+its work inside a critical section, you've just rebuilt
+\texttt{threadCounterMutex2.c} at scale, and it'll be ridiculously
+slow.
+
+The trick is to figure out what actually needs to be guarded. The big
+hint: if you make sure each thread gets its \emph{next chunk of work}
+assigned under a lock --- so two threads never claim the same chunk
+--- then the actual processing of that chunk can happen with no lock
+held at all. Locking the bookkeeping is fast; locking the work is
+not.
+
 \end{document}
