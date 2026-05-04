@@ -1970,4 +1970,624 @@ assigned under a lock --- so two threads never claim the same chunk
 held at all. Locking the bookkeeping is fast; locking the work is
 not.
 
+\section{Lecture 9 --- Semaphores, Dining Philosophers, Exceptions, and Signals}
+
+Last lecture wrapped up the ``mutexes are the simple fix, but they
+serialize you if you're not careful'' arc. Today is the natural next
+step: a sideways look at an alternative to locking
+(\emph{transactional memory}), a more flexible cousin of the mutex
+(the \emph{semaphore}), the canonical example of how locking can
+deadlock you (\emph{dining philosophers}), and then a complete change
+of subject --- how the hardware and the kernel interrupt your process,
+and how your process can intercept those interruptions
+(\emph{exceptions} and \emph{signals}). Once we've got signals in
+hand, we'll use them as a crude but real form of inter-process
+communication.
+
+\subsection*{Logistics}
+
+The assembly project is due in slightly under a week. \emph{Please}
+don't start it on the last day --- the bugs in this kind of project
+are mostly the slow, ``oh, the calling convention got me'' kind, and
+those eat hours. Work on it across this week if you haven't yet, so
+you can ask questions in office hours by Wednesday and have time to
+react to whatever I tell you.
+
+\subsection*{Mutexes, redux}
+
+Quick reset on where we left off. A mutex is a way to guard a resource
+or a chunk of code: you \emph{lock} before entering the critical
+section, the OS lets you in if nobody else is in, and otherwise puts
+you to sleep until the current holder unlocks. The crucial obligation
+is the matching \emph{unlock} on every path out of the critical
+section. Forget the unlock and every thread that tries to enter that
+section after you blocks forever --- the whole point of a thread
+yielding is that it expects to be woken up later, and ``later'' never
+arrives if nobody calls \texttt{unlock}.
+
+That worst-case state has a name: \emph{deadlock}. More generally,
+deadlock is any state of a concurrent system where some set of
+threads (or processes) is stuck waiting on each other and \emph{no}
+thread can make progress. ``Forgot to unlock'' is the trivial way to
+get there, but you can construct subtler ones; we'll see one in
+detail today.
+
+The same coda from last lecture still applies: the critical section
+should be as \emph{small} as possible. Locking the bookkeeping is
+fast; locking the work itself rebuilds the synchronous version of the
+program with extra steps. That trade-off doesn't go away when we move
+to fancier synchronization primitives.
+
+\subsection*{Transactional memory}
+
+Before we look at semaphores, it's worth pausing on a completely
+different paradigm for solving the same problem: \emph{transactional
+memory}. The idea borrows directly from databases. Rather than
+``acquire a lock, do your update, release the lock,'' you say: ``run
+this block of code as a transaction.'' The runtime tracks all the
+reads and writes you make inside the transaction, and at the end it
+either:
+\begin{itemize}
+  \item \emph{commits} your writes atomically, if no other transaction
+    touched the same memory you read or wrote during your run; or
+  \item \emph{aborts} your work, throws away your writes as if they
+    never happened, and re-runs your transaction from the top.
+\end{itemize}
+
+So instead of blocking, conflicting threads retry. There are two
+flavors out there:
+\begin{itemize}
+  \item \emph{Hardware transactional memory} (HTM): the CPU itself
+    speculatively buffers writes and detects conflicts, e.g.\ Intel's
+    TSX or IBM's Power8 implementation. It's fast when it works but
+    has hard limits on transaction size.
+  \item \emph{Software transactional memory} (STM): the same idea in
+    a library or language runtime. It looks more like the other
+    user-space synchronization primitives we've been using
+    (mutexes, semaphores, etc.) and has no hard size limit, at the
+    cost of more bookkeeping overhead.
+\end{itemize}
+
+The pitch for transactional memory is that you can't deadlock --- there's
+no held resource that another thread is waiting on, because you don't
+hold anything until you commit. The catch is that you can still get
+stuck in something deadlock-\emph{adjacent}: if two transactions keep
+conflicting and aborting each other in alternation, neither one ever
+makes progress. That's \emph{livelock}, and it's its own can of worms.
+
+We won't do TM hands-on in this class, but it's worth knowing the
+shape of the alternative. Locking is the most common strategy, not
+the only one, and it's not always the right one.
+
+\subsection*{Semaphores}
+
+Semaphores are like mutexes except that, instead of having two states
+(locked / unlocked), they have a \emph{counter} of resources. There
+are two operations on that counter:
+\begin{itemize}
+  \item \texttt{sem\_wait}: decrement the counter. If that would take
+    it below zero, the calling thread blocks until somebody else
+    increments it.
+  \item \texttt{sem\_post}: increment the counter. If anybody was
+    blocked on \texttt{sem\_wait}, one of them wakes up.
+\end{itemize}
+
+A semaphore initialized to \texttt{1} is \emph{semantically} a mutex
+--- one thread allowed past \texttt{sem\_wait} at a time, everybody
+else queues up. That's the \emph{binary semaphore} usage. The more
+interesting case is when you initialize the counter to something
+larger, which lets a semaphore guard \emph{multiple equivalent
+resources} in a way a mutex can't.
+\texttt{semCounter.c} is the same counter-incrementing race we wrote
+with a mutex last lecture, ported to a semaphore:
+
+\begin{lstlisting}[language=C]
+sem_t s;
+
+void* inc(void* arg){
+  for(int i=0; i<100000; i++){
+    sem_wait(&s);
+    counter++;
+    sem_post(&s);
+  }
+  return NULL;
+}
+
+int main(){
+  sem_init(&s,0,1); // 0 = "shared between threads", 1 = initial count
+  // ... spawn 1000 threads, each running inc, join them all ...
+  sem_destroy(&s);
+}
+\end{lstlisting}
+
+Final answer: \(1000 \cdot 100000 = 100{,}000{,}000\), every run.
+Identical behavior to the mutex version --- the API just looks
+different.
+
+\texttt{semBouncer.c} is the canonical use of a counting semaphore:
+``bouncer at the door.'' 50 threads want to do work, but only some
+fixed number are allowed to be working concurrently:
+
+\begin{lstlisting}[language=C]
+sem_t s;
+
+void* handler(void* arg){
+  int id = *(int*)arg;
+  sem_wait(&s);   // grab a slot (blocks if all are taken)
+  printf("Thread %d handling connection.\n", id);
+  sleep(rand()%4 + 1);
+  printf("Thread %d done.\n", id);
+  sem_post(&s);   // give the slot back
+  return NULL;
+}
+
+int main(){
+  sem_init(&s, 0, 6); // 6 slots
+  // ... spawn 50 threads ...
+}
+\end{lstlisting}
+
+Watch the output: at any moment exactly six threads are inside the
+``handling/done'' block. The other 44 are queued on
+\texttt{sem\_wait}. This is exactly the shape of a thread pool, a
+connection limiter, or any ``at most $N$ of these things at once''
+problem. Tweak the constant, observe the change in concurrency.
+
+The other distinction worth remembering: a mutex is conceptually
+``owned'' by the thread that locked it, and it's an error for a
+different thread to unlock it. A semaphore has no notion of ownership
+--- one thread can \texttt{sem\_post} a semaphore another thread is
+waiting on. That's a feature; it's how you use a semaphore for
+\emph{signaling between threads}, as opposed to mutual exclusion.
+
+\subsection*{The dining philosophers}
+
+The classic teaching example for deadlocks. Five philosophers sit at a
+round table. Between each pair of philosophers is a single fork.  To
+eat, a philosopher needs both adjacent forks. They alternate between
+thinking (no forks needed) and eating (both forks needed).
+
+Setup: \(N = 5\) philosophers, \(N\) forks, modeled as an array of
+mutexes:
+
+\begin{lstlisting}[language=C]
+#define numPhilosophers 5
+pthread_mutex_t forks[numPhilosophers];
+\end{lstlisting}
+
+\paragraph{The naive version.} Each philosopher grabs left first, then
+right. \texttt{philo1.c}:
+
+\begin{lstlisting}[language=C]
+void* philosopher(void* num){
+  int id = *(int*)num;
+  while(1){
+    sleep(1); // think
+    pthread_mutex_lock(&forks[id]);                       // left
+    sleep(1); // (so the deadlock has time to set up)
+    pthread_mutex_lock(&forks[(id+1) % numPhilosophers]); // right
+    // eat
+    pthread_mutex_unlock(&forks[(id+1) % numPhilosophers]);
+    pthread_mutex_unlock(&forks[id]);
+  }
+}
+\end{lstlisting}
+
+Run it. After the first round of ``thinking,'' every philosopher
+grabs their left fork, and now every fork is held. Every philosopher
+is now blocked on their right fork (which their right neighbor is
+holding). Nobody can ever proceed. Classic deadlock --- and the
+shape of it is a \emph{cycle} in the wait-for graph: philosopher 0
+is waiting on a fork held by 1, who's waiting on 2, \dots, who's
+waiting on 0. Break the cycle anywhere and you break the deadlock.
+
+\paragraph{Fix \#1: break the cycle.} Have one philosopher reach in
+the opposite order. \texttt{philo2.c}:
+
+\begin{lstlisting}[language=C]
+if(id != numPhilosophers - 1){
+  first  = id;
+  second = (id+1) % numPhilosophers;
+} else {
+  first  = (id+1) % numPhilosophers;
+  second = id;
+}
+// then lock first, lock second, eat, unlock second, unlock first
+\end{lstlisting}
+
+Now four philosophers reach left-then-right and one reaches
+right-then-left. The dependency graph no longer contains a cycle.
+Everybody eventually eats.
+
+\paragraph{Fix \#2: cap the table.} Keep the naive ordering, but use
+a counting semaphore to make sure at most $N{-}1$ philosophers are
+even \emph{trying} to grab forks at once. \texttt{philo3.c}:
+
+\begin{lstlisting}[language=C]
+sem_t seats; // initialized to numPhilosophers - 1 = 4
+
+void* philosopher(void* num){
+  int id = *(int*)num;
+  while(1){
+    sleep(1); // think
+    sem_wait(&seats); // ask permission to come to the table
+    pthread_mutex_lock(&forks[id]);
+    pthread_mutex_lock(&forks[(id+1) % numPhilosophers]);
+    // eat
+    pthread_mutex_unlock(&forks[(id+1) % numPhilosophers]);
+    pthread_mutex_unlock(&forks[id]);
+    sem_post(&seats); // leave the table
+  }
+}
+\end{lstlisting}
+
+If only four philosophers are competing for forks, by pigeonhole at
+least one of them gets both forks. The fifth philosopher physically
+can't be in the ``hold one fork and wait for the other'' state ---
+they're still outside the room, sleeping on
+\texttt{sem\_wait(\&seats)} --- so the cycle never closes.
+
+This second fix is structurally the same as the
+``\texttt{semBouncer}'' example: a counting semaphore is being used to
+cap how many threads are inside a region of code. It just turns out
+that capping ``how many philosophers are at the table'' happens to be
+the right invariant to preserve.
+
+\subsection*{Exceptions}
+
+Now we change subject. So far everything we've talked about has been
+voluntary scheduling --- \texttt{fork}, \texttt{pthread\_create},
+\texttt{pthread\_join}, etc.  ``Exceptions,'' in the systems sense
+(not the C++ sense), are the \emph{involuntary} interruptions to your
+program: events that take control away from your code and hand it to
+the kernel.
+
+\paragraph{Four classes of exceptions.} A useful taxonomy:
+\begin{itemize}
+  \item \emph{Interrupts}: \emph{asynchronous} --- they come from
+    outside the CPU. A network card finishing a packet receive, a
+    keyboard press, a timer firing. They're not caused by your
+    instruction stream; they just happen.
+  \item \emph{Faults}: \emph{synchronous} and \emph{potentially
+    recoverable}. The CPU was trying to do something, couldn't, and
+    raised an exception. A page fault is the classic example: the
+    instruction tried to access an address whose page wasn't loaded;
+    the kernel can fix it (load the page, return) and the instruction
+    is retried.
+  \item \emph{Traps}: \emph{synchronous} and \emph{intentional}. The
+    program ran an instruction \emph{specifically} to hand control to
+    the kernel. A system call (e.g.\ \texttt{syscall} on x86-64) is a
+    trap: ``please, kernel, do this for me.''
+  \item \emph{Aborts}: \emph{synchronous} and \emph{unrecoverable}.
+    The CPU is so confused (machine check, hardware error) that the
+    only sensible thing left to do is tear the program down.
+\end{itemize}
+
+Most of what \emph{your} code experiences is in the fault and trap
+buckets. Two faults you can trigger by hand:
+
+\texttt{divByZero.c} --- integer division by zero. The CPU itself
+raises an exception when \texttt{div} can't proceed; the kernel
+catches it and decides ``this thread should die'':
+
+\begin{lstlisting}[language=C]
+int x = 10, y = 0;
+int z = x / y; // SIGFPE
+\end{lstlisting}
+
+\texttt{segfault.c} --- the all-time favorite, dereferencing
+\texttt{NULL}:
+
+\begin{lstlisting}[language=C]
+int* p = NULL;
+*p = 42; // SIGSEGV
+\end{lstlisting}
+
+In both cases, what's actually happening is:
+\begin{enumerate}
+  \item Your instruction tries to do something the CPU can't complete.
+  \item The CPU raises an exception. Control jumps to the kernel.
+  \item The kernel inspects the situation, decides this isn't
+    recoverable, and \emph{signals} your process.
+\end{enumerate}
+
+That last word is the bridge to the next topic.
+
+\subsection*{Signals}
+
+A \emph{signal} is the kernel's way of poking your process: ``hey,
+something happened, deal with it.'' Each signal has a number and a
+default action. Some defaults are ``terminate the process,'' some are
+``ignore,'' some are ``stop the process until told to continue.''
+
+\paragraph{Sending signals from the terminal.} The shell command
+\texttt{kill} doesn't necessarily kill anything --- it sends signals.
+Some you'll see often:
+
+\begin{itemize}
+  \item \texttt{SIGINT} (2) --- the Ctrl-C signal. Default: terminate.
+  \item \texttt{SIGTERM} (15) --- a polite ``please exit.'' Default:
+    terminate. This is what \texttt{kill <pid>} sends if you don't
+    specify a signal.
+  \item \texttt{SIGKILL} (9) --- the unblockable, uncatchable kill.
+  \item \texttt{SIGSTOP} (19) --- pause the process.
+    Also unblockable.
+  \item \texttt{SIGCONT} (18) --- resume a stopped process.
+  \item \texttt{SIGUSR1}, \texttt{SIGUSR2} --- explicitly reserved
+    for whatever you want to use them for.
+\end{itemize}
+
+\texttt{justSitHere.c} is a long-running program with no handlers
+installed. Run it in one terminal, find its PID, and try
+\texttt{kill -SIGINT <pid>}, \texttt{kill -SIGTERM <pid>}, etc.\ from
+another. Each one terminates it, because the defaults run.
+
+\paragraph{Killing doesn't always make something dead.}
+\texttt{cantStopMe.c} installs a handler for \texttt{SIGINT} and
+proceeds to \emph{not} terminate when you Ctrl-C it:
+
+\begin{lstlisting}[language=C]
+void ouch(int sig){
+  const char* msg = "\nOuch! That tickles. I'm not going anywhere.\n";
+  write(1, msg, strlen(msg));
+}
+
+int main(){
+  signal(SIGINT, ouch);
+  while(1){
+    printf("I'm Mr. %d and I cannot be stopped!\n", getpid());
+    sleep(1);
+  }
+}
+\end{lstlisting}
+
+The only signals that you cannot intercept this way are
+\texttt{SIGKILL} and \texttt{SIGSTOP}. Those are guaranteed to work,
+which is why \texttt{kill -9} is the nuclear option in the system
+admin's toolkit.
+
+\paragraph{Sending signals from inside a program.} The
+\texttt{kill()} library call is just a thin wrapper around the
+syscall, taking the PID and the signal number. \texttt{sendSignal.c}
+is a hand-rolled version of the shell's \texttt{kill}:
+
+\begin{lstlisting}[language=C]
+int main(int argc, char** argv){
+  int pid = atoi(argv[1]);
+  int sig = atoi(argv[2]);
+  kill(pid, sig);
+}
+\end{lstlisting}
+
+\texttt{./sendSignal 12345 2} sends \texttt{SIGINT} to PID 12345.
+Pair it with \texttt{cantStopMe.c} from another terminal to drive the
+demo.
+
+\paragraph{Receiving signals: the old way.} The original API is
+\texttt{signal()}, and it's \emph{very} simple:
+
+\begin{lstlisting}[language=C]
+signal(SIGUSR1, handler);
+\end{lstlisting}
+
+It's also full of historical sharp edges:
+\begin{itemize}
+  \item On some old systems the handler was reset to the default
+    after the first delivery, so you had to re-install it inside the
+    handler itself.
+  \item There's no way to say ``while this handler is running, please
+    block other signals.'' A second signal mid-handler can re-enter
+    you.
+  \item There's no way to ask for \emph{automatic syscall restart}.
+    A blocking syscall (\texttt{read}, \texttt{accept}, etc.)
+    interrupted by a signal returns \texttt{EINTR} and you have to
+    handle it yourself.
+\end{itemize}
+
+\texttt{sigOldWay.c} uses the simple form to count five
+\texttt{SIGUSR1} hits and then exit.
+
+\paragraph{Receiving signals: the modern way.}
+\texttt{sigaction()} is wordier but actually exposes the knobs you
+want:
+
+\begin{lstlisting}[language=C]
+struct sigaction sa;
+sa.sa_handler = handler;
+sigemptyset(&sa.sa_mask);   // block no extra signals during handler
+sa.sa_flags   = SA_RESTART; // auto-restart interrupted syscalls
+sigaction(SIGUSR1, &sa, NULL);
+\end{lstlisting}
+
+The three useful pieces:
+\begin{itemize}
+  \item \texttt{sa\_handler}: the function to run. Same role as the
+    second arg to \texttt{signal()}.
+  \item \texttt{sa\_mask}: a set of signals to block \emph{while this
+    handler is running}, so a re-entrant signal can't trip you up.
+  \item \texttt{sa\_flags}: modifier flags. \texttt{SA\_RESTART} is the
+    biggie --- it asks the kernel to resume any syscall that got
+    interrupted by this signal.
+\end{itemize}
+
+\texttt{sigModernWay.c} is structurally identical to
+\texttt{sigOldWay.c} but built on \texttt{sigaction}. Use this one in
+real code.
+
+\paragraph{Blocking signals.} \texttt{sa\_mask} blocks signals
+\emph{while a handler is running}, but sometimes you want to block
+signals from regular code --- for example, around a multi-step update
+to a global structure that the handler also reads. The API for that
+is \texttt{sigprocmask}:
+
+\begin{lstlisting}[language=C]
+sigset_t toBlock;
+sigemptyset(&toBlock);
+sigaddset(&toBlock, SIGINT);
+
+sigprocmask(SIG_BLOCK,   &toBlock, NULL); // start blocking SIGINT
+// ... critical section: handler will not fire here ...
+sigprocmask(SIG_UNBLOCK, &toBlock, NULL); // any pending one delivers now
+\end{lstlisting}
+
+The set type is \texttt{sigset\_t}, built up with
+\texttt{sigemptyset}/\texttt{sigaddset}/\texttt{sigdelset}. The
+\texttt{how} argument is one of \texttt{SIG\_BLOCK} (add to the
+blocked set), \texttt{SIG\_UNBLOCK} (remove), or \texttt{SIG\_SETMASK}
+(replace entirely).
+
+\texttt{blockSignals.c} demos the behavior in three phases. Phase 1:
+no blocking, Ctrl-C delivers immediately and the handler prints. Phase
+2: \texttt{SIG\_BLOCK SIGINT}, mash Ctrl-C as much as you like ---
+nothing happens. Phase 3: \texttt{SIG\_UNBLOCK} and watch the
+backlogged signal deliver \emph{exactly once}.
+
+That last bit is the subtle thing worth emphasizing: standard
+(non-realtime) signals do not queue. The kernel maintains a single
+pending bit per signal per process. If \texttt{SIGINT} is blocked and
+arrives ten times, the first arrival sets the pending bit and the
+next nine are coalesced into the same bit. When you unblock, the
+handler runs once. So you cannot use signal counts as a
+\emph{message channel} where every arrival matters --- if you need
+that, the realtime signals (\texttt{SIGRTMIN} through
+\texttt{SIGRTMAX}) do queue, but they're a different beast.
+
+The other thing to know: \texttt{SIGKILL} and \texttt{SIGSTOP} can't
+be blocked. \texttt{sigprocmask} silently ignores attempts to add
+them to the blocked set, the same way you can't install a handler
+for them. The kernel reserves them precisely so there's always a way
+to take a process down or pause it.
+
+\paragraph{Async-signal-safety.} A signal handler runs at an
+arbitrary point in your program's execution, including in the middle
+of a libc call. If the handler then calls a libc function that
+isn't designed to be called that way, you can corrupt internal state.
+The list of \emph{async-signal-safe} functions is short:
+\texttt{write}, \texttt{\_exit}, \texttt{kill}, the simple
+\texttt{getpid}/\texttt{getppid}-style queries, and not much else.
+\texttt{printf} is \emph{not} on that list. That's why all the
+handlers in these examples build a fixed string and call
+\texttt{write(1, msg, len)} instead of \texttt{printf}.
+
+\subsection*{Using user-defined signals for IPC}
+
+\texttt{SIGUSR1} and \texttt{SIGUSR2} aren't claimed by the kernel
+for any purpose --- they're yours. The most common use is signaling
+between a parent and a child after \texttt{fork}.
+
+\paragraph{Re-visiting fork plus handlers.} The mechanic to keep in
+mind is that after \texttt{fork()}, the child gets a \emph{copy} of
+the parent's signal handler table. So if you install handlers
+\emph{before} forking, both processes have the same handlers
+installed. \texttt{forkSignal.c} is a friendly ping/pong:
+
+\begin{lstlisting}[language=C]
+volatile sig_atomic_t pinged = 0;
+
+void onPing(int sig){ pinged = 1; /* write "pong!" */ }
+
+int main(){
+  // install handler with sigaction (modern way)
+  sigaction(SIGUSR1, &sa, NULL);
+
+  pid_t pid = fork();
+  if(pid == 0){
+    while(!pinged) pause();      // child waits for parent's ping
+    kill(getppid(), SIGUSR1);    // child replies
+    return 0;
+  }
+  sleep(1);                      // give child time to settle
+  kill(pid, SIGUSR1);            // parent pings
+  while(!pinged) pause();        // parent waits for child's reply
+  wait(NULL);
+}
+\end{lstlisting}
+
+A few things worth flagging:
+\begin{itemize}
+  \item \texttt{volatile sig\_atomic\_t} is the type you reach for
+    when a variable is shared between a handler and the rest of the
+    code. \texttt{volatile} keeps the compiler from optimizing reads
+    away (``you set this once and never write to it, so I'll cache
+    it'' would be a disaster here), and \texttt{sig\_atomic\_t} is the
+    portable name for ``a type whose loads and stores are guaranteed
+    to be atomic with respect to signal delivery.''
+  \item \texttt{pause()} sleeps the calling process until \emph{any}
+    signal arrives. It's the right tool for ``wait until something
+    happens.''
+\end{itemize}
+
+\paragraph{Two processes fighting with signals.}
+\texttt{signalFight.c} is the same setup turned hostile. Two
+processes (parent and forked child) attack each other in alternation.
+The convention:
+\begin{itemize}
+  \item \texttt{SIGUSR1} = ``I just hit you, take damage.''
+  \item \texttt{SIGUSR2} = ``I just died, you can stop fighting.''
+\end{itemize}
+
+Each process keeps three pieces of state, all
+\texttt{volatile sig\_atomic\_t}: \texttt{hp}, \texttt{stillFighting},
+\texttt{won}. The hit handler picks a random damage value, decrements
+\texttt{hp}, and if \texttt{hp} hits zero, sets the flags so the main
+loop will fall through and announce death.
+
+\begin{lstlisting}[language=C]
+void onHit(int sig){
+  if(hp > 0){
+    int dmg = rand() % 5 + 1;
+    char buf[80];
+    int n = sprintf(buf, "I, mr %d, took %d damage!\n", getpid(), dmg);
+    write(STDOUT, buf, n);
+    hp -= dmg;
+    if(hp <= 0){ stillFighting = 0; won = 0; }
+  }
+}
+
+void fightLoop(int enemy){
+  while(stillFighting){
+    // print hp
+    kill(enemy, SIGUSR1);
+    sleep(rand()%4 + 1);
+  }
+  kill(enemy, SIGUSR2);
+  // if !won, print "I just died!"
+}
+
+int main(){
+  // install handlers for SIGUSR1, SIGUSR2 with sigaction
+  pid_t pid = fork();
+  srand(time(0) ^ getpid()); // re-seed AFTER fork so the two roll differently
+  if(pid == 0) fightLoop(getppid());
+  else { fightLoop(pid); wait(NULL); }
+}
+\end{lstlisting}
+
+A small but important detail: the seed gets set \emph{after} the
+\texttt{fork()}, with \texttt{getpid()} mixed in. If we seeded before
+forking, both processes would have identical RNG state and would roll
+identical damage values. Same lesson as the ``\texttt{\&i} in a
+thread loop'' bug from last lecture, in a different costume:
+inheriting state from the parent is great, except when you needed it
+to be different.
+
+The output looks roughly like:
+
+\begin{verbatim}
+I, mr 6231, have 50 hp left
+I, mr 6232, took 3 damage!
+I, mr 6232, have 47 hp left
+I, mr 6231, took 5 damage!
+... etc., until one side hits 0 ...
+I, mr 6232, just died!
+\end{verbatim}
+
+This is, technically, IPC. Two separate processes coordinated their
+behavior without a shared variable, without a pipe, without shared
+memory --- just \texttt{kill()} and signal numbers. It's a crude
+channel (one bit per signal type, no payload), but it does exist, and
+real programs do use it for coarse-grained coordination: ``please
+reload your config'' (\texttt{SIGHUP} is the convention), ``please
+finish up and exit'' (\texttt{SIGTERM}), and so on.
+
 \end{document}

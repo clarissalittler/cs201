@@ -1,0 +1,54 @@
+* Agenda
+** You have slightly under a week for the assembly project
+ Don't start it at the last second!
+
+ Work on it throughout this week if you haven't yet.
+
+ That way you can ask questions by Wednesday!
+** Mutexes redux
+ + mutexes were a way to guard a resource or a chunk of code
+ + the idea is that you /lock/ before entering the "critical section"
+ + but you have to /unlock/ when exiting the critical section
+ + or else everyone gets *blocked*
+ + deadlock => when a bad state is reached in terms of locking where *no* process can actually make progress anymore
+** Transactional Memory
+ + Can be hardware or software implemented
+ + An alternative to locking
+ + A paradigm where the "critical section", rather than blocking, is an atomic unit that either does /all/ of its work or, if someone else commits their writes during its critical section, reverts and tries again
+ + Software Transactional Memory
+   + An implementation of transactions at the user level (so more like mutexes, semaphores, &c.)
+   + You don't really have to worry about deadlocking per se
+   + But you can still get into bad states where processes keep interrupting each other
+ + It's different but not always a win
+** Semaphores
+ + Semaphores are like mutexes except rather than locked and unlocked as the two states they can have a /counter/ of resources
+ + A semaphore with a initial counter of 1 is semantically (that is: behaves as/has the same meaning as) a mutex
+ + But a semaphore can do more complicated guarding of resources
+** The dining philosophers
+ 1. done naively (and creating a deadlock)
+ 2. preventing a deadlock by reversing one of the starting choices
+ 3. preventing a deadlock with a semaphore
+** Exceptions
+*** Four classes of exceptions
+*** Interrupts
+ Some of the most common interrupts are UI devices like keyboards or mice or things like network traffic
+*** Faults
+ Faults can include things like:
+ + Page faults (which means the needed memory isn't currently loaded)
+ + Segmentation faults
+ + Floating point exception
+*** Traps
+ + syscalls
+*** Aborts
+ + unrecoverable error states
+** Signals
+*** Sending signals in the terminal
+*** Killing doesn't always make something dead
+*** Sending signals in programs
+*** Receiving signals in programs
+*** Old way to write signal handlers
+*** Modern way to write signal handlers
+*** Blocking signals
+** Using user-defined signals for IPC
+*** Re-visiting forking and how to set up signal handlers
+*** Making two processes fight with signals (attacking each other with signals)
