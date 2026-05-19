@@ -2590,4 +2590,445 @@ real programs do use it for coarse-grained coordination: ``please
 reload your config'' (\texttt{SIGHUP} is the convention), ``please
 finish up and exit'' (\texttt{SIGTERM}), and so on.
 
+\section{Lecture 10 --- Homework Help and Project Time}
+
+No new material this day. We used the meeting as a lab session for
+assignment work, catching up on old homework, and answering whatever
+questions you had been sitting on. If you needed a checkpoint to ask
+``wait, what about \emph{this}?'', this was the day for it.
+
+\section{Lecture 11 --- The Memory Hierarchy (CS:APP Ch.\ 6)}
+
+This lecture was an adaptation of Chapter 6 (``The Memory
+Hierarchy'') of Bryant and O'Hallaron's \emph{Computer Systems: A
+Programmer's Perspective}. There are no in-repo code samples to
+quote here --- the material was the textbook's treatment of storage
+technologies, locality, the cache hierarchy, and the performance
+consequences of cache-friendly vs.\ cache-hostile access patterns.
+If you want to revisit it, work from CS:APP directly.
+
+\section{Lecture 12 --- Virtual Memory (CS:APP Ch.\ 9)}
+
+This lecture was an adaptation of Chapter 9 (``Virtual Memory'') of
+Bryant and O'Hallaron's \emph{Computer Systems: A Programmer's
+Perspective}. Again, no class-specific code here --- the source for
+this material is the textbook chapter, covering address translation,
+page tables, the TLB, demand paging, and how all of that interacts
+with \texttt{malloc}/\texttt{mmap}.
+
+\section{Lecture 13 --- Files, File Descriptors, and the Two Layers of File IO}
+
+This was a full tour of how files actually work on Linux: the raw
+system-call layer (\texttt{open}, \texttt{close}, \texttt{read},
+\texttt{write}), the higher-level C \texttt{FILE*} layer on top of
+it, and the various ``everything is a file'' consequences (reading
+directories, asking the kernel for metadata, and so on). We wrapped
+up by mashing all of it together into a tiny --- and, true to the
+filename, terrible --- line editor.
+
+\subsection*{Logistics}
+
+A few reminders up front:
+\begin{itemize}
+  \item If you're behind, you need to start catching up \emph{right
+    now}. The last call for old homework is Wednesday of ``finals
+    week,'' June 10th.
+  \item Assignment 3 is due May 24th.
+  \item The remaining discussions are PicoCTF (called Cylab now, apparently)
+\end{itemize}
+
+\subsection*{File descriptors}
+
+A file descriptor is just a non-negative integer. It indexes into
+some per-process bookkeeping the kernel maintains for you, but from
+your side of the line it's an \texttt{int}. Because the table is
+per-process, the kernel hands them out starting from the smallest
+unused slot, and the floor isn't zero: every program starts life
+with three descriptors already open.
+
+\begin{itemize}
+  \item \texttt{0} --- \texttt{stdin}
+  \item \texttt{1} --- \texttt{stdout}
+  \item \texttt{2} --- \texttt{stderr}
+\end{itemize}
+
+So the first file you \texttt{open()} typically comes back as
+\texttt{3}.
+
+\subsection*{Command-line arguments, briefly}
+
+Before we got into \texttt{open}, we stopped to make sure everyone
+knew how \texttt{argv} actually works, because every example in this
+lecture takes a filename on the command line. \texttt{argv.c} is the
+one-screen demo:
+
+\begin{lstlisting}[language=C]
+int main(int argc, char* argv[]){
+  printf("There are %d arguments and they are: \n", argc);
+  for(int i=0; i<argc; i++){
+    printf("Argument %d is %s\n", i, argv[i]);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{argv[0]} is the program name as invoked, and \texttt{argv[1]}
+onward are whatever you typed after it on the shell.
+
+\subsection*{Opening and closing the syscall way}
+
+The simplest possible program: take a filename as \texttt{argv[1]},
+\texttt{open} it for reading, report the fd, close it.
+
+\begin{lstlisting}[language=C]
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+int main(int argc, char* argv[]){
+  if(argc < 2){ return 1; }
+
+  int fd = open(argv[1], O_RDONLY);
+  if(fd < 0){
+    printf("Something went horribly wrong!\n");
+  }
+  else{
+    printf("We opened the file at fd %d\n", fd);
+    close(fd);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{open} returns an \texttt{int}: a non-negative number on
+success (your shiny new fd) or \texttt{-1} on failure. The
+\texttt{O\_RDONLY} flag is one of the three basic access modes.
+
+To make the ``smallest unused slot'' rule visible, \texttt{openfile2.c}
+opens the same file in a loop and stashes each returned fd in an
+array. The descriptors come back as \texttt{3}, \texttt{4}, \texttt{5},
+\ldots --- one per call, monotonically increasing, because we never
+close in between.
+
+\begin{lstlisting}[language=C]
+int* fds = malloc(argc * sizeof(int));
+for(int i=1; i < argc; i++){
+  int fd = open(argv[1], O_RDONLY);
+  printf("We opened the file at fd %d\n", fd);
+  fds[i] = fd;
+}
+for(int i=1; i<argc; i++){
+  if(fds[i] > 0){ close(fds[i]); }
+}
+free(fds);
+\end{lstlisting}
+
+\subsection*{Modes}
+
+The middle argument to \texttt{open()} is a bitwise-or of flags. The
+three you'll use constantly:
+\begin{itemize}
+  \item \texttt{O\_RDONLY} --- read only
+  \item \texttt{O\_WRONLY} --- write only
+  \item \texttt{O\_RDWR} --- both
+\end{itemize}
+Add \texttt{O\_CREAT} if you want the file created when it doesn't
+exist, and \texttt{O\_TRUNC} if you want an existing file blanked to
+zero length before you start writing. When you pass \texttt{O\_CREAT},
+you also have to give a permission mode as the third argument --- in
+octal, the same \texttt{0666}, \texttt{0644}, \texttt{0755} you'd use
+with \texttt{chmod}. \texttt{0666} means everyone gets read and write.
+
+\subsection*{Reading: you almost always need a loop}
+
+\texttt{read()} doesn't promise to give you the whole file in one
+shot. It returns the number of bytes it actually read, which can be
+less than what you asked for, and it returns \texttt{0} at end of
+file. So the read pattern is: loop until the return is non-positive.
+
+\begin{lstlisting}[language=C]
+ssize_t bytesRead = 0;
+char buff[1024];
+while((bytesRead = read(fd, buff, sizeof(buff))) > 0){
+  printf("We read in %lu bytes\n", bytesRead);
+}
+\end{lstlisting}
+
+\subsection*{Writing: also a loop, for the same reason}
+
+\texttt{writefile1.c} takes a count and a filename and writes the
+numbers \texttt{0} through \texttt{count}, one per line. The
+syscall-side write looks like this:
+
+\begin{lstlisting}[language=C]
+int count = atoi(argv[1]);
+int fd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0666);
+
+for(int i = 0; i <= count; i++){
+  char buf[100];
+  snprintf(buf, sizeof(buf), "%d\n", i);
+  write(fd, buf, strlen(buf));   // strlen, not sizeof!
+}
+close(fd);
+\end{lstlisting}
+
+Live-coding catch: my first cut wrote \texttt{sizeof(buf)} instead of
+\texttt{strlen(buf)}, which would have written the entire 100-byte
+buffer (mostly garbage past the actual number) on every iteration.
+\texttt{sizeof} gives you the size of the array; \texttt{strlen} gives
+you the length of the C string inside it. Conflating these is a great
+way to corrupt files.
+
+\texttt{writefile2.c} is the same program but with the proper write
+loop, because, just like \texttt{read}, \texttt{write} can do less
+than you asked:
+
+\begin{lstlisting}[language=C]
+char buf[100];
+char* p = buf;
+snprintf(buf, sizeof(buf), "%d\n", i);
+
+int c = 0;
+int remaining = strlen(buf);
+while(((c = write(fd, p, remaining)) > 0) && remaining > 0){
+  remaining = remaining - c;
+  p = p + c;
+}
+\end{lstlisting}
+
+The pattern: advance a pointer \texttt{p} past whatever got written,
+decrement \texttt{remaining}, keep going until either the call fails
+or there's nothing left. For small writes to a regular file you can
+almost always get away without the loop --- but ``almost always'' is
+exactly the kind of bug that bites you on the day the disk is full or
+a signal arrives mid-call.
+
+\subsection*{Everything is a file}
+
+The reason the same \texttt{read}/\texttt{write}/\texttt{open} API
+works for ``a file on disk,'' ``a pipe between two processes,'' and
+``a TTY'' is that Linux exposes all of those as file descriptors.
+Two pseudo-files worth knowing about:
+\begin{itemize}
+  \item \texttt{/dev/null} --- a black hole. Writes succeed and are
+    discarded; reads return EOF immediately. Use it when a program
+    insists on writing somewhere and you don't care.
+  \item \texttt{/dev/urandom} --- an inexhaustible source of random
+    bytes. Just \texttt{open} it and \texttt{read}; the kernel will
+    keep handing you entropy as long as you ask.
+\end{itemize}
+Pipes (\texttt{|} in the shell) are the other classic example: the
+shell hands one process's \texttt{stdout} fd and another process's
+\texttt{stdin} fd to opposite ends of the same kernel buffer, and
+neither program has to know it's not talking to a real file.
+
+\subsection*{The \texttt{FILE*} layer: same idea, friendlier}
+
+\texttt{open}/\texttt{read}/\texttt{write} are the raw system calls,
+and as we kept seeing, they have a lot of fiddly edges (write loops,
+\texttt{sizeof} vs.\ \texttt{strlen}, partial returns). The C
+standard library wraps them in a higher-level interface centered on
+\texttt{FILE*}, which gives you buffered I/O and a much friendlier
+set of helpers.
+
+\texttt{openfileagain.c} reads a file line by line with \texttt{fgets}:
+
+\begin{lstlisting}[language=C]
+FILE* f = fopen("test.txt", "r");
+char buf[100];
+while(fgets(buf, sizeof(buf), f) > 0){
+  printf("%s", buf);
+}
+\end{lstlisting}
+
+And \texttt{weirdcopy.c} copies one file to another, again with the
+\texttt{FILE*} API:
+
+\begin{lstlisting}[language=C]
+FILE* inputFile  = fopen(argv[1], "r+");
+FILE* outputFile = fopen(argv[2], "w");
+
+char line[1024];
+while(fgets(line, 1024, inputFile) != NULL){
+  fputs(line, outputFile);
+}
+
+fclose(inputFile);
+fclose(outputFile);
+\end{lstlisting}
+
+The mode strings are the readable analogue of the syscall flags:
+\texttt{"r"} for read, \texttt{"w"} for write (truncates), \texttt{"a"}
+for append, and add a \texttt{"+"} for ``and the other direction
+too.'' Under the hood \texttt{FILE*} is buffered: data you ``write''
+sits in a userspace buffer until it's big enough to be worth handing
+to the kernel, which is why \texttt{fflush} and \texttt{fclose} exist
+and matter.
+
+\subsection*{Reading directories}
+
+A directory is just another kind of file. The dedicated API for
+walking one is \texttt{opendir}/\texttt{readdir}/\texttt{closedir},
+from \texttt{<dirent.h>}. \texttt{directory1.c} prints the regular
+files in a directory:
+
+\begin{lstlisting}[language=C]
+void listDir(const char* path) {
+  DIR* dir = opendir(path);
+  if (dir == NULL) {
+    printf("Error opening directory: %s\n", strerror(errno));
+    return;
+  }
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != NULL) {
+    if(entry->d_type == DT_REG){
+      printf("%s\n", entry->d_name);
+    }
+  }
+  closedir(dir);
+}
+\end{lstlisting}
+
+\texttt{readdir} hands back one \texttt{struct dirent*} per entry and
+\texttt{NULL} when it's done. The \texttt{d\_type} field lets you
+filter by kind --- \texttt{DT\_REG} for regular files, \texttt{DT\_DIR}
+for subdirectories, \texttt{DT\_LNK} for symlinks, and so on.
+
+\subsection*{Metadata: \texttt{stat}/\texttt{lstat}}
+
+If you want everything else the kernel knows about a file --- size,
+permissions, owner, timestamps, what kind of file it actually is ---
+you ask with \texttt{stat()} or \texttt{lstat()}. They fill in a
+\texttt{struct stat} for you. The difference: \texttt{stat} follows
+symlinks to the thing they point at, \texttt{lstat} reports on the
+symlink itself.
+
+\texttt{lstatTest.c} is essentially a tiny \texttt{ls -l}:
+
+\begin{lstlisting}[language=C]
+struct stat file_stat;
+if(lstat(argv[1], &file_stat) == -1){
+  printf("Oh something's wrong with that file.\n");
+  return 1;
+}
+
+printf("File type: ");
+switch (file_stat.st_mode & S_IFMT) {
+  case S_IFREG:  printf("regular file\n");     break;
+  case S_IFDIR:  printf("directory\n");        break;
+  case S_IFLNK:  printf("symbolic link\n");    break;
+  case S_IFSOCK: printf("socket\n");           break;
+  case S_IFBLK:  printf("block device\n");     break;
+  case S_IFCHR:  printf("character device\n"); break;
+  case S_IFIFO:  printf("FIFO/pipe\n");        break;
+  default:       printf("unknown\n");          break;
+}
+
+printf("%c", file_stat.st_mode & S_IRUSR ? 'r' : '-');
+printf("%c", file_stat.st_mode & S_IWUSR ? 'w' : '-');
+printf("%c", file_stat.st_mode & S_IXUSR ? 'x' : '-');
+/* ...group and other bits the same way... */
+
+printf(" (%o)\n", file_stat.st_mode & 0777);
+printf("Size of file in bytes: %ld\n", (long) file_stat.st_size);
+printf("Access time: %s", ctime(&file_stat.st_atime));
+printf("Modify time: %s", ctime(&file_stat.st_mtime));
+printf("Change time: %s", ctime(&file_stat.st_ctime));
+\end{lstlisting}
+
+\texttt{st\_mode} packs both the file type (the high bits, masked
+out by \texttt{S\_IFMT}) and the permission bits (the low nine,
+masked out by \texttt{0777}) into a single integer. The \texttt{S\_I*}
+macros are the named bit positions; \texttt{S\_ISDIR(m)} and friends
+are convenience predicates that do the masking for you.
+
+\subsection*{Putting it together: a tiny terrible line editor}
+
+\texttt{lineEditor.c} is the capstone. We open a file with the
+\texttt{FILE*} API, slurp every line into a \texttt{char**} array,
+and then loop on a menu: edit a line, delete a line, insert a line,
+or quit. On quit, we truncate the file back to zero and write the
+in-memory array out again.
+
+\begin{lstlisting}[language=C]
+void cleanUp(FILE* f, char** ls, int nL){
+  ftruncate(fileno(f), 0);
+  fseek(f, 0, SEEK_SET);
+  for(int i=0; i < nL; i++){
+    fputs(ls[i], f);
+    free(ls[i]);
+  }
+  free(ls);
+  fclose(f);
+}
+\end{lstlisting}
+
+A pile of things worth pointing at in just this much code:
+\begin{itemize}
+  \item \texttt{fileno(f)} extracts the underlying file descriptor
+    from a \texttt{FILE*}, so you can mix the two APIs when you
+    have to. \texttt{ftruncate} is a syscall and wants an fd, not a
+    \texttt{FILE*}.
+  \item \texttt{fseek(f, 0, SEEK\_SET)} jumps the file position back
+    to the start. The third argument is a whence: \texttt{SEEK\_SET}
+    (absolute), \texttt{SEEK\_CUR} (relative to current),
+    \texttt{SEEK\_END} (relative to end). The syscall-layer
+    equivalent is \texttt{lseek}.
+  \item We truncate \emph{and then} seek. Truncation changes the
+    file's length, not the position pointer.
+\end{itemize}
+
+The slurp-and-edit loop is mostly bookkeeping:
+
+\begin{lstlisting}[language=C]
+char** lines = malloc(10000 * sizeof(char*));
+int numLines = 0;
+
+lines[0] = malloc(linesize);
+while(fgets(lines[numLines], linesize, ourFile)){
+  numLines++;
+  lines[numLines] = malloc(linesize);
+}
+\end{lstlisting}
+
+There is a mistake in my example where by trying to ``always have a buffer ready for the next read''
+there is one extra unused \texttt{malloc} at the end, which we'd want
+to clean up in a less-terrible editor. It doesn't \emph{really} matter but if you want to fix it you can.
+
+Insert and delete are array-shift operations, like the ones you learned in your collegiate youth (e.g. last year). \texttt{insLine} shifts
+everything from the target index down by one and drops the new line
+in:
+
+\begin{lstlisting}[language=C]
+void insLine(int line, char** ls, int* nL){
+  char* newLine = malloc(linesize * sizeof(char));
+  printf("New text to insert at line %d:\n", line);
+  while ((c = getchar()) != '\n' && c != EOF); // drain the input buffer
+  fgets(newLine, linesize, stdin);
+  for(int i = *nL; i > line; i--){
+    ls[i] = ls[i-1];
+  }
+  ls[line] = newLine;
+  (*nL)++;
+}
+\end{lstlisting}
+
+The \texttt{while ((c = getchar()) != '\textbackslash n' \&\& c != EOF);}
+incantation is there because the previous \texttt{scanf("\%d", \ldots)}
+that read the menu choice left the trailing newline sitting in the
+input buffer. Without draining it, \texttt{fgets} would happily
+``read'' that newline and hand you back an empty line.
+
+\texttt{delLine} is the mirror image --- shift everything left, free
+the pointer that fell off the end --- and \texttt{editLine} frees the
+old buffer at that index and replaces it with a freshly-read line.
+
+The takeaway from the editor isn't really the editor: it's that every
+piece we'd built up over the lecture --- \texttt{fopen}/\texttt{fclose},
+\texttt{fgets}/\texttt{fputs}, \texttt{fseek}, mixing in the syscall
+layer with \texttt{fileno}/\texttt{ftruncate}, and the ever-present
+manual memory management --- shows up in even a barely-functional
+real program. 
+
 \end{document}

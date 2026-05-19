@@ -1,0 +1,36 @@
+* Agenda
+** Questions on material and miscellania
+ + if you're behind and need to get caught up, you're going to have to start *right now*
+ + The last call for old homework is Wednesday of "finals week": Wednesday June 10th
+ + Assignment 3 due on May 24th
+ + The rest of the discussions for the term are PicoCTF (or whatever they calling it now...CyLab I guess)
+** Files and file IO
+** read(), write(), open(), close()
+*** opening and closing files
+ Gives you back a file descriptor (which is just an integer that acts as an index into kernel managed datastructures)
+
+ file descriptors are on a per process basis so when you open files it starts counting from the bottom
+
+ but what's the bottom?
+
+ every time you run a program there are 3 file descriptors already open
+
+ + 0 : stdin
+ + 1 : stdout
+ + 2 : stderr
+*** modes
+*** when you need loops to read and write
+*** moving around inside a file
+** file descriptors are just numbers
+** "everything is a file"
+*** /dev/null
+*** /dev/urandom
+*** examples of pipes
+** stdio file IO
+*** buffered
+*** opening and closing files
+*** reading, writing, and navigating
+*** modes, redux
+*** reading directories
+*** getting metadata of files with fstat/lstat
+*** a tiny terrible line editor
