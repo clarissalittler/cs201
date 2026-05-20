@@ -1,0 +1,40 @@
+* Agenda
+** Everything is a file
+ + dev/urandom example
+ + dev/null example
+ + you can actually even draw graphics by =mmap= ing the framebuffer in a true tty (hit ctrl-alt-f3 on a linux machine)
+** IPC
+ - inter-process communication
+ - how you make processes talk to each other
+ - by default they can't!
+** Signals
+ - We did this already, but let's review briefly
+ - Having a parent and child attack each other
+** Pipes 
+ - Anonymous pipes
+ - You can send data between two processes
+   - if they both have the handles
+   - so really you need to use these with a parent and child that fork
+ - First example
+ - Example with scanf
+ - Example wiff a loop
+ - Fixing the UI (two pipe trick)
+** Named pipes
+ - They have a name that can be synced between unrelated processes
+ - We can even make them on the command line (mkfifo)
+ - Oh look at that it looks like a file!
+** Domain sockets
+ - Sockets without the internet
+ - Can send bytes between processes
+ - Hey let's check if these sockets are open as files
+** Shared memory and semaphores
+*** mmap within a process
+ + anonymous map (like a biiiig malloc but more complicated)
+ + memory mapped file for reading
+ + memory mapped file for writing (note we have to change a *few* things)
+*** mmap to share between processes
+ - naive sharing
+ - oh look our counter example (hah) breaks again
+*** using semaphores to control access to the mapped memory
+ + remember how we said semaphores work across processes and mutexes don't?
+ + yeah we need to sync writes to memory with a semaphore
