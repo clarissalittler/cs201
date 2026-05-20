@@ -13,11 +13,11 @@ int main(){
   pid_t pid = fork();
   if(pid == 0){
     // child reads
-    close(fds[1]);
+    close(fds[1]); // here the child reads, so the child must *close* the write end
     char buf[128];
     ssize_t n = read(fds[0], buf, sizeof(buf) - 1);
-    buf[n] = 0;
-    printf("child read: %s", buf);
+    buf[n] = 0; // remember that you don't actually get a null character out of read
+    printf("child read: %s", buf); 
     close(fds[0]);
   } else {
     // parent writes

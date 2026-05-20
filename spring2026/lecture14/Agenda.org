@@ -27,6 +27,7 @@
  - Sockets without the internet
  - Can send bytes between processes
  - Hey let's check if these sockets are open as files
+ - ls /proc/pid/fd
 ** Shared memory and semaphores
 *** mmap within a process
  + anonymous map (like a biiiig malloc but more complicated)

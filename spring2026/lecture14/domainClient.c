@@ -15,6 +15,8 @@ int main(){
 
   connect(s, (struct sockaddr*)&addr, sizeof(addr));
 
+  printf("I'm Mr. %d and I'm about to send ping the server!\n",getpid());
+  
   for(int i = 0; i < 5; i++){
     char msg[64];
     int n = snprintf(msg, sizeof(msg), "ping %d from the client\n", i);

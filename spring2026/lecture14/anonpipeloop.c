@@ -22,7 +22,7 @@ int main(){
     close(fds[0]);
     char msg[100];
     while(1){
-      printf("What am I saying to the child? (type quit to stop): ");
+      printf("Mr. %d: What am I saying to the child? (type quit to stop): ", getpid());
       scanf("%s", msg);
       if(strcmp(msg, "quit") == 0) break;
       write(fds[1], msg, strlen(msg));

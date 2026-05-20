@@ -1,6 +1,6 @@
 // quick refresher: parent and child duel each other with SIGUSR1
 // each one has 10 hp, takes 1 damage per hit, prints its remaining hp
-// after every round
+// after every round, SIGUSR2 tells a process the other one has "died"
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
@@ -25,16 +25,22 @@ void endGame(int sig){
 
 int main(){
   // both processes inherit the handler since we install it BEFORE fork()
+  // SIGUSR1 and SIGUSR2 are the allowed "custom" signals
+  // these have no meaning by default so your program is allowed to do as it wilt
+  // with them
   signal(SIGUSR1, onHit);
   signal(SIGUSR2, endGame);
 
   pid_t pid    = fork();
   pid_t enemy  = (pid == 0) ? getppid() : pid;
-  srand(time(0) ^ pid);
+  srand(time(NULL) ^ pid); // the xor means we get two different seeds
   while(fighting){
     kill(enemy, SIGUSR1);
+    // sleep can get interrupted
+    // did you know that sleep has a return value? 
     int left = rand()%3+1;
     while((left = sleep(left)) > 0);
+    //sleep(left); // THIS DON'T WORK
     if(fighting){
       printf("pid %d: hp = %d\n", getpid(), hp);
     }

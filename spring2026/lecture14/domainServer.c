@@ -17,10 +17,10 @@ int main(){
   // for internet sockets this is still the main pattern: you bind, listen, then accept
   // accepting gives you a *new* socket FD to use that is what actually maintains the connection
   bind(s, (struct sockaddr*)&addr, sizeof(addr));
-  listen(s, 1);
+  listen(s, 1); // the socket to listen on and then how many clients be waiting to connect
 
-  printf("waiting for a client on /tmp/mySock...\n");
-  int conn = accept(s, NULL, NULL);
+  printf("I, Mr. %d, am waiting for a client on /tmp/mySock...\n",getpid());
+  int conn = accept(s, NULL, NULL); // an accept returns a DIFFERENT socket
   printf("client connected\n");
 
   char buf[256];
