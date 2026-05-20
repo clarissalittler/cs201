@@ -3029,6 +3029,679 @@ piece we'd built up over the lecture --- \texttt{fopen}/\texttt{fclose},
 \texttt{fgets}/\texttt{fputs}, \texttt{fseek}, mixing in the syscall
 layer with \texttt{fileno}/\texttt{ftruncate}, and the ever-present
 manual memory management --- shows up in even a barely-functional
-real program. 
+real program.
+
+\section{Lecture 14 --- ``Everything is a File,'' IPC, and Shared Memory}
+
+This lecture pulled together a lot of threads: we leaned on the
+``everything is a file'' philosophy to play with \texttt{/dev/urandom}
+and \texttt{/dev/null}, did a quick signals refresher (including
+handling \texttt{SIGSEGV}), and then worked our way through every
+flavor of inter-process communication Linux gives you --- anonymous
+pipes, named pipes (FIFOs), Unix domain sockets, and shared memory
+via \texttt{mmap}, finally bolting a semaphore on top of the shared
+memory to make it race-free.
+
+\subsection*{Everything is a file, continued}
+
+Linux's ``everything is a file'' bit isn't just a slogan; the same
+\texttt{open}/\texttt{read}/\texttt{write}/\texttt{close} API works
+for a regular file, a pipe, a socket, a terminal, a piece of
+hardware, or a chunk of the kernel pretending to be a file. Two of
+the most useful pseudo-files live in \texttt{/dev}.
+
+\texttt{urandom.c} reads sixteen random bytes from
+\texttt{/dev/urandom}:
+
+\begin{lstlisting}[language=C]
+int fd = open("/dev/urandom", O_RDONLY);
+
+unsigned char buf[16];
+read(fd, buf, sizeof(buf));
+close(fd);
+
+printf("sixteen random bytes from the kernel: ");
+for(int i = 0; i < 16; i++){
+  printf("%02x", buf[i]);
+}
+printf("\n");
+\end{lstlisting}
+
+From your side of the line, this is exactly the same code you'd
+write to read a file off disk --- it's just that the ``file'' on the
+other end is the kernel's CSPRNG, which will never run out of bytes
+and will never give you EOF. As an aside, if you're on a true Linux
+TTY (hit Ctrl-Alt-F3 on a real machine to get to one), you can
+literally draw graphics by \texttt{mmap}-ing the framebuffer device,
+because that too is just a file.
+
+\texttt{devnull.c} is the mirror image: \texttt{/dev/null} is the
+black hole. Writes are accepted and discarded; reads return EOF
+immediately.
+
+\begin{lstlisting}[language=C]
+// shout into the void as much as we want
+int sink = open("/dev/null", O_WRONLY);
+for(int i = 0; i < 1000; i++){
+  char msg[64];
+  int n = snprintf(msg, sizeof(msg), "screaming: %d\n", i);
+  write(sink, msg, n);
+}
+close(sink);
+
+// reading is even shorter: 0 bytes, immediately
+int empty = open("/dev/null", O_RDONLY);
+char buf[100];
+ssize_t got = read(empty, buf, sizeof(buf));
+printf("read from /dev/null returned %ld bytes\n", (long)got);
+close(empty);
+\end{lstlisting}
+
+\texttt{/dev/null} is the thing you point a program at when it
+insists on writing somewhere and you don't care --- the shell trick
+\texttt{cmd > /dev/null 2>\&1} is exactly this idea.
+
+\subsection*{IPC, in general}
+
+Inter-process communication is the umbrella term for ``how do two
+processes talk to each other.'' By default, they can't: each process
+gets its own virtual address space, so the parent's pointers aren't
+even meaningful to the child after \texttt{fork}. To share anything,
+you have to go through the kernel. Linux gives you a buffet of ways
+to do it, and we walked through most of them:
+\begin{itemize}
+  \item Signals (last lecture, briefly revisited)
+  \item Anonymous pipes (parent/child only)
+  \item Named pipes / FIFOs (any two processes, by filename)
+  \item Unix domain sockets (any two processes, full-duplex)
+  \item Shared memory via \texttt{mmap} (with a semaphore on top)
+\end{itemize}
+
+\subsection*{Signals, a quick refresher}
+
+A signal is the kernel poking your process: ``something happened,
+deal with it.'' Some signals are mandatory and fatal by default
+(\texttt{SIGSEGV}, \texttt{SIGFPE}); some you can install a handler
+for and override the default. \texttt{SIGUSR1} and \texttt{SIGUSR2}
+have no built-in meaning at all, which is exactly what makes them
+useful for cross-process notification you control.
+
+\texttt{signalDuel.c} is our toy example: a parent and child fork
+each other, then duel by sending \texttt{SIGUSR1} ``hits.'' Each
+process tracks 10 hp in a \texttt{volatile sig\_atomic\_t}, and the
+loser sends \texttt{SIGUSR2} to the winner to end the game.
+
+\begin{lstlisting}[language=C]
+volatile sig_atomic_t hp        = 10;
+volatile sig_atomic_t fighting  = 1;
+
+void onHit(int sig){
+  hp--;
+  if(hp <= 0) fighting = 0;
+}
+
+void endGame(int sig){
+  fighting = 0;
+  char msg[] = "Oh, I guess I won?\n";
+  write(1,msg,sizeof(msg));
+}
+
+int main(){
+  // install handlers BEFORE fork so both processes inherit them
+  signal(SIGUSR1, onHit);
+  signal(SIGUSR2, endGame);
+
+  pid_t pid    = fork();
+  pid_t enemy  = (pid == 0) ? getppid() : pid;
+  srand(time(NULL) ^ pid); // xor so the two seeds differ
+
+  while(fighting){
+    kill(enemy, SIGUSR1);
+    int left = rand()%3+1;
+    while((left = sleep(left)) > 0); // sleep returns time *remaining*
+    if(fighting){
+      printf("pid %d: hp = %d\n", getpid(), hp);
+    }
+  }
+
+  if(hp <= 0){
+    printf("pid %d: I died!\n", getpid());
+    kill(enemy, SIGUSR2);
+  }
+
+  if(pid > 0) wait(NULL);
+  return 0;
+}
+\end{lstlisting}
+
+A few things worth pointing at:
+\begin{itemize}
+  \item \texttt{volatile sig\_atomic\_t} is the only kind of variable
+    you're allowed to touch from inside a signal handler safely. The
+    \texttt{volatile} stops the compiler from caching it in a
+    register; the \texttt{sig\_atomic\_t} type promises the read/write
+    is atomic with respect to signal delivery.
+  \item Inside a handler you should only call ``async-signal-safe''
+    functions. \texttt{write} is on that list; \texttt{printf} is not
+    --- it can deadlock if the signal interrupted a previous
+    \texttt{printf} mid-buffer-flush. That's why \texttt{endGame}
+    uses \texttt{write(1, msg, sizeof(msg))} instead of
+    \texttt{printf}.
+  \item \texttt{sleep} returns the number of seconds \emph{left} if
+    it gets interrupted by a signal. The \texttt{while((left =
+    sleep(left)) > 0)} idiom restarts the nap with whatever's left
+    over. If you just write \texttt{sleep(left)} once, every signal
+    cuts your sleep short --- and in a duel where you're being hit
+    constantly, that's basically always.
+\end{itemize}
+
+\subsubsection*{Catching the uncatchable-looking}
+
+\texttt{segfault.c} is the un-elaborate version: dereference
+\texttt{NULL}, watch the program die.
+
+\begin{lstlisting}[language=C]
+int* p = NULL;
+printf("about to dereference NULL\n");
+*p = 42;
+printf("never gets here\n");
+\end{lstlisting}
+
+The kernel sees the page fault on an unmapped page, can't recover,
+and signals you with \texttt{SIGSEGV}. The default handler prints
+``Segmentation fault'' and kills you.
+
+You can install your own handler for \texttt{SIGSEGV} ---
+\texttt{handleSegfault.c} does --- but it's almost always a bad
+idea, because by the time you get there your address space is in an
+unknown state. The most you should do is print a message and exit:
+
+\begin{lstlisting}[language=C]
+void segfun(int sig){
+  const char msg[] = "This segmented too close to the sun\n";
+  write(1, msg, sizeof(msg)-1);
+  _exit(1);
+}
+
+int main(){
+  int* boop = NULL;
+  signal(SIGSEGV, segfun);
+  *boop = 50;
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{\_exit} (with the underscore) skips the libc cleanup that
+regular \texttt{exit} does --- no flushing buffers, no running
+\texttt{atexit} handlers --- which is the right move when you don't
+trust the state of your own process.
+
+\subsection*{Anonymous pipes}
+
+A pipe is a one-way, in-kernel byte buffer with a read end and a
+write end. \texttt{pipe(fds)} fills in a two-element \texttt{int}
+array: \texttt{fds[0]} is the read end, \texttt{fds[1]} is the write
+end. By itself this is useless (one process talking to itself),
+but if you \texttt{fork} \emph{after} creating the pipe, both ends
+get inherited by both processes, and now they can talk.
+
+\texttt{anonPipe.c} is the minimal example: parent writes one
+string, child reads it.
+
+\begin{lstlisting}[language=C]
+int fds[2];
+pipe(fds);
+
+pid_t pid = fork();
+if(pid == 0){
+  // child reads
+  close(fds[1]); // child doesn't write, so close the write end
+  char buf[128];
+  ssize_t n = read(fds[0], buf, sizeof(buf) - 1);
+  buf[n] = 0; // read doesn't null-terminate
+  printf("child read: %s", buf);
+  close(fds[0]);
+} else {
+  // parent writes
+  close(fds[0]);
+  const char* msg = "hello from the parent, down a pipe\n";
+  write(fds[1], msg, strlen(msg));
+  close(fds[1]); // closing the write end is what gives the child its EOF
+  wait(NULL);
+}
+\end{lstlisting}
+
+Two things to internalize:
+\begin{itemize}
+  \item Close the end you aren't using. If the parent leaves the
+    read end open, then even after \emph{it} closes the write end
+    the kernel still sees an open write end (its own), and the child
+    will block on \texttt{read} forever waiting for an EOF that
+    never comes.
+  \item \texttt{read} doesn't put a \texttt{\textbackslash 0} at the
+    end of the buffer for you. You have to do it yourself based on
+    the return value, which is how many bytes actually got read.
+\end{itemize}
+
+\texttt{anonpipescanf.c} is the same thing but the parent reads its
+message from \texttt{scanf} first, so you can type something at the
+keyboard and watch it appear on the other side of a pipe. The only
+structural change is the parent's write half.
+
+\begin{lstlisting}[language=C]
+close(fds[0]);
+char msg[100];
+printf("What am I saying to the child?: ");
+scanf("%s", msg);
+write(fds[1], msg, strlen(msg));
+close(fds[1]);
+wait(NULL);
+\end{lstlisting}
+
+\texttt{anonpipeloop.c} extends this to a conversation: the parent
+loops on \texttt{scanf}, sends each word down the pipe, and the
+child loops on \texttt{read} echoing whatever shows up. Type
+\texttt{quit} to stop.
+
+\begin{lstlisting}[language=C]
+if(pid == 0){
+  close(fds[1]);
+  char buf[128];
+  ssize_t n;
+  while((n = read(fds[0], buf, sizeof(buf) - 1)) > 0){
+    buf[n] = 0;
+    printf("\nchild echo: %s\n", buf);
+  }
+  close(fds[0]);
+} else {
+  close(fds[0]);
+  char msg[100];
+  while(1){
+    printf("Mr. %d: What am I saying to the child? (type quit to stop): ", getpid());
+    scanf("%s", msg);
+    if(strcmp(msg, "quit") == 0) break;
+    write(fds[1], msg, strlen(msg));
+  }
+  close(fds[1]);
+  wait(NULL);
+}
+\end{lstlisting}
+
+This works, but the user experience is awful: the parent's prompt
+and the child's echo race each other to \texttt{stdout}, so the
+output is a jumble. The fix is the \emph{two-pipe trick}, in
+\texttt{anonPipeLoopFix.c}: one pipe parent$\rightarrow$child for
+the message, a second pipe child$\rightarrow$parent for an
+acknowledgement. The parent waits for the ack before printing the
+next prompt, and the output stays orderly.
+
+\begin{lstlisting}[language=C]
+int p2c[2]; // parent -> child
+int c2p[2]; // child  -> parent
+int ready = 1;
+pipe(p2c);
+pipe(c2p);
+
+pid_t pid = fork();
+if(pid == 0){
+  close(p2c[1]); close(c2p[0]);
+  char buf[128];
+  ssize_t n;
+  while((n = read(p2c[0], buf, sizeof(buf) - 1)) > 0){
+    buf[n] = 0;
+    printf("child echo: %s\n", buf);
+    write(c2p[1], &ready, sizeof(int)); // tell parent: go ahead
+  }
+} else {
+  close(p2c[0]); close(c2p[1]);
+  char msg[100];
+  while(1){
+    printf("Mr. %d: What am I saying to the child? (type quit to stop): ", getpid());
+    scanf("%s", msg);
+    if(strcmp(msg, "quit") == 0) break;
+    write(p2c[1], msg, strlen(msg));
+    read(c2p[0], &ready, sizeof(int));   // wait for ack
+  }
+  close(p2c[1]);
+  wait(NULL);
+}
+\end{lstlisting}
+
+You can think of \texttt{c2p} here as a one-bit semaphore built out
+of a pipe --- the parent blocks on \texttt{read} until the child
+writes, and the actual contents of \texttt{ready} don't matter.
+
+\subsection*{Named pipes (FIFOs)}
+
+Anonymous pipes only work between related processes, because the
+file descriptors only show up across \texttt{fork}. \emph{Named}
+pipes solve that by giving the pipe a name in the filesystem ---
+something you can \texttt{open} from any process that knows the
+path.
+
+You can even make one from the shell:
+\begin{lstlisting}[language=bash]
+mkfifo /tmp/myFifo
+ls -l /tmp/myFifo   # type starts with 'p' for pipe
+\end{lstlisting}
+
+\texttt{namedPipeWriter.c} creates the FIFO (if it doesn't exist)
+and writes a few messages to it:
+
+\begin{lstlisting}[language=C]
+mkfifo("/tmp/myFifo", 0666); // harmless if it already exists
+
+printf("waiting for a reader on /tmp/myFifo...\n");
+int fd = open("/tmp/myFifo", O_WRONLY);
+printf("reader connected, sending messages\n");
+
+for(int i = 0; i < 5; i++){
+  char msg[64];
+  int n = snprintf(msg, sizeof(msg), "message %d down the pipe\n", i);
+  write(fd, msg, n);
+  sleep(1);
+}
+close(fd);
+\end{lstlisting}
+
+\texttt{namedPipeReader.c} is the matching reader:
+
+\begin{lstlisting}[language=C]
+printf("waiting for a writer on /tmp/myFifo...\n");
+int fd = open("/tmp/myFifo", O_RDONLY);
+printf("writer connected, reading messages\n");
+
+char buf[128];
+ssize_t n;
+while((n = read(fd, buf, sizeof(buf) - 1)) > 0){
+  buf[n] = 0;
+  printf("got: %s", buf);
+}
+close(fd);
+\end{lstlisting}
+
+Run the reader in one terminal and the writer in another and watch
+them connect. The classic gotcha: \texttt{open} on a FIFO
+\emph{blocks} until the other side shows up. That's a feature, not
+a bug --- it's how the two ends rendezvous --- but it surprises
+people the first time.
+
+Once they're connected, this looks and behaves exactly like a
+regular file: \texttt{ls -l /tmp/myFifo} shows the entry, it has
+permissions, and it shows up in \texttt{/proc/<pid>/fd} on the
+opened end. That's the ``everything is a file'' philosophy again.
+
+\subsection*{Unix domain sockets}
+
+Sockets are the general API for talking over a channel, with a much
+richer set of operations than pipes (full duplex, message
+boundaries on \texttt{SOCK\_DGRAM}, peer credentials, ancillary
+data, etc.). The Internet ones, \texttt{AF\_INET}, are how you talk
+to another machine. The local ones, \texttt{AF\_UNIX}, give you the
+same API but staying entirely inside the kernel, with a path in the
+filesystem as the address.
+
+The server (\texttt{domainServer.c}) does the four-call dance:
+create, bind, listen, accept.
+
+\begin{lstlisting}[language=C]
+unlink("/tmp/mySock"); // clear any stale socket from a previous run
+
+int s = socket(AF_UNIX, SOCK_STREAM, 0);
+
+struct sockaddr_un addr;
+memset(&addr, 0, sizeof(addr));
+addr.sun_family = AF_UNIX;
+strcpy(addr.sun_path, "/tmp/mySock");
+
+bind(s, (struct sockaddr*)&addr, sizeof(addr));
+listen(s, 1); // backlog: how many pending clients to queue
+
+printf("waiting for a client on /tmp/mySock...\n");
+int conn = accept(s, NULL, NULL); // returns a DIFFERENT fd
+printf("client connected\n");
+
+char buf[256];
+ssize_t n;
+while((n = read(conn, buf, sizeof(buf) - 1)) > 0){
+  buf[n] = 0;
+  printf("client says: %s", buf);
+}
+
+close(conn);
+close(s);
+unlink("/tmp/mySock"); // clean up after yourself
+\end{lstlisting}
+
+The key thing students miss: \texttt{accept} hands you a \emph{new}
+file descriptor for the actual conversation. The original socket
+\texttt{s} is the listening one; you keep it open if you want to
+accept more clients later. The new \texttt{conn} is what reads and
+writes happen on. This same pattern --- \texttt{socket}/\texttt{bind}/
+\texttt{listen}/\texttt{accept} --- is what you'll use for Internet
+sockets too.
+
+The client (\texttt{domainClient.c}) is shorter: create, connect,
+talk.
+
+\begin{lstlisting}[language=C]
+int s = socket(AF_UNIX, SOCK_STREAM, 0);
+
+struct sockaddr_un addr;
+memset(&addr, 0, sizeof(addr));   // zero the whole struct first
+addr.sun_family = AF_UNIX;
+strcpy(addr.sun_path, "/tmp/mySock");
+
+connect(s, (struct sockaddr*)&addr, sizeof(addr));
+
+for(int i = 0; i < 5; i++){
+  char msg[64];
+  int n = snprintf(msg, sizeof(msg), "ping %d from the client\n", i);
+  write(s, msg, n);
+  sleep(1);
+}
+close(s);
+\end{lstlisting}
+
+And, again, ``everything is a file'': while the server is running,
+\texttt{ls /proc/<server\_pid>/fd} shows the listening socket and
+the accepted connection as fds, sitting next to \texttt{stdin},
+\texttt{stdout}, \texttt{stderr}.
+
+\subsection*{Shared memory with \texttt{mmap}}
+
+\texttt{mmap} maps a region of memory into your address space.
+What's on the other end depends on how you call it:
+\begin{itemize}
+  \item Pass a real file descriptor: the mapping is backed by that
+    file, and reads/writes to the memory turn into reads/writes to
+    the file (when the kernel decides to flush, or when you call
+    \texttt{msync}).
+  \item Pass \texttt{-1} with \texttt{MAP\_ANONYMOUS}: there's no
+    file; the mapping is just zeroed pages. This is, in spirit,
+    ``a big and weirder \texttt{malloc}.''
+  \item Pass \texttt{MAP\_SHARED} and the mapping is visible to
+    other processes that map the same backing object.
+    \texttt{MAP\_PRIVATE} keeps changes copy-on-write and local.
+\end{itemize}
+
+\subsubsection*{\texttt{mmap} on a file, for reading}
+
+\texttt{mmapFile.c} maps a whole file read-only and then dumps it:
+
+\begin{lstlisting}[language=C]
+int fd = open(argv[1], O_RDONLY);
+
+struct stat st;
+fstat(fd, &st);
+
+char* contents = mmap(NULL, st.st_size,
+                      PROT_READ, MAP_PRIVATE,
+                      fd, 0);
+
+printf("file is %ld bytes\n", (long)st.st_size);
+printf("first byte: '%c'\n", contents[0]);
+printf("last byte:  '%c'\n", contents[st.st_size - 1]);
+write(1, contents, st.st_size);
+
+munmap(contents, st.st_size);
+close(fd);
+\end{lstlisting}
+
+We need \texttt{fstat} to ask the kernel how big the file is, so we
+know how much to map. \texttt{PROT\_READ} says the memory is
+read-only; \texttt{MAP\_PRIVATE} says any writes (if we somehow
+tried) would stay local to this process. The first argument is
+\texttt{NULL} for ``let the kernel pick the address.''
+
+\subsubsection*{\texttt{mmap} on a file, for writing}
+
+To actually modify the file through the mapping, two things have to
+change: open the file \texttt{O\_RDWR}, and map it with
+\texttt{PROT\_READ | PROT\_WRITE | MAP\_SHARED}.
+\texttt{screamFile.c} does exactly that, then replaces every
+non-newline byte with \texttt{'A'}:
+
+\begin{lstlisting}[language=C]
+int fd = open(argv[1], O_RDWR);
+
+struct stat st;
+fstat(fd, &st);
+
+char* contents = mmap(NULL, st.st_size,
+                      PROT_READ | PROT_WRITE, MAP_SHARED,
+                      fd, 0);
+
+// turn the file into nothing but screaming
+for(int i = 0; i < st.st_size; i++){
+  if(contents[i] != '\n'){
+    contents[i] = 'A';
+  }
+}
+
+write(1, contents, st.st_size);
+munmap(contents, st.st_size);
+close(fd);
+\end{lstlisting}
+
+After \texttt{munmap}, the file on disk has been rewritten --- the
+kernel propagates writes to the backing file because we said
+\texttt{MAP\_SHARED}. With \texttt{MAP\_PRIVATE} the kernel would
+have given us a copy-on-write page instead and the file would have
+been untouched.
+
+Run it on \texttt{toscream.txt} (which starts as a few lines of
+mixed text) and the file becomes:
+
+\begin{lstlisting}
+AAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAA
+AAAAAAAAAAAAAA
+\end{lstlisting}
+
+\subsubsection*{\texttt{mmap} to share memory between processes}
+
+If we drop the file backing and use \texttt{MAP\_ANONYMOUS |
+MAP\_SHARED}, we get a chunk of zeroed memory that the kernel
+will share between us and any process we \texttt{fork} afterwards.
+That's how \texttt{mmapShared.c} lets a parent and child share a
+counter:
+
+\begin{lstlisting}[language=C]
+int* counter = mmap(NULL, sizeof(int),
+                    PROT_READ | PROT_WRITE,
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+*counter = 0;
+
+pid_t pid = fork();
+if(pid == 0){
+  for(int i = 0; i < 100000; i++){
+    (*counter)++;
+  }
+  return 0;
+} else {
+  for(int i = 0; i < 100000; i++){
+    (*counter)++;
+  }
+  wait(NULL);
+  printf("final counter (expected 200000): %d\n", *counter);
+}
+\end{lstlisting}
+
+And\ldots we get the same horror story we got with threads several
+lectures ago. The counter is wildly under \texttt{200000} most runs,
+because \texttt{(*counter)++} is a load-modify-store, the two
+processes interleave, and updates get lost. Sharing memory between
+processes brings back every concurrency hazard you thought you'd
+escaped by leaving threads behind.
+
+\subsubsection*{Fixing it with a semaphore}
+
+The cure is the same as it was for threads, except mutexes are
+process-local --- they live in the locking process's address space
+and don't synchronize across a \texttt{fork}. \emph{Semaphores} can
+be marked process-shared (\texttt{pshared = 1}) and placed in shared
+memory, and then they work across processes.
+
+\texttt{mmapSem.c} puts the counter and a semaphore together in one
+shared struct:
+
+\begin{lstlisting}[language=C]
+struct shared {
+  sem_t lock;
+  int   counter;
+};
+
+int main(){
+  struct shared* s = mmap(NULL, sizeof(struct shared),
+                          PROT_READ | PROT_WRITE,
+                          MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+  sem_init(&s->lock, 1, 1); // pshared = 1, initial value = 1
+  s->counter = 0;
+
+  pid_t pid = fork();
+  if(pid == 0){
+    for(int i = 0; i < 100000; i++){
+      sem_wait(&s->lock);
+      s->counter++;
+      sem_post(&s->lock);
+    }
+    return 0;
+  } else {
+    for(int i = 0; i < 100000; i++){
+      sem_wait(&s->lock);
+      s->counter++;
+      sem_post(&s->lock);
+    }
+    wait(NULL);
+    printf("final counter (should be 200000): %d\n", s->counter);
+  }
+
+  sem_destroy(&s->lock);
+  munmap(s, sizeof(struct shared));
+  return 0;
+}
+\end{lstlisting}
+
+The two key bits:
+\begin{itemize}
+  \item Both the \texttt{counter} and the \texttt{sem\_t} live inside
+    the same \texttt{mmap}'d struct, so both processes see the same
+    semaphore as well as the same counter. Putting the
+    \texttt{sem\_t} on the parent's stack would defeat the purpose
+    entirely --- the child would have its own copy after
+    \texttt{fork} and they wouldn't synchronize with anything.
+  \item The second argument to \texttt{sem\_init} is the
+    \texttt{pshared} flag. Passing \texttt{1} (and putting the
+    semaphore in shared memory) makes it process-shared; passing
+    \texttt{0} keeps it thread-only.
+\end{itemize}
+
+With the semaphore in place the final counter prints
+\texttt{200000} every run, and we've closed the loop: shared memory
+plus a process-shared semaphore is essentially the threads playbook,
+just with processes instead of threads and with the kernel arbitrating
+the shared region instead of the runtime.
 
 \end{document}
