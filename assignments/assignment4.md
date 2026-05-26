@@ -55,7 +55,9 @@ Connection: close\r\n
 
 After sending the response, close the connection.
 
-## What's provided
+## Scaffolding you can use
+
+https://github.com/clarissalittler/cs201/tree/main/assignments/assignment4-scaffold
 
 In the scaffold:
 
