@@ -1,0 +1,64 @@
+* Agenda
+** Marginalia
+ + Last project is live, you have two weeks to write a tiny static file server
+ + Everything is due June 10th (no extensions on that or else I don't have time to grade!!!)
+   + But June 10th is generously defined as "before I'm back from a morning workout and cup of coffee on June 11th"
+ + Discussions 8 and 9 are all that are left of discussions
+ + Do the quizzes, you have unlimited redos (but don't brute force it that's a waste of your time)
+ + This is the last lecture of content you need for the class
+ + Next week is Rust (monday) and experimental kernel architectures and their history (wednesday)
+ + The weird combo finals week/week10 is going to be for office hours/help/&c.
+ + socketsGuide.org in this repo as well
+** Internet sockets!
+ The definitive reference: https://beej.us/guide/bgnet/
+** Network byte order vs host byte order
+ + Remember byte order from way earlier in the class?
+ + How the bytes of multi-byte data are stored in memory
+   + Example: 0x123456789ABCDEFF
+   + big-endian
+     + lowest address contains the byte corresponding to 0x12
+   + little-endian
+     + the lowest address contains the byte corresponding to 0xFF
+ + "network byte order" is big-endian
+   + but not every computer is!
+   + x86-64 is always little-endian
+ + hton(s/l)
+ + ntoh(s/l)
+** We're only considering TCP here
+ + Anyone know the difference between TCP and UDP?
+ + Differences go here:
+   + TCP ensures all "packets" are all received and are placed in-order
+     + ACK
+   + UDP doesn't bother will all that nonsense
+** A really simple echo client/server that accepts one client
+ + =echoServerOnce.c= (socket, bind, listen, ONE accept, echo loop, exit)
+ + connecting with netcat:  =nc localhost 5000=
+ + connecting with a bespoke client: =echoClient.c=  (socket, connect, send/recv)
+** The echo server but with a client acceptance loop
+ + =echoServerLoop.c= : wrap the accept in =while(1)= and never close the listening socket
+ + still serial: the second client waits in the listen backlog until we finish with the first
+** Handling many clients at once: fork per connection
+ + we can connect with our client or nc
+ + there's a weird trick here involving signals
+** Handling many clients at once: thread per connection
+ + More efficient but shares memory: when is that good? When is that bad?
+** A really simple web-server
+ + =webServer.c= (just echoes back the request)
+ + connecting via curl:    =curl -v http://localhost:8080/=
+ + connecting via browser: open =http://localhost:8080/=
+ + connecting via bespoke client: =webClient.c= (hand-rolled GET request, prints raw response)
+** (Stretch) Select and poll
+ Classic ways to handle multiple clients /without/ forking or threading
+*** select
+ Dates all the way back to Unix and has been around since Linux was born
+
+ You can watch file descriptors and fill a datastructure and rather than block on a read/recv (or write/send) you can just run a loop that checks if anyone is ready and, if they are, Do The Thing.
+
+ It's cute but a little weird. 
+*** poll
+ This is a little newer and a little fancier. It has less weirdness and is a little more flexible.
+*** epoll
+ This is the super-efficient modern version of poll. 
+** (Stretch) An echo server version with select
+** (Stretch) An echo server version with poll
+** (Stretch) An echo client that uses select (?!)
