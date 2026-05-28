@@ -4164,4 +4164,45 @@ The weird bits are real: you have to track \texttt{maxfd} by hand,
 re-copy the set every iteration, and scan every fd from \texttt{0}
 to \texttt{maxfd} whether it's in the set or not.
 
+\subsubsection*{(Not shown in lecture) A web server with \texttt{select}}
+
+Once you've seen the \texttt{select} echo server, the web server
+version almost writes itself: it's the \emph{same} event loop, with
+the web server's request/response code dropped into the ``a client is
+readable'' branch. The listener still sits in the set as fd
+\texttt{s}; when it's ready we \texttt{accept} and start watching the
+newcomer, and when any other fd is ready we read its HTTP request and
+write back the canned response.
+
+The one thing that genuinely changes from the echo server is what you
+do \emph{after} handling a client. The echo server keeps the
+connection open and keeps echoing, so a client lingers in the set
+until it hangs up. HTTP with \texttt{Connection: close} is one-shot:
+we read the request, send a single response, and we are done with
+that client forever. So we close it \emph{and} clear it out of the
+master set in the same breath.
+
+\begin{lstlisting}[language=C]
+// inside the same select loop; fd is a ready client, not the listener
+char req[4096];
+ssize_t n = recv(fd, req, sizeof(req) - 1, 0);
+if(n <= 0){
+  close(fd);
+  FD_CLR(fd, &reference);
+  continue;
+}
+req[n] = 0;
+printf("--- request ---\n%s\n", req);
+
+// ...same HTTP response as webServer.c...
+send(fd, resp, rlen, 0);
+
+close(fd);
+FD_CLR(fd, &reference);   // one request, one answer, then stop watching
+\end{lstlisting}
+
+Note that closing a socket does not remove it from an
+\texttt{fd\_set} --- that part is on you, which is why the
+\texttt{close} and the \texttt{FD\_CLR} always travel together.
+
 \end{document}
