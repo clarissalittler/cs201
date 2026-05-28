@@ -6,6 +6,7 @@
 \usepackage{hyperref}
 \usepackage{amsmath}
 \usepackage{parskip}
+\usepackage{mdframed}
 
 \hypersetup{
   colorlinks=true,
@@ -25,7 +26,7 @@
 }
 
 \title{CS201 Spring 2026 --- Lecture Notes}
-\author{Clarissa Littler}
+\author{Clarissa Littler \& Claude Opus}
 \date{Spring 2026}
 
 \begin{document}
@@ -33,13 +34,17 @@
 
 \section*{Preface}
 
-This document is a running narrative of what we covered in each class
+This document is a synthetic running narrative of what we covered in each class
 meeting this term. Each section pairs the agenda for the day with the
 little code samples we actually typed up together, so if you missed a
 lecture or want to go back and re-read, the whole arc of a day should be
 here in one place. The source files themselves live in the
 \texttt{lecture$N$/} subdirectories of the class repo, and all of the
 snippets quoted below are verbatim from those files.
+\\
+\begin{mdframed}
+  Clarissa here: I read over these notes after generated and do some light editing but so far this seems to be a good workflow for preparing for post-facto notes based on the examples I show in class.
+\end{mdframed}
 
 \tableofcontents
 
@@ -3703,5 +3708,460 @@ With the semaphore in place the final counter prints
 plus a process-shared semaphore is essentially the threads playbook,
 just with processes instead of threads and with the kernel arbitrating
 the shared region instead of the runtime.
+
+\section{Lecture 15 --- Internet Sockets: Echo Servers, Web Servers, and Handling Many Clients}
+
+This is the last lecture of new content for the class, and it's the
+one where all the IPC stuff from last time grows up and learns to
+talk over a network. Unix domain sockets gave us the
+\texttt{socket}/\texttt{bind}/\texttt{listen}/\texttt{accept} dance
+with a path in the filesystem as the address; \emph{Internet}
+sockets are the same four calls with an IP address and a port
+instead. We built up from a one-client echo server to a forking
+one, a threading one, a tiny web server you can hit from a real
+browser, and finally the classic \texttt{select}/\texttt{poll} way
+of juggling many clients in a single thread. The definitive
+reference for all of this is Beej's Guide to Network Programming
+(\texttt{https://beej.us/guide/bgnet/}), and there's a
+\texttt{socketsGuide.org} in this repo too.
+
+\subsection*{Network byte order vs.\ host byte order}
+
+Remember endianness from way back at the start of the class? It's
+about how the bytes of a multi-byte number are laid out in memory.
+Take \texttt{0x123456789ABCDEFF} (eight bytes):
+\begin{itemize}
+  \item \textbf{Big-endian}: the lowest address holds the
+    most-significant byte, \texttt{0x12}.
+  \item \textbf{Little-endian}: the lowest address holds the
+    least-significant byte, \texttt{0xFF}.
+\end{itemize}
+
+The catch is that the network has its own convention --- ``network
+byte order'' is big-endian --- but not every machine agrees with it.
+x86-64, the thing you're almost certainly running on, is
+\emph{always} little-endian. So any multi-byte value you put into a
+packet header (most importantly the port number) has to be converted
+first. That's what these four functions are for:
+\begin{itemize}
+  \item \texttt{htons}/\texttt{htonl} --- \textbf{h}ost \textbf{to}
+    \textbf{n}etwork, \textbf{s}hort or \textbf{l}ong
+  \item \texttt{ntohs}/\texttt{ntohl} --- the reverse
+\end{itemize}
+You'll see \texttt{htons(port)} on every \texttt{sin\_port}
+assignment below and \texttt{htonl(INADDR\_ANY)} on every
+\texttt{sin\_addr}. On a big-endian machine these would be no-ops; on
+yours they actually swap bytes. Writing them anyway makes
+the code portable.
+
+\subsection*{TCP vs.\ UDP (we're only doing TCP)}
+
+Everything in this lecture uses TCP, which is the
+\texttt{SOCK\_STREAM} you'll see passed to \texttt{socket}. The
+short version of the difference:
+\begin{itemize}
+  \item \textbf{TCP} guarantees every byte arrives, exactly once,
+    in order. It does this with sequence numbers and
+    acknowledgements (ACKs) under the hood, retransmitting anything
+    that gets lost. You get a reliable byte stream.
+  \item \textbf{UDP} doesn't bother with any of that. Packets can be
+    dropped, duplicated, or reordered, and it's on you to cope.
+    The upside is lower overhead, which is why it's used for things
+    like video calls where a late packet is worse than a lost one.
+\end{itemize}
+Because TCP is a byte \emph{stream}, there are no message
+boundaries --- a single \texttt{recv} might hand you half a message
+or three messages glued together. For our echo servers that doesn't
+matter (we send back whatever bytes we got), but it's the first
+thing that bites people writing a real protocol.
+
+\subsection*{A one-client echo server}
+
+\texttt{echoServerOnce.c} is the smallest thing that does the full
+dance: create a socket, bind it to a port, listen, accept exactly
+one client, echo until they leave, then exit.
+
+\begin{lstlisting}[language=C]
+int s = socket(AF_INET, SOCK_STREAM, 0);
+
+// SO_REUSEADDR lets us re-bind to the same port immediately after we
+// exit; without it the kernel holds the port in TIME_WAIT and bind()
+// fails with "Address already in use" for a while
+int yes = 1;
+setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+struct sockaddr_in addr;
+memset(&addr, 0, sizeof(addr));
+addr.sin_family      = AF_INET;
+addr.sin_addr.s_addr = htonl(INADDR_ANY); // listen on every interface
+addr.sin_port        = htons(port);       // network byte order!
+
+bind(s, (struct sockaddr*)&addr, sizeof(addr));
+listen(s, 1);
+
+int conn = accept(s, NULL, NULL); // a brand-new fd for this conversation
+
+char buf[1024];
+ssize_t n;
+while((n = recv(conn, buf, sizeof(buf), 0)) > 0){
+  send(conn, buf, n, 0);
+}
+
+close(conn);
+close(s);
+\end{lstlisting}
+
+A few things to anchor on:
+\begin{itemize}
+  \item Those casts to \texttt{(struct sockaddr*)} look bizarre.
+    They're there because these interfaces are ancient: there's one
+    generic \texttt{struct sockaddr} that the calls take, and a pile
+    of more-specific structs (\texttt{sockaddr\_in} for IPv4,
+    \texttt{sockaddr\_un} for Unix domain) that you cast \emph{down}
+    to it. It's a hand-rolled kind of subtyping from before C had
+    anything better.
+  \item \texttt{accept} returns a \emph{different} fd from the one
+    you're listening on --- exactly like the Unix domain socket case.
+    \texttt{s} is the doorbell; \texttt{conn} is the actual
+    conversation.
+  \item \texttt{recv} and \texttt{send} are just \texttt{read} and
+    \texttt{write} with an extra flags argument for socket-specific
+    options. We pass \texttt{0} and they behave identically.
+  \item \texttt{recv} returning \texttt{0} means the client closed
+    their end --- that's our EOF, and it's how the loop terminates.
+\end{itemize}
+
+You can talk to it with \texttt{nc localhost 5000} (netcat is a
+generic ``connect a socket to my terminal'' tool), or with our own
+\texttt{echoClient.c}, which is the mirror image: create, connect,
+then loop sending lines and printing what comes back.
+
+\begin{lstlisting}[language=C]
+int s = socket(AF_INET, SOCK_STREAM, 0);
+
+struct sockaddr_in addr;
+memset(&addr, 0, sizeof(addr));
+addr.sin_family = AF_INET;
+addr.sin_port   = htons(atoi(argv[1]));
+// inet_pton parses a dotted-quad string ("127.0.0.1") into the
+// binary form the kernel wants; it returns 1 on success
+inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+
+connect(s, (struct sockaddr*)&addr, sizeof(addr));
+
+char line[1024];
+while(fgets(line, sizeof(line), stdin)){
+  send(s, line, strlen(line), 0);
+  char buf[1024];
+  ssize_t n = recv(s, buf, sizeof(buf) - 1, 0);
+  if(n <= 0) break;
+  buf[n] = 0;
+  printf("server said: %s", buf);
+}
+close(s);
+\end{lstlisting}
+
+The client has no \texttt{bind}/\texttt{listen}/\texttt{accept} ---
+it just \texttt{connect}s. \texttt{inet\_pton} (``presentation to
+network'') is the function that turns the human string
+\texttt{"127.0.0.1"} into the packed 32-bit address the kernel
+stores in \texttt{sin\_addr}.
+
+\subsection*{An acceptance loop: serving clients back-to-back}
+
+\texttt{echoServerOnce.c} handles exactly one client and quits. The
+fix in \texttt{echoServerLoop.c} is almost embarrassingly small:
+wrap the \texttt{accept} in a \texttt{while(1)} and \emph{never}
+close the listening socket. When one client hangs up, we loop back
+around and accept the next.
+
+\begin{lstlisting}[language=C]
+while(1){
+  struct sockaddr_in caddr;
+  socklen_t clen = sizeof(caddr);
+  int conn = accept(s, (struct sockaddr*)&caddr, &clen);
+  if(conn < 0){ perror("accept"); continue; }
+
+  // who connected? accept filled in caddr for us
+  char ip[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET, &caddr.sin_addr, ip, sizeof(ip));
+  printf("connection from %s:%d\n", ip, ntohs(caddr.sin_port));
+
+  char buf[1024];
+  ssize_t n;
+  while((n = recv(conn, buf, sizeof(buf), 0)) > 0){
+    send(conn, buf, n, 0);
+  }
+  close(conn);            // close the CLIENT, not the listener
+}
+\end{lstlisting}
+
+This time we pass \texttt{accept} a \texttt{caddr} to fill in, so we
+can see who connected. \texttt{inet\_ntop} is the inverse of
+\texttt{inet\_pton} --- it turns the binary address back into a
+printable string, and \texttt{ntohs} flips the port back to host
+order for the \texttt{printf}.
+
+The important limitation: this is still completely \emph{serial}. A
+second client that connects while we're busy echoing for the first
+one doesn't get rejected --- it sits in the listen backlog (that's
+the \texttt{2} in \texttt{listen(s, 2)}) waiting its turn. We don't
+call \texttt{accept} on it until the first client leaves. To handle
+two clients at the same time we need to stop blocking the whole
+program on one conversation.
+
+\subsection*{One process per client: fork}
+
+The first way to get concurrency is the one we already know:
+\texttt{fork} a child for each connection and let the child run the
+echo loop while the parent goes straight back to \texttt{accept}.
+\texttt{echoServerFork.c}:
+
+\begin{lstlisting}[language=C]
+// "when a child exits, don't make me reap it" -- avoids zombies
+// without us having to wait() on every child
+signal(SIGCHLD, SIG_IGN);
+
+// ... socket / bind / listen as before ...
+
+while(1){
+  int conn = accept(s, (struct sockaddr*)&caddr, &clen);
+  if(conn < 0){ perror("accept"); continue; }
+
+  pid_t pid = fork();
+  if(pid == 0){
+    close(s);           // child doesn't need the listener
+    echoLoop(conn);
+    close(conn);
+    _exit(0);
+  } else {
+    close(conn);        // parent doesn't need this client's fd
+  }
+}
+\end{lstlisting}
+
+The weird trick the agenda warned about is that
+\texttt{signal(SIGCHLD, SIG\_IGN)} line. Normally when a child exits
+it becomes a \emph{zombie} --- a husk the kernel keeps around so the
+parent can read its exit status with \texttt{wait}. A long-running
+server that never reaps its children would slowly fill the process
+table with zombies. Telling the kernel we want to \emph{ignore}
+\texttt{SIGCHLD} is a shortcut that says ``I don't care about exit
+codes, clean children up automatically.''
+
+The two \texttt{close} calls are the same discipline we learned with
+pipes: each side closes the fd it isn't using. The child closes the
+listener \texttt{s} (it'll never accept anyone); the parent closes
+\texttt{conn} (the child is handling that conversation). If the
+parent forgot to close \texttt{conn}, the kernel would still see an
+open copy of the fd even after the child closed its side, and the
+client would never get its EOF.
+
+\subsection*{One thread per client: more efficient, but shared}
+
+\texttt{echoServerThread.c} does the same thing with a thread
+instead of a process. Threads are cheaper to spawn and share the
+process's memory --- which is exactly the good news and the bad
+news. The good news is there's only one fd table, so we don't have
+to close anything in the ``parent.'' The bad news is that all that
+shared mutable state is the race-condition minefield we spent two
+whole lectures on.
+
+\begin{lstlisting}[language=C]
+struct client {
+  int  conn;
+  char ip[INET_ADDRSTRLEN];
+  int  port;
+};
+
+void* handle(void* arg){
+  struct client* c = arg;
+  pthread_detach(pthread_self()); // self-cleanup the moment we return
+
+  char buf[1024];
+  ssize_t n;
+  while((n = recv(c->conn, buf, sizeof(buf), 0)) > 0){
+    send(c->conn, buf, n, 0);
+  }
+  close(c->conn);
+  free(c);                        // we malloc'd it, we free it
+  return NULL;
+}
+
+// in main's accept loop:
+struct client* c = malloc(sizeof(*c));
+c->conn = conn;
+c->port = ntohs(caddr.sin_port);
+inet_ntop(AF_INET, &caddr.sin_addr, c->ip, sizeof(c->ip));
+
+pthread_t tid;
+pthread_create(&tid, NULL, handle, c);
+// NOTE: unlike fork(), we do NOT close(conn) here -- there's no
+// separate copy of the fd; the thread shares this exact one.
+\end{lstlisting}
+
+Two details worth dwelling on:
+\begin{itemize}
+  \item \textbf{Why \texttt{malloc} a fresh \texttt{struct client}
+    every loop?} If we passed the thread a pointer to a local
+    variable, the next iteration of the accept loop would overwrite
+    it out from under the running thread. Each thread needs its own
+    heap-allocated box that lives until \emph{it} is done, which is
+    why the thread frees it at the end rather than the main loop.
+  \item \texttt{pthread\_detach} tells the runtime ``nobody is going
+    to \texttt{pthread\_join} me, so reclaim my resources the instant
+    I return.'' It's the threading analogue of the \texttt{SIGCHLD}
+    trick --- a way to fire-and-forget without leaking.
+\end{itemize}
+
+\subsection*{A tiny web server}
+
+Here's the fun payoff: HTTP is just text over a TCP socket, so our
+echo server is most of the way to a web server already.
+\texttt{webServer.c} accepts a connection, reads the request
+(which we mostly ignore), and writes back a hard-coded HTTP
+response.
+
+\begin{lstlisting}[language=C]
+while(1){
+  int conn = accept(s, NULL, NULL);
+  if(conn < 0) continue;
+
+  char req[4096];
+  ssize_t n = recv(conn, req, sizeof(req) - 1, 0);
+  if(n <= 0){ close(conn); continue; }
+  req[n] = 0;
+  printf("--- request ---\n%s\n", req);   // see: HTTP is just text
+
+  char* body = "<html><body><h1>Hello from C!</h1>"
+               "<p>this page came out of a 60-line server</p>"
+               "</body></html>";
+  char resp[1024];
+  int rlen = snprintf(resp, sizeof(resp),
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/html\r\n"
+    "Content-Length: %zu\r\n"
+    "Connection: close\r\n"
+    "\r\n"
+    "%s",
+    strlen(body), body);
+
+  send(conn, resp, rlen, 0);
+  close(conn);
+}
+\end{lstlisting}
+
+The shape of an HTTP response is worth memorizing because it's
+shockingly simple:
+\begin{itemize}
+  \item A status line: \texttt{HTTP/1.1 200 OK}.
+  \item Some headers, one per line, \texttt{Name: value}.
+  \item A \emph{blank line} that separates the headers from the body
+    --- this is mandatory and the single most common thing people
+    get wrong.
+  \item The body.
+\end{itemize}
+Note the line endings are \verb|\r\n| (carriage-return + newline),
+not just \verb|\n| --- HTTP insists on it. And
+\texttt{Content-Length} has to match the body's actual byte count or
+the client gets confused about where the response ends. You can hit
+this three ways: \texttt{curl -v http://localhost:8080/}, by opening
+the URL in a real browser, or with our own \texttt{webClient.c},
+which hand-rolls the request side:
+
+\begin{lstlisting}[language=C]
+char req[512];
+int n = snprintf(req, sizeof(req),
+  "GET %s HTTP/1.1\r\n"
+  "Host: %s\r\n"
+  "Connection: close\r\n"
+  "\r\n",
+  path, host);
+send(s, req, n, 0);
+
+char buf[4096];
+ssize_t got;
+while((got = recv(s, buf, sizeof(buf) - 1, 0)) > 0){
+  buf[got] = 0;
+  fputs(buf, stdout);   // print the raw response, headers and all
+}
+\end{lstlisting}
+
+A GET request is symmetric to the response: a request line
+(\texttt{GET /path HTTP/1.1}), headers, and the blank line that ends
+them. The \texttt{Host} header is required in HTTP/1.1 because one
+server might host many sites on one IP. This is exactly what your
+browser sends; ours just prints the whole raw reply, headers and
+all, so you can see there's no magic.
+
+\subsection*{(Stretch) Handling many clients without fork or threads: \texttt{select} and \texttt{poll}}
+
+There's a third way to serve many clients that uses neither
+processes nor threads: stay single-threaded, but never block on any
+one client. Instead you hand the kernel your whole set of file
+descriptors and ask ``which of these is ready to read right now?''
+This is the foundation of high-performance servers like nginx.
+
+There are three generations of this idea:
+\begin{itemize}
+  \item \texttt{select} --- dates to early Unix, works everywhere,
+    but is clumsy and has a hard limit on fd numbers.
+  \item \texttt{poll} --- a bit newer, no fd-number ceiling, nicer
+    API.
+  \item \texttt{epoll} --- the modern, scales-to-many-thousands
+    Linux version. We didn't write one, but it's where you'd go
+    next.
+\end{itemize}
+
+\subsubsection*{An echo server with \texttt{select}}
+
+\texttt{select} works on an \texttt{fd\_set}, a bitmask of file
+descriptors. The awkward part is that \texttt{select} \emph{clobbers}
+the set it's handed --- on return, the set only contains the fds
+that are ready --- so you keep a master copy (\texttt{reference})
+and copy it into a scratch set each time through the loop.
+
+\begin{lstlisting}[language=C]
+fd_set reference, readfds;
+FD_ZERO(&reference);
+FD_SET(s, &reference);   // start by watching just the listener
+int maxfd = s;           // select wants the highest fd, plus one
+
+while(1){
+  readfds = reference;   // fresh copy; select will chew on this one
+  select(maxfd + 1, &readfds, NULL, NULL, NULL);
+
+  for(int fd = 0; fd <= maxfd; fd++){
+    if(!FD_ISSET(fd, &readfds)) continue;   // not ready, skip
+
+    if(fd == s){
+      // the listener is readable => a new client is waiting
+      int conn = accept(s, (struct sockaddr*)&caddr, &clen);
+      FD_SET(conn, &reference);             // start watching them
+      if(conn > maxfd) maxfd = conn;
+    } else {
+      // an existing client has data (or hung up)
+      char buf[1024];
+      ssize_t n = recv(fd, buf, sizeof(buf), 0);
+      if(n <= 0){
+        close(fd);
+        FD_CLR(fd, &reference);             // stop watching a dead fd
+      } else {
+        send(fd, buf, n, 0);
+      }
+    }
+  }
+}
+\end{lstlisting}
+
+The trick that makes the whole thing work is that the
+\emph{listening socket} is just another fd in the set. When it
+becomes ``readable,'' that doesn't mean there are bytes to
+\texttt{recv} --- it means a client is waiting to be
+\texttt{accept}ed. Every other ready fd is a real client with data.
+One loop, no forking, no threads, and one program juggling everyone.
+The weird bits are real: you have to track \texttt{maxfd} by hand,
+re-copy the set every iteration, and scan every fd from \texttt{0}
+to \texttt{maxfd} whether it's in the set or not.
 
 \end{document}
