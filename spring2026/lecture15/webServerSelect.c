@@ -97,7 +97,7 @@ int main(int argc, char* argv[]){
 			    "\r\n"
 			    "%s",
 			    strlen(body), body);
-	
+	FD_CLR(fd, &reference);  // stop watching a closed fd	
 	send(fd, resp, rlen, 0);
 	close(fd);
       }
