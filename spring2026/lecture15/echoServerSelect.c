@@ -81,8 +81,8 @@ int main(int argc, char* argv[]){
 	    perror("recv");
 	  }
           printf("client on fd %d disconnected\n", fd);
+	  FD_CLR(fd, &reference);  // stop watching a closed fd
           close(fd);
-          FD_CLR(fd, &reference);  // stop watching a closed fd
         } else {
           send(fd, buf, n, 0);
         }

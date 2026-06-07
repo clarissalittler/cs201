@@ -77,6 +77,7 @@ int main(int argc, char* argv[]){
 	char req[4096];
 	ssize_t n = recv(fd, req, sizeof(req) - 1, 0);
 	if(n <= 0){
+	  FD_CLR(fd, &reference);  // stop watching a closed fd	
 	  close(fd);
 	  continue;
 	}
