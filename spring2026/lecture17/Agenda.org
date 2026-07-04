@@ -1,0 +1,25 @@
+* Agenda: Rust continued
+** One thing I didn't mention
+ Why rust?
+
+ Because it's the first language other than C to make headway into the Linux kernel
+** args
+** structs
+ - =structs1.rs=
+** ?
+** enums
+ enums can function like regular enums /or/ like algebraic datatypes
+
+ we talked about this last time
+
+ but let's actually write them ourselves now
+ - =enums1.rs=
+ - =enums2.rs= 
+ - =enums3.rs= 
+
+okay now for enums with fields
+ - =adts1.rs=
+ - =lists1.rs=
+ - =lists2.rs=
+
+writing ? 

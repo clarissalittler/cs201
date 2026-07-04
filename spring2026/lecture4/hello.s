@@ -1,4 +1,4 @@
-	.section .data           # Read-only data section (constant data)
+	.section .data           # Data section (initialized, writable data)
 msg:    .asciz "Hello world!\n"   # Define a null-terminated string
 hellolen = . - msg         # Calculate length of the string by subtracting start address from current address
 
@@ -9,7 +9,7 @@ _start:
           ## call the write syscall
           ## and exit appropriately
           mov $1,%rax        # Set %rax to 1 (syscall number for write)
-          mov $1,%rdi        # File descriptor: 2 is stderr (could be 1 for stdout)
+          mov $1,%rdi        # File descriptor: 1 is stdout (0 is stdin, 2 is stderr)
           lea msg(%rip),%rsi # Load effective address of message relative to instruction pointer
           mov $hellolen,%rdx # Move message length into %rdx (third argument for write)
 

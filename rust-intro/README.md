@@ -11,7 +11,7 @@ This directory contains introductory examples for learning Rust, a systems progr
 ### Input/Output Examples
 - **echo0.rs** - Basic user input and output
 - **echo1.rs** - Improved echo program
-- **echo2.rs** - Further refinements
+- **echo2.rs** - Deliberately broken: its `match` only handles the `Ok` case, so the compiler rejects it (this is Rust forcing exhaustive matches -- try `rustc echo2.rs` and read the error)
 - **echofinal.rs** - Polished final version
 
 ### Data Structure Examples
@@ -117,7 +117,7 @@ rustc echo0.rs && ./echo0
 **Try the progressively improved versions:**
 ```bash
 rustc echo1.rs && ./echo1
-rustc echo2.rs && ./echo2
+rustc echo2.rs   # this one FAILS on purpose -- read the compiler error!
 rustc echofinal.rs && ./echofinal
 ```
 
@@ -241,7 +241,8 @@ rustc -g filename.rs           # Include debug symbols
 
 ### Check syntax without building:
 ```bash
-rustc --check filename.rs      # Syntax check only
+rustc --emit=metadata filename.rs   # type-check without producing a binary
+# (or, in a Cargo project: cargo check)
 ```
 
 ## Cargo Commands (Recommended)

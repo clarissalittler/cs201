@@ -8,6 +8,19 @@ This repository is organized by semester and topic. Here's a guide to help you n
 
 ### Semester-Based Materials
 
+#### `spring2026/` (current term)
+Spring 2026 lecture materials (lectures 1-17). Each lecture folder contains an
+`Agenda.org` outline plus the code written in class. The term also has
+compiled `lecture-notes.pdf` / `lecture-notes.tex` — narrative notes
+synthesized from the agendas and examples. Later lectures (16-17) introduce
+Rust as a capstone contrast to C.
+
+> **A note on the older term directories below:** they are kept as an
+> archive of how the course has been taught, and some of their examples
+> contain known bugs (catalogued in `AUDIT-NOTES.org`). For learning, prefer
+> the current term, the guides, and the curated `assembly-examples/`,
+> `concurrency-tutorial/`, and `socket-examples/` collections.
+
 #### `fall2024/`
 Legacy lecture materials from Fall 2024 (lectures 1-11). Contains foundational examples covering:
 - Basic C programming and syntax
@@ -21,7 +34,7 @@ Legacy lecture materials from Fall 2024 (lectures 1-11). Contains foundational e
 - Signals
 
 #### `fall2025/`
-Current Fall 2025 lecture materials (lectures 01, 02, 03, 05, 06, 07, 08, 09, 11, 13, 14). Each lecture folder contains:
+Fall 2025 lecture materials (lectures 01, 02, 03, 05, 06, 07, 08, 09, 11, 13, 14). Each lecture folder contains:
 - `Agenda.org` - Lecture outline and topics
 - Source code examples demonstrating concepts covered in that lecture
 - Both original and commented versions of code for learning
@@ -44,6 +57,13 @@ Topic-based organization focused on specific concepts:
 - `threading/` - Thread programming and synchronization
 - `video1/`, `video2/`, `video3/` - Video lecture materials
 - `in-class/` - In-class examples and demonstrations
+
+### Assignments
+
+#### `assignments/`
+The current assignment sequence: a C warm-up, a whole-program assembly
+exercise, a pthreads assignment, and the final project — a small threaded
+HTTP server built from the scaffold in `assignments/assignment4-scaffold/`.
 
 ### Tutorial Collections
 
@@ -117,6 +137,11 @@ Comprehensive guide to x86-64 assembly programming covering:
 - Memory addressing modes
 - I/O operations
 
+#### `socketsGuide.org`
+Guide to network programming with sockets: TCP basics, the socket API
+call-by-call, client/server structure, and handling multiple clients
+(fork, threads, select/poll)
+
 #### `positTutorial.org`
 Tutorial on posit number representation (alternative to floating-point)
 
@@ -127,8 +152,8 @@ Tutorial on posit number representation (alternative to floating-point)
 ## Getting Started
 
 ### For Beginners
-1. Start with `fall2024/lecture1` or `fall2025/lecture01` for basic C programming
-2. Work through the semester materials in order
+1. Start with `spring2026/lecture1` for basic C programming
+2. Work through the current term's materials in order
 3. Reference `assemblyGuide.org` when starting assembly topics
 4. Use the tutorial collections for deeper dives into specific topics
 

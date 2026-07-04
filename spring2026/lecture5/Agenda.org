@@ -53,7 +53,7 @@
 *** push
 *** pop
 *** Make way for variables
-* Terrible ascii attemps
+* Terrible ascii attempts
 I'm going to draw this "upside down"
 
 current state before calling a function

@@ -11,9 +11,14 @@
 int main(){
 
   FILE* f = fopen("test.txt", "r");
+  if(f == NULL){
+    printf("Couldn't open test.txt\n");
+    return 1;
+  }
   char buf[100];
 
-  while(fgets(buf, sizeof(buf),f) > 0){
+  // fgets returns a pointer (or NULL at EOF/error), so compare to NULL
+  while(fgets(buf, sizeof(buf),f) != NULL){
     printf("%s",buf);
   }
   

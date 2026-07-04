@@ -45,15 +45,22 @@ int main(int argc, char* argv[]){
       break;
     }
 
-    // listener first: drain any pending connections into the array
+    // listener first: accept one pending connection into the array
+    // (if more are waiting, the listener stays readable and we'll get
+    // them on the next trip through poll)
     if(fds[0].revents & POLLIN){
       struct sockaddr_in caddr;
       socklen_t clen = sizeof(caddr);
       int conn = accept(s, (struct sockaddr*)&caddr, &clen);
       if(conn >= 0){
         if(nfds < MAXFDS){
-          fds[nfds].fd     = conn;
-          fds[nfds].events = POLLIN;
+          fds[nfds].fd      = conn;
+          fds[nfds].events  = POLLIN;
+          // fds[] is an uninitialized stack array, so clear revents:
+          // the client loop below reads it *this* iteration, and leftover
+          // garbage bits would trigger a blocking recv() on a socket
+          // with no data, hanging the whole event loop
+          fds[nfds].revents = 0;
           nfds++;
           char ip[INET_ADDRSTRLEN];
           inet_ntop(AF_INET, &caddr.sin_addr, ip, sizeof(ip));

@@ -43,7 +43,7 @@ here in one place. The source files themselves live in the
 snippets quoted below are verbatim from those files.
 \\
 \begin{mdframed}
-  Clarissa here: I read over these notes after generated and do some light editing but so far this seems to be a good workflow for preparing for post-facto notes based on the examples I show in class.
+  Clarissa here: I read over these notes after they're generated and do some light editing but so far this seems to be a good workflow for preparing for post-facto notes based on the examples I show in class.
 \end{mdframed}
 
 \tableofcontents
@@ -693,7 +693,10 @@ Points of interest:
     \texttt{(fd, buf, count)} in \texttt{\%rdi}, \texttt{\%rsi},
     \texttt{\%rdx}.
   \item \texttt{xor \%rdi,\%rdi} is the idiomatic way to zero a
-    register --- one byte shorter than \texttt{mov \$0,\%rdi}.
+    register --- 3 bytes to encode instead of the 7 that
+    \texttt{mov \$0,\%rdi} takes (and \texttt{xor \%edi,\%edi} gets
+    it down to 2 bytes, since writing the 32-bit half of a register
+    zeroes the top half for free).
 \end{itemize}
 
 Next time we'll close this out with an \texttt{echo}-style program
@@ -2576,6 +2579,15 @@ thread loop'' bug from last lecture, in a different costume:
 inheriting state from the parent is great, except when you needed it
 to be different.
 
+(Full disclosure: this handler cheats on the rule we just stated ---
+\texttt{rand()} and \texttt{sprintf()} are \emph{not} on the
+async-signal-safe list, and \texttt{STDOUT} here is our own
+convenience constant, not a standard macro
+(\texttt{STDOUT\_FILENO} is the real one). It works in this demo
+because nothing else in the process is using the RNG or stdio at the
+moment the signal lands, but in production code the handler should
+just set a flag and let the main loop do the rolling and printing.)
+
 The output looks roughly like:
 
 \begin{verbatim}
@@ -3148,7 +3160,7 @@ void onHit(int sig){
 void endGame(int sig){
   fighting = 0;
   char msg[] = "Oh, I guess I won?\n";
-  write(1,msg,sizeof(msg));
+  write(1,msg,sizeof(msg)-1); // -1: don't write the terminating NUL
 }
 
 int main(){
@@ -3190,8 +3202,9 @@ A few things worth pointing at:
     functions. \texttt{write} is on that list; \texttt{printf} is not
     --- it can deadlock if the signal interrupted a previous
     \texttt{printf} mid-buffer-flush. That's why \texttt{endGame}
-    uses \texttt{write(1, msg, sizeof(msg))} instead of
-    \texttt{printf}.
+    uses \texttt{write(1, msg, sizeof(msg)-1)} instead of
+    \texttt{printf} (the \texttt{-1} keeps the string's terminating
+    \texttt{\textbackslash 0} byte from being written too).
   \item \texttt{sleep} returns the number of seconds \emph{left} if
     it gets interrupted by a signal. The \texttt{while((left =
     sleep(left)) > 0)} idiom restarts the nap with whatever's left
@@ -3278,10 +3291,13 @@ if(pid == 0){
 
 Two things to internalize:
 \begin{itemize}
-  \item Close the end you aren't using. If the parent leaves the
-    read end open, then even after \emph{it} closes the write end
-    the kernel still sees an open write end (its own), and the child
-    will block on \texttt{read} forever waiting for an EOF that
+  \item Close the end you aren't using. \texttt{read} only reports
+    EOF once \emph{every} copy of the write end is closed --- and
+    \texttt{fork} duplicated the fds, so there are two copies of
+    each. If the child forgets to close its own copy of the write
+    end, then even after the parent closes \emph{its} write end the
+    kernel still sees an open writer (the child's own!), and the
+    child blocks on \texttt{read} forever waiting for an EOF that
     never comes.
   \item \texttt{read} doesn't put a \texttt{\textbackslash 0} at the
     end of the buffer for you. You have to do it yourself based on
@@ -3643,8 +3659,9 @@ escaped by leaving threads behind.
 \subsubsection*{Fixing it with a semaphore}
 
 The cure is the same as it was for threads, except mutexes are
-process-local --- they live in the locking process's address space
-and don't synchronize across a \texttt{fork}. \emph{Semaphores} can
+(without special attributes) process-local --- they live in the
+locking process's address space and don't synchronize across a
+\texttt{fork}. \emph{Semaphores} can
 be marked process-shared (\texttt{pshared = 1}) and placed in shared
 memory, and then they work across processes.
 

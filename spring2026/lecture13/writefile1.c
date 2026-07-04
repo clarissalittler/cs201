@@ -33,6 +33,7 @@ int main(int argc, char* argv[]){
 
   if(fd < 0){
     printf("We couldn't open the file\n");
+    return 1;
   }
   
   for(int i =0; i<=count; i++){

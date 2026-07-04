@@ -36,7 +36,7 @@ int main(){
       read(c2p[0],&ready,sizeof(int));
     }
     close(p2c[1]);
-    close(c2p[1]);
+    close(c2p[0]);
     wait(NULL);
   }
   return 0;

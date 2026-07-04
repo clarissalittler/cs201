@@ -23,7 +23,7 @@
     #   -48         : padding (keeps %rsp 16-byte aligned)
     #
     # Notes:
-    #   - The function handles negative integers, including INT_MIN (-2^63),
+    #   - The function handles negative integers, including LONG_MIN (-2^63),
     #     which cannot be negated in two's complement representation.
     #   - The integer is converted to a string by repeatedly dividing by 10
     #     and storing the digits in reverse order in the buffer.
@@ -63,10 +63,10 @@ check_negative:
         movq    $1, %r8             # Set negative flag (%r8) to 1
         negq    %rax                # Negate %rax to get the absolute value
         jno     convert_number      # If no overflow, proceed to convert_number
-        # Handle INT_MIN (-2^63), which cannot be negated
+        # Handle LONG_MIN (-2^63), which cannot be negated
         # Note: we need movabsq here, not movq — the value 2^63 doesn't fit
         # in a 32-bit sign-extended immediate, so a plain movq won't encode it.
-        movabsq $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of INT_MIN)
+        movabsq $9223372036854775808, %rax  # Set %rax to 2^63 (absolute value of LONG_MIN)
 
 convert_number:
         # Convert the integer to its string representation

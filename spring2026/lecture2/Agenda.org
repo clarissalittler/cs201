@@ -12,7 +12,7 @@
    + #8765AF
    + 
  + checking out byte order (endianess)
-** Floats/IEE754 more formally
+** Floats/IEEE 754 more formally
  + Floating point redux:
    + (I'm going to explain all of this in the 32 bit version)
    + 1 bit sign
@@ -27,7 +27,7 @@
    + (-1)^0 * 2^(129 - 127) * (1 + 1/2 + 1/8)
      = 4 * (13/8) = 13/2 = 6.5
  + printing more digits of our floating point numbers
- + how to read the bits of a float in IEE754
+ + how to read the bits of a float in IEEE 754
  + edge cases
    + exponent is all 1s
      + all 1s but no fractional => +/- inf
@@ -43,10 +43,10 @@
    + The nice cardinality is countable infinity
      + e.g. the size of the natural numbers
      + of the rational numbers
-     + the real numbers are the smallest *uncountable* infinity
-       + technically with size equal to |N|^|N|, where |N| is the size of the natural numbers (i.e. aleph_0)
- + How does rounding happen in IEE754?
+     + the real numbers are *uncountable*
+       + technically with size equal to |N|^|N| = 2^|N|, where |N| is the size of the natural numbers (i.e. aleph_0)
+ + How does rounding happen in IEEE 754?
    + round to even
-     + "breadcrumbs" are the real numbers that can be represented exactly in IEE754
+     + "breadcrumbs" are the real numbers that can be represented exactly in IEEE 754
      + to avoid accumulating rounding error, if you're exactly between two breadcrumbs the hardware will round to the even one
        + this should round up as often as it rounds down (in principle)

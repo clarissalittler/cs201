@@ -8,8 +8,8 @@
 // the *other* use of a semaphore: not as a mutex, but as a bouncer
 // "at most N threads in this room at a time"
 // here we have 50 threads simulating handling a connection,
-// but the semaphore lets only 3 of them be "working" at once
-// the other 47 sleep on sem_wait until somebody sem_posts
+// but the semaphore lets only MAX_CONCURRENT of them be "working" at once
+// the other 44 sleep on sem_wait until somebody sem_posts
 
 #define MAX_CONCURRENT 6
 #define TOTAL_THREADS  50
@@ -18,7 +18,7 @@ sem_t s;
 
 void* handler(void* arg){
   int id = *(int*)arg;
-  sem_wait(&s); // grab a slot (blocks if all 3 are taken)
+  sem_wait(&s); // grab a slot (blocks if all 6 are taken)
 
   printf("Thread %d handling connection.\n", id);
   sleep(rand()%4 + 1); // simulate work

@@ -40,9 +40,7 @@ int main(){
   s.counter = 0;
   
   pthread_mutex_init(&s.mut, NULL);
-  
-  int counter = 0;
-  
+
   // first we make the structure to hold
   // the thread's information
   pthread_t thread[100];

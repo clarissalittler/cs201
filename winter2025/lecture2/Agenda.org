@@ -24,7 +24,7 @@ Now let's test out our intuition for how things work
 The real numbers aka the "real number line" is the open interval (-\inf,\inf) consisting of all numbers with arbitrary decimal points
 
 the size of the real numbers = |N|^|N|
-** IEE 754
+** IEEE 754
 Let's talk it out first:
 32 bit 
 

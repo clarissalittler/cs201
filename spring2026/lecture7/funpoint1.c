@@ -23,7 +23,7 @@ int doubler(int n){
 
 void maparr(int arr[], int s,
 	    int (*func)(int)){
-  for(int i=0; i<5; i++){
+  for(int i=0; i<s; i++){
     arr[i] = func(arr[i]);
   }
 }

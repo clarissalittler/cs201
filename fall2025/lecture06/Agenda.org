@@ -6,7 +6,7 @@
    + Reminder: you have to pick a finite subset of the real numbers to represent
      + Breadcrumbs
    + How you pick them matters!
-   + in IEE754 (i.e. the normal floating point standard) the gap between breadcrumbs is HUGE for bigger numbers and absurdly tiny between small numbers
+   + in IEEE 754 (i.e. the normal floating point standard) the gap between breadcrumbs is HUGE for bigger numbers and absurdly tiny between small numbers
    + Posits has a more uniform distribution
  + This will probably never be implemented in your CPU
  + Buuuut maybe the GPU!

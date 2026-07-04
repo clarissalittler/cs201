@@ -13,7 +13,7 @@
    + Instructions?
    + Registers?
  + Writing tiny examples by hand
-* Review of IEE 754
+* Review of IEEE 754
 
 Basic concept:
 you have one (1) sign bit

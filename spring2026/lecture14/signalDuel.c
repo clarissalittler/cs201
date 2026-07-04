@@ -20,7 +20,7 @@ void onHit(int sig){
 void endGame(int sig){
   fighting = 0;
   char msg[] = "Oh, I guess I won?\n";
-  write(1,msg,sizeof(msg));
+  write(1,msg,sizeof(msg)-1); // -1: don't write the terminating NUL byte
 }
 
 int main(){

@@ -1,7 +1,7 @@
 * Agenda
  + Changing our bit-munger to work on floating point
  + Experimentally play with floating point
- + Talking through the IEE754 standard
+ + Talking through the IEEE 754 standard
  + Time to work on assignments (and such)
 
 

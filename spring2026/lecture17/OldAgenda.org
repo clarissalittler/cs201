@@ -1,0 +1,169 @@
+* Agenda
+** Kernel architectures!
+** Why do we have kernels in the first place?
+ - the multiplexing problem: many programs, one CPU/memory/disk/network
+ - the protection problem: a buggy program shouldn't be able to wreck the others
+ - the abstraction problem: writing to a file shouldn't require knowing the disk geometry
+ - classic framing:
+   + Dijkstra, "The Structure of the 'THE'-Multiprogramming System,"
+     CACM 11(5):341--346, May 1968 -- the original "layers of abstraction"
+     OS paper, also the debut of semaphores.
+     https://www.cs.utexas.edu/~EWD/transcriptions/EWD01xx/EWD196.html
+     (EWD archive transcription) -- ACM DOI: https://dl.acm.org/doi/10.1145/363095.363143
+   + Lampson, "Hints for Computer System Design," SOSP-9, 1983 (reprinted
+     IEEE Software, Jan 1984) -- not OS-specific but the design wisdom that
+     keeps showing up in kernel design.
+     https://www.microsoft.com/en-us/research/wp-content/uploads/1983/10/Hints-for-Computer-System-Design-SOSP-version.pdf
+** A monolithic kernel
+ - everything (scheduler, VFS, drivers, network stack) lives in one address space
+ - Linux is the obvious living example; the BSDs and the original UNIX too
+ - reading -- foundational:
+   + Ritchie & Thompson, "The UNIX Time-Sharing System," CACM 17(7):365--375,
+     July 1974 -- the original Unix paper, presented at SOSP-4 (1973). Still the
+     cleanest one-paper description of why the model won.
+     https://www.nokia.com/bell-labs/about/dennis-m-ritchie/cacm.pdf
+   + Bach, /The Design of the UNIX Operating System/ (Prentice Hall, 1986) --
+     the System V book, the canonical long-form description of the monolithic
+     UNIX model
+ - reading -- current:
+   + Bovet & Cesati, /Understanding the Linux Kernel/ (O'Reilly) -- if you
+     want gory current-Linux detail
+   + McKusick et al., /The Design and Implementation of the FreeBSD Operating
+     System/ (Addison-Wesley)
+   + The Linux source itself; https://lwn.net/ is the human-readable companion
+ - an aside: how the monolith stops being so monolithic
+   + eBPF (Extended Berkeley Packet Filter): a sandboxed VM inside the Linux
+     kernel that lets userspace load tiny verified programs to run on kernel
+     events. effectively, Linux ate the most-interesting microkernel idea
+     (load behavior into the kernel without trusting it).
+   + community hub: https://ebpf.io/
+   + Gregg, /BPF Performance Tools: Linux System and Application Observability/
+     (Addison-Wesley, 2019) -- canonical book.
+     https://www.brendangregg.com/bpf-performance-tools-book.html
+** Hybrid kernels: in practice it's a spectrum
+ - everything called a microkernel keeps adding code back into the kernel;
+   everything called a monolithic kernel keeps factoring code back out.
+   labels are fuzzy.
+ - Windows NT family (NT, 2000, XP, 7-11): kernel + HAL + Executive all in
+   kernel mode; subsystems (Win32, POSIX, OS/2) sat above as userspace
+   personalities
+   + Custer, /Inside Windows NT/ (Microsoft Press, 1993) -- the original
+     architecture book
+   + Russinovich, Solomon, Ionescu, Yosifovich, /Windows Internals/ (multiple
+     editions) -- the modern update, in two volumes.
+     https://learn.microsoft.com/en-us/sysinternals/resources/windows-internals
+ - XNU (macOS, iOS, etc.): Mach microkernel core + BSD personality + IOKit
+   (C++ driver framework) all linked into the same kernel binary. people
+   argue whether this counts as "really" a microkernel; the honest answer is
+   "not the way Liedtke meant it." Source: https://github.com/apple-oss-distributions/xnu
+** Micro-kernels and famous examples
+ - tiny kernel (IPC + scheduling + memory), everything else (filesystem,
+   drivers, network) is a userspace server you talk to via messages
+ - the classic critique: message-passing overhead made first-gen microkernels slow
+ - the second-gen answer: design IPC for speed
+ - case studies & papers:
+   + Mach: Accetta, Baron, Bolosky, Golub, Rashid, Tevanian, Young,
+     "Mach: A New Kernel Foundation for UNIX Development," USENIX Summer
+     1986, pp 93--113 -- the famous first-gen microkernel; lives on as the
+     Mach layer inside XNU.
+     https://cseweb.ucsd.edu/classes/wi11/cse221/papers/accetta86.pdf
+   + Liedtke, "Improving IPC by Kernel Design," SOSP-14, 1993 -- the IPC
+     tuning work (got short IPC from ~100µs down to ~5µs) that made L4
+     possible.
+     https://cgi.cse.unsw.edu.au/~cs9242/18/papers/Liedtke_93.pdf
+   + Liedtke, "On µ-Kernel Construction," SOSP-15, 1995 -- the paper that
+     said "microkernels aren't slow, your microkernel was slow," and gave
+     us the minimality principle.
+     https://dl.acm.org/doi/10.1145/224056.224075
+   + Klein, Elphinstone, Heiser, Andronick, Cock, Derrin, Elkaduwe,
+     Engelhardt, Kolanski, Norrish, Sewell, Tuch, Winwood, "seL4: Formal
+     Verification of an OS Kernel," SOSP 2009, pp 207--220 -- first
+     general-purpose OS kernel with a mechanized proof of functional
+     correctness.
+     https://trustworthy.systems/publications/nicta_full_text/1852.pdf
+   + Elphinstone & Heiser, "From L3 to seL4: What Have We Learnt in 20 Years
+     of L4 Microkernels?" SOSP 2013, pp 133--150 -- the retrospective.
+     https://sigops.org/s/conferences/sosp/2013/papers/p133-elphinstone.pdf
+ - living systems worth pointing at:
+   + QNX (commercial real-time microkernel, ships in cars and medical devices) -- https://blackberry.qnx.com/
+   + MINIX 3 (Tanenbaum's microkernel; fun trivia: ran inside the Intel ME
+     for years, making it briefly the most-deployed OS on Earth) -- https://www.minix3.org/
+   + GNU Hurd (the microkernel-on-Mach attempt that has been almost-done
+     since 1990) -- https://www.gnu.org/software/hurd/
+   + seL4 itself is a usable open kernel: https://sel4.systems/
+ - the Tanenbaum--Torvalds debate (comp.os.minix, Jan 29 1992, "LINUX is
+   obsolete") -- excellent assigned reading because both sides are partially
+   right.
+   + full reprint: https://www.oreilly.com/openbook/opensources/book/appa.html
+   + Wikipedia summary: https://en.wikipedia.org/wiki/Tanenbaum%E2%80%93Torvalds_debate
+** Real-time kernels, briefly (different axis from mono/micro)
+ - the question isn't "is it tiny," it's "can it guarantee bounded response
+   time." sometimes that means a microkernel, sometimes a stripped-down
+   monolith.
+ - VxWorks (Wind River) -- the proprietary granddaddy; ran the Mars
+   Pathfinder (and gave us the famous priority-inversion bug story) and
+   many spacecraft. https://www.windriver.com/products/vxworks
+ - FreeRTOS (originally Richard Barry, now AWS) -- MIT-licensed, on tens of
+   billions of microcontrollers. https://www.freertos.org/
+   + Barry, /Mastering the FreeRTOS Real Time Kernel/ -- free PDF:
+     https://www.freertos.org/Documentation/02-Kernel/07-Books-and-manual/01-RTOS_book
+ - Zephyr (Linux Foundation project, since 2016) -- Apache-2.0, multi-arch
+   (ARM/x86/RISC-V), designed for IoT and security-critical embedded work.
+   https://www.zephyrproject.org/ -- source: https://github.com/zephyrproject-rtos/zephyr
+** Nano/pico/exo kernels: a weird frontier
+ - the terminology is fuzzy and partly marketing -- the spirit is "even less
+   in the kernel than a microkernel"
+ - exokernels: the kernel exposes hardware resources directly and safely;
+   libraries in userspace implement what would normally be OS abstractions
+   + Engler, Kaashoek, O'Toole, "Exokernel: An Operating System Architecture
+     for Application-Level Resource Management," SOSP-15, 1995 -- the
+     seminal paper.
+     https://pages.cs.wisc.edu/~bart/736/papers/exo-sosp95.pdf
+   + Engler & Kaashoek, "Exterminate All Operating System Abstractions,"
+     HotOS-V, 1995, pp 78--83 -- the polemic version, very fun to assign.
+     https://people.eecs.berkeley.edu/~brewer/cs262b/hotos-exokernel.pdf
+   + Kaashoek, Engler, Ganger, Briceño, Hunt, Mazières, Pinckney, Grimm,
+     Jannotti, Mackenzie, "Application Performance and Flexibility on
+     Exokernel Systems," SOSP-16, 1997.
+     https://www.cs.utexas.edu/~dahlin/Classes/GradOS/papers/kaashoek97sosp.pdf
+ - unikernels are the modern descendant: ship one application linked against
+   library OS code as a single bootable image
+   + Madhavapeddy, Mortier, Rotsos, Scott, Singh, Gazagnaire, Smith, Hand,
+     Crowcroft, "Unikernels: Library Operating Systems for the Cloud,"
+     ASPLOS 2013 -- the MirageOS paper (won an Influential Paper Award at
+     ASPLOS 2025).
+     https://anil.recoil.org/papers/2013-asplos-mirage.pdf
+   + MirageOS itself: https://mirage.io/
+ - managed-code OSes: type safety instead of hardware memory protection
+   + Hunt & Larus, "Singularity: Rethinking the Software Stack," ACM SIGOPS
+     OSR 41(2):37--49, April 2007 -- Microsoft Research's experiment writing
+     kernel + drivers + apps in a managed language (Sing#) and using the
+     type system, not the MMU, for isolation.
+     https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/osr2007_rethinkingsoftwarestack.pdf
+ - capability-style minimalism, a separate lineage worth a mention:
+   + KeyKOS -> EROS -> Coyotos (Shapiro et al.) -- pure-capability nanokernels.
+     Shapiro, Smith, Farber, "EROS: A Fast Capability System," SOSP-17, 1999:
+     https://dl.acm.org/doi/10.1145/319344.319163
+** Resources to try writing your own kernel
+ - read-along teaching kernels:
+   + xv6 (MIT 6.1810): a small, modernized re-implementation of v6 Unix for
+     x86-64 and RISC-V -- https://pdos.csail.mit.edu/6.1810/
+   + the accompanying xv6 book is the best 100-page intro to a real kernel
+     (PDF linked from the course page above)
+ - free, online, comprehensive:
+   + Arpaci-Dusseau & Arpaci-Dusseau, /Operating Systems: Three Easy Pieces/
+     -- free at https://pages.cs.wisc.edu/~remzi/OSTEP/ (v1.10, Nov 2023)
+ - bootstrapping your own from nothing:
+   + the OSDev wiki: https://wiki.osdev.org/ -- the canonical "I want to
+     boot my own thing on bare metal" reference
+   + Helin & Renberg, /The Little Book About OS Development/ -- free PDF
+     walkthrough, just enough to get a "hello from ring 0":
+     https://littleosbook.github.io/ (PDF at https://littleosbook.github.io/book.pdf)
+ - if you want to do it in Rust:
+   + Philipp Oppermann, "Writing an OS in Rust": https://os.phil-opp.com/
+     -- well-paced, actively maintained blog series with working code at
+     each step (second edition; still publishing in 2026)
+ - around the kernel, not the kernel itself:
+   + Kerrisk, /The Linux Programming Interface/ (No Starch, 2010) -- the
+     definitive Linux syscall reference; useful even if you never write
+     kernel code. Author site with errata and updates: https://man7.org/tlpi/

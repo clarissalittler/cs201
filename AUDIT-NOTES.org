@@ -1,0 +1,262 @@
+#+title:      CS201 Recurring Issues Audit
+#+date:       [2026-02-19 Wed]
+#+filetags:   :meta:audit:teaching:
+
+* Overview
+These notes document recurring technical issues found across multiple terms of CS201, based on a comprehensive audit of all lecture files, examples, and guides. Use this as a checklist when preparing materials for a new term.
+
+* Assembly: Recurring Bugs
+** .long / 64-bit register mismatch (most common)
+When =.long= (32-bit, 4 bytes) data is accessed with 64-bit register operations, the CPU reads 8 bytes from a 4-byte slot, producing garbage results.
+
+This shows up in two forms:
+
+*** Array access with wrong scale factor
+#+begin_example
+  arr1:   .long 1,2,3,4
+  add (%rbx,%rcx,4),%rax    # BUG: reads 8 bytes per element, not 4
+#+end_example
+
+Fix: use =.quad= with scale 8, or use =addl= with =%eax=.
+
+*Affected files (unfixed):*
+- =spring2025/video3/data2.s=
+- =winter2025/lecture4/data2.s=, =data3.s=
+
+*** Single variable loaded into 64-bit register
+#+begin_example
+  num1:   .long 200
+  mov num1(%rip),%rdi        # BUG: reads 8 bytes from 4-byte variable
+#+end_example
+
+Fix: use =.quad=, or =movl num1(%rip),%edi= (zero-extends to =%rdi=).
+
+*Affected files (unfixed):*
+- =spring2025/video3/data0.s=, =data1.s=
+- =winter2025/lecture4/data1.s=
+
+*Fixed [2026-07-04]:*
+- =assembly-examples/02-data/02-data-section.s=, =03-data-types.s= (now =movl= into =%edi=; these matter because the README sends beginners to =assembly-examples/=)
+
+*** Prevention
+Default to =.quad= and scale 8 when writing examples. Only use =.long= when specifically teaching 32-bit operations, and use =l= suffixes consistently (=movl=, =addl=, =%eax=/=%edi=).
+
+** movb without zero-extension in readInt/parseInt
+Every copy of =readInt= across all terms has:
+#+begin_example
+  movb (%rdi,%rcx,1),%r8b   # only sets low byte
+  sub $'0',%r8               # operates on all 64 bits (upper bytes = garbage)
+#+end_example
+
+Fix: =movzbl (%rdi,%rcx,1),%r8d= (zero-extends byte into full register).
+
+*Affected files (unfixed):*
+- =fall2024/lecture8/readInt.s=, =readInt2.s=, =readInt3.s=
+- =fall2025/lecture08/readInt.s=
+- =spring2025/assembly/readInt.s=
+
+*Fixed:*
+- =assemblyGuide.org=
+- =assembly-examples/05-io/02-read-integer.s=
+
+** %rbx clobbered without push/pop
+=%rbx= is callee-saved. Functions that modify it must save/restore it. Every copy of =readInt= and =writeInt= across all terms violates this.
+
+*Affected files (unfixed):*
+- =fall2024/lecture8/readInt3.s=, =stolenWriter.s=
+- =fall2025/lecture08/readInt.s=, =writeInt.s=, =writeIntBad.s=
+- =spring2025/assembly/readInt.s=, =writeInt.s=
+- =winter2025/lecture7/leaQuestion.s=
+
+*Fixed:*
+- =assemblyGuide.org=
+- =assembly-examples/05-io/02-read-integer.s=
+
+** fd=0 for write syscall (should be fd=1)
+Write syscall needs fd=1 (stdout), not fd=0 (stdin). Works on terminals but semantically wrong.
+
+*Affected files (unfixed):*
+- =spring2025/assembly/echoInt.s= (3 instances), =echoInt2.s=, =stacky.s=
+- =winter2025/lecture5/labelTest.s= (2 instances), =echo.s=, =echoBroken.s=
+
+Note: =winter2025/lecture5/echo.s= has read and write fds *completely swapped* (reads from stdout, writes to stdin).
+
+*Fixed:*
+- =assemblyGuide.org= (anonymous labels example)
+
+** Syscall register convention vs function calling convention
+The 4th /syscall/ argument goes in =%r10=, not =%rcx=. This is because =syscall= clobbers =%rcx= (saves =%rip= there). The 4th /function/ argument is =%rcx= per the System V ABI.
+
+Winter 2025 lectures 5 and 6 have the syscall argument list showing =%rcx= as 4th argument. None of the class examples use more than 3 syscall arguments so this never causes a real bug, but it's technically wrong and could confuse students who look it up later.
+
+* C: Recurring Patterns
+** Missing wait() after fork() (most common, 45 files)
+Recurs every single term. Many are intentional early demos, but persists into IPC and signal examples where zombie processes matter.
+
+** Unchecked fork() return value (22 files)
+The =-1= error case is never checked in raw lecture demos. Commented tutorial versions do check it. Recurs every term.
+
+** Missing #include <unistd.h> (18 files)
+Files that call =sleep()=, =fork()=, =read()=, =write()=, =close()= without the header. Biggest cluster is =file-intro/= (7 files).
+
+** int addrlen instead of socklen_t (winter 2025 only)
+All 8 socket files in =winter2025/lecture12/= use =int addrlen= with a =(socklen_t*)= cast. Fixed in fall 2025 and =socket-examples/=.
+
+** Thread-unsafe server pattern (ipc-lecture/ only)
+=ipc-lecture/echoserver.c= has:
+- Global =char buffer[1024]= shared across all client threads
+- Passes =&newSocket= (loop variable address) to threads instead of malloc'd copy
+- Unreachable =close()= calls after =while(1)= loop
+
+Corrected versions exist in =socket-examples/= and =fall2025/sockets-lecture/=.
+
+** #include "stdio.h" instead of <stdio.h> (fall 2025 only)
+47 out of 72 non-commented source files in fall2025 use quoted includes for system headers. Every other term uses angle brackets. The commented versions of the same files use angle brackets, suggesting they were generated separately.
+
+* Lecture Agenda Bugs
+** winter2025/lecture7/Agenda.org: && instead of &
+Line 23: =(returned >> 8) && 0xFF= should be =(returned >> 8) & 0xFF= in the WEXITSTATUS explanation. =&&= is logical AND (returns 0 or 1), not bitwise AND.
+
+** winter2025/lecture-inf/Agenda.org: broken loop unrolling
+Lines 59-65: the "unrolled" loop increments =i= by 1 but accesses =arr[i]= through =arr[i+4]=. Should increment by 5.
+
+** Broken file references (6 total)
+- =winter2025/lecture13/Agenda.org= references =lecture9/pipe1.c= (doesn't exist)
+- =spring2025/forking/Agenda.org= has 5 references to =lecture9/in-class/= (doesn't exist)
+- =spring2025/threading/Agenda.org= references =lecture10/badthreads.c= (doesn't exist)
+
+These all point to a top-level =lecture9/= or =lecture10/= directory from a prior course structure that was reorganized into term-specific directories.
+
+** "IEEE" misspelled as "IEE" (FIXED 2026-07-04)
+Was in 5 legacy agendas, then recurred in spring2026 (lecture2 x4, lecture6 x1).
+All occurrences fixed with a repo-wide sweep on 2026-07-04. When writing new
+agendas: it's "IEEE 754".
+
+** fall2025 lectures 07/08: .long vs .quad inconsistency
+Lecture 07 teaches =.quad= as the standard 64-bit directive. Lecture 08 (one week later) uses =.long 400= without explaining the difference. Confusing because C's =long= is 64 bits on Linux x86-64, but gas =.long= is always 32 bits.
+
+* Topic Coverage Gaps by Term
+| Topic             | Winter 2025 | Spring 2025 | Fall 2025         |
+|-------------------+-------------+-------------+-------------------|
+| Condition vars    | Covered     | Covered     | Not in any Agenda |
+| IPC (pipes/shm)   | Covered     | Covered     | Not in any Agenda |
+| Signals           | 2 lectures  | Not covered | 1 lecture         |
+| Sockets           | Not covered | Not covered | Covered           |
+| Optimizations     | Covered     | Not covered | Not covered       |
+| File I/O          | Covered     | Not covered | Covered           |
+| Dining Philosophers | Covered   | Covered     | Covered           |
+
+* What's Working Well
+- Error checking in socket code improved markedly from winter2025 to fall2025
+- =socket-examples/= and =concurrency-tutorial/= directories are clean and well-organized
+- The three-tier example system (bare/guided/commented) in =assembly-examples/= is pedagogically solid
+- The guides (assemblyGuide.org, concurrencyGuide.org, socketsGuide.org, positTutorial.org) are now the authoritative reference
+- Spring 2025's flipped-classroom format with curated links to the =concurrency-tutorial/= library is effective
+
+* New Term Checklist
+When preparing materials for a new term:
+1. [ ] Default to =.quad= and scale 8 for assembly data examples
+2. [ ] Use =movzbl= instead of =movb= when the full register will be used later
+3. [ ] =push=/=pop= callee-saved registers (=%rbx=, =%rbp=, =%r12-r15=) in library functions
+4. [ ] Use fd=1 for write syscalls, fd=0 for read syscalls
+5. [ ] Use =<>= for system includes, not =""=
+6. [ ] Check =fork()= return for =-1= in all non-trivial examples
+7. [ ] Call =wait()=/=waitpid()= in examples that fork (or comment why not)
+8. [ ] Use =socklen_t= for =accept()= address length parameter
+9. [ ] Don't share global buffers across threads in server examples
+10. [ ] =malloc= a copy of the fd before passing to =pthread_create=
+11. [ ] 4th syscall argument goes in =%r10=, not =%rcx=
+
+* Audit 2026-07-04 (spring 2026, assignments, new material)
+Full re-audit: every spring2026 file read and compiled/assembled; assignments
+tested end-to-end (scaffold implemented per its own TODO recipe and exercised
+with curl); rust-intro built; legacy "unfixed" list re-verified.
+
+** Headline
+Spring 2026 came out *clean of every recurring bug* in this file: no
+=.long=/64-bit mismatches, =movzbl= used in readInt, =%rbx= saved, fd=1 for
+writes, =socklen_t= everywhere, malloc-per-client in threaded servers, and
+the fork/thread/poll/select echo-server progression is correct. The New Term
+Checklist works — keep using it.
+
+Conversely, *nothing* on the legacy unfixed lists had been touched since
+February. Policy going forward: old term directories are an archive (README
+now says so); only fix legacy files that current students are steered toward.
+
+** Fixed 2026-07-04
+All of the following were found in this audit and fixed the same day:
+- assignment4-scaffold: =web/= renamed to =www/= (DOCROOT and all prose said
+  =www/=; a correct student implementation got 404s out of the box)
+- assignment4-scaffold/httpd.c: added =signal(SIGPIPE, SIG_IGN)= — without it
+  one aborted browser connection killed the whole server (verified live);
+  stray compiled =httpd= binary deleted and gitignored
+- assignment2.md: documented that readInt must not be tested with piped input
+  (single =read()= assumption; piped input can crash it)
+- spring2026/lecture15/echoServerPoll.c: new client's =.revents= never
+  cleared (uninitialized stack array) — garbage POLLIN bits could trigger a
+  blocking recv and hang the event loop
+- spring2026/lecture17/BadList.c: used struct tags as type names so *both*
+  variants failed to compile; now =struct BadNode= fails with the intended
+  "incomplete type" error and GoodNode compiles
+- spring2026/lecture14/anonPipeLoopFix.c: parent double-closed =c2p[1]= and
+  never closed =c2p[0]= — in the "close the ends you aren't using" lesson
+- spring2026/lecture13/writefile{1,2}.c: missing =return= after failed open
+  (fell through to =write(-1, ...)=)
+- spring2026/lecture13: openfileagain.c (=fgets= compared with =>0= instead
+  of =!= NULL=, no fopen check), lineEditor.c (=char c= for =getchar()= —
+  same truncation class as the movb bug; "While line" typo), openfile2.c
+  (comment now states opening argv[1] repeatedly is deliberate; =>= 0= fd
+  check)
+- spring2026/lecture14: islong.c (=%d= for sizeof), signalDuel.c
+  (=sizeof(msg)-1= so the NUL isn't written)
+- spring2026: funpoint1.c hardcoded 5 instead of size param; semBouncer.c
+  comments said 3/47 but MAX_CONCURRENT is 6; fun1.s comments denied the
+  %rdi clobber that is the file's own lesson; lecture4/hello.s stale
+  "read-only"/"fd 2" comments; threadCounterStruct.c leftover unused counter;
+  three lecture1/2 files with quoted system includes; lecture6/writeInt.s
+  said INT_MIN for -2^63 (it's LONG_MIN)
+- spring2026 agendas: IEEE 754 typos; "smallest uncountable infinity" claim
+  (that's the Continuum Hypothesis — now just "uncountable"); two's
+  complement all-ones decomposition had wrong exponents; assorted typos
+- spring2026/lecture-notes.tex (PDF rebuilt): pipe-EOF explanation blamed
+  the parent's read end instead of the child's unclosed write-end copy (the
+  substantive one); xor-to-zero byte-count claim; signalDuel listing +
+  narrative now use =sizeof(msg)-1=; added honest footnote that the
+  signalFight handler cheats on async-signal-safety (rand/sprintf); hedged
+  the "mutexes are process-local" claim
+- lecture15 select servers: completed a comment that trailed off
+  mid-sentence, fixed a mislabeled FD_CLR comment
+- lecture16/17: unused import in args.rs, "interator" typo, lecture17
+  Makefile help said "Lecture 16", stray =a.out= removed
+- rust-intro: Makefile now filters out the *deliberately* non-compiling
+  echo2.rs so =make= succeeds; README says echo2 fails on purpose and no
+  longer recommends the nonexistent =rustc --check= flag
+- assembly-examples/05-io/01-echocommented.s: extension snippet used
+  =buffer(%rip,%rcx,1)= which doesn't assemble (RIP-relative can't take an
+  index; now lea + base/index); removed self-contradictory "all registers
+  clobbered by syscall" comments; build instructions used the wrong filename
+- assembly-examples/02-data/{02,03}: =.long= + 64-bit mov fixed (=movl=)
+- README.md: spring2026 + assignments/ + socketsGuide.org added, fall2025 no
+  longer "current", archive note added for old terms, beginners pointed at
+  the current term
+
+** Still open (deliberately)
+- Legacy term files listed above in this doc (archive policy)
+- winter2025 =&&= vs =&=, loop unrolling, broken =lecture9/= references —
+  archive
+- lecture-notes.tex has no sections for lectures 16-17 (Rust) and only a
+  passing mention of echoServerPoll.c — worth writing while fresh
+- Known teaching-simplification: lecture demos skip bind/listen/pipe/mmap
+  error checks; consider one canonical "error checks omitted" comment per
+  file since students copy these into the final project
+- assignments/assignment3.md is still untracked in git — commit it
+
+** New checklist items for future terms
+12. [ ] After changing a =#define= or constant, grep the file's comments for
+    the old value (semBouncer's 3 vs 6)
+13. [ ] When cloning a file into a paired variant, rewrite the comments to
+    describe *this* variant's behavior (fun1.s carried fun2.s's comments)
+14. [ ] Do each assignment once from the scaffold, as a student, before
+    release (the web/ vs www/ rename was invisible to code review)
+15. [ ] =memset=/zero =pollfd= arrays and clear =.revents= on insert
+16. [ ] =int c=, never =char c=, for =getchar()= return values

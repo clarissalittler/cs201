@@ -1,0 +1,59 @@
+* Agenda
+** Ten days remain
+** Rust!
+ - It's kinda fun!
+ - People a few years ago were really annoying about wanting to rewrite everything in Rust
+ - But it's still a fun language
+** Why does Rust exist?
+ - We need to do low level programming, systems programming, &c.
+ - But as we've seen C's typesystem has about as many holes as the plot of [insert a movie you hate here]
+ - You can really shoot yourself in the foot easily with
+   - malloc and free errors
+   - Buffer size mismatches
+   - Casting mismatches
+   - Passing pointers incorrectly
+   - And general type errors caused by the fact that everything "is a number" and can be used in a conditional
+ - Lots of higher-level languages fix all of these /but/ they also end up sacrificing performance with garbage collection and "boxed" types (i.e. heap allocated objects rather than simple types interpretable as bits)
+ - Rust tries to split the difference by having the advantages of a good type system but have it still /feel/ like C *and* no garbage collection
+ - How do you have no garbage collection? With the magic of a linear (more correctly /affine/) type system!
+ - The type system enforces certain conditions of how resources are created and used so it's possible to calculate the point at which it's safe to free allocated memory
+** Your first Rust program: echoing text
+ - =hello.rs= -- println! is a macro, format string is checked at compile time
+ - mutable vs. non-mutable variables
+ - =echo.rs= -- read a line from stdin, .trim(), .expect()
+ - you have to declare things as mut or you can't assign them!
+** Borrowing and iteration
+ - =badborrow.cpp=
+ - =badborrow.moveme= (move it to rs)
+ - =fixborrow.rs=
+ - =iteration1.rs= (loop)
+ - =iteration2.rs= (while)
+ - =iteration3.rs= (for)
+ - =iteration4.rs= (for over a collection)
+ - =iteration5.rs= (for over a collection with borrowing and/or mutation)
+** Writing your own functions
+ - returning values
+ - borrowing vs. owning
+** Vectors in Rust (arrays, but nicer)
+** Arrays in Rust
+** Iteration qua lambda abstraction
+** Bitmunger example, Rust style
+ - =bitmunger.rs=
+** Reading args, dead simple
+ - =args.rs=
+** Files, the Rust way (compare to Lecture 13)
+ - =fileLines.rs= -- File::open, BufReader, .lines(), the =?= operator
+ - no fclose -- the file closes itself when it goes out of scope (RAII)
+ - =lineEditor.rs= -- the Lecture 13 line editor reborn as =Vec<String>=
+** Theads and counters
+ - =thread1.rs=
+ - =thread2.rs=
+ - =sharedCounter.rs= 
+ - =Arc<Mutex<i32>>= 
+ - the lock releases on scope exit, much like how free-ing is done
+** Channels: pipes, but type-safe (compare to Lecture 14)
+ - =channels.rs= -- mpsc::channel between threads
+ - send/receive whole typed values, not bytes
+ - dropping every sender automatically closes the channel
+ - the receiver is an Iterator -- =for msg in rx= just works
+

@@ -63,7 +63,8 @@ int main(int argc, char* argv[]){
 
         FD_SET(conn, &reference);            // start watching the newcomer
         if(conn > maxfd) {
-	  // if we've increased the max number of connections we have to 
+	  // new high-water mark: select()'s first argument is maxfd+1,
+	  // so we have to keep track of the largest fd we're watching
 	  maxfd = conn;
 	}
 

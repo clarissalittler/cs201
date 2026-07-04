@@ -26,7 +26,7 @@ void printFile(char** ls, int nL){
 void insLine(int line, char** ls, int* nL){
 
   char* newLine = malloc(linesize*sizeof(char));
-  char c;
+  int c; // int, not char: getchar() returns an int so EOF (-1) stays distinguishable from byte 0xFF
   printf("New text to insert at line %d:\n",line);
 
   while ((c = getchar()) != '\n' && c != EOF); // trick for clearing the input buffer
@@ -52,7 +52,7 @@ void delLine(int line, char** ls, int* nL){
 void editLine(int line, char** ls, int nL){
   (void)nL;
   printf("Type the text you want to replace line %d:\n",line);
-  char c;
+  int c; // int, not char: getchar() returns an int so EOF (-1) stays distinguishable from byte 0xFF
   
   while ((c = getchar()) != '\n' && c != EOF);
   
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]){
     switch(option){
       int line;
     case 0:
-      printf("While line to edit?: ");
+      printf("Which line to edit?: ");
       scanf("%d",&line);
       editLine(line, lines, numLines);
       break;
