@@ -25,6 +25,20 @@
   stringstyle=\color{red!60!black}
 }
 
+% listings doesn't know Rust out of the box
+\lstdefinelanguage{Rust}{
+  keywords={fn, let, mut, match, enum, struct, impl, for, while, loop,
+    if, else, return, use, pub, self, Self, type, trait, move, break,
+    continue, in, as, where, ref, mod, crate, dyn, unsafe},
+  morekeywords=[2]{i32, u32, i64, u64, f64, usize, bool, str, String,
+    Vec, Option, Some, None, Result, Ok, Err, Box, Arc, Mutex},
+  keywordstyle=[2]\color{teal!60!black},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]"
+}
+
 \title{CS201 Spring 2026 --- Lecture Notes}
 \author{Clarissa Littler \& Claude Opus}
 \date{Spring 2026}
@@ -3728,7 +3742,8 @@ the shared region instead of the runtime.
 
 \section{Lecture 15 --- Internet Sockets: Echo Servers, Web Servers, and Handling Many Clients}
 
-This is the last lecture of new content for the class, and it's the
+This is the last lecture of new \emph{C} content for the class (there's
+a Rust epilogue in the next two lectures), and it's the
 one where all the IPC stuff from last time grows up and learns to
 talk over a network. Unix domain sockets gave us the
 \texttt{socket}/\texttt{bind}/\texttt{listen}/\texttt{accept} dance
@@ -4221,5 +4236,801 @@ FD_CLR(fd, &reference);   // one request, one answer, then stop watching
 Note that closing a socket does not remove it from an
 \texttt{fd\_set} --- that part is on you, which is why the
 \texttt{close} and the \texttt{FD\_CLR} always travel together.
+
+\section{Lecture 16 --- Rust: Systems Programming With a Type System That Fights Back}
+
+Ten days remain in the term, so it's time for the victory lap: Rust.
+Why end a C class with a different language? Because after nine weeks
+of C you have earned the right to appreciate what Rust is \emph{for}.
+We have personally met most of the ways C lets you hurt yourself ---
+\texttt{malloc}/\texttt{free} errors, buffer size mismatches, casts
+that reinterpret bits without asking, pointers passed to the wrong
+place, and the general looseness of ``everything is a number and any
+number can go in an \texttt{if}.'' Higher-level languages fix all of
+that, but they usually pay for it with garbage collection and boxed,
+heap-allocated everything. Rust's pitch is that you can have a real
+type system \emph{and} still feel like you're writing C, with no
+garbage collector --- the trick is a \emph{linear} (more precisely,
+\emph{affine}) type system that tracks who owns each value, so the
+compiler can calculate the exact point where it's safe to free memory
+and just\ldots put the free there for you.
+
+\subsection*{Hello and \texttt{echo}}
+
+The obligatory first program:
+
+\begin{lstlisting}[language=Rust]
+fn main() {
+    println!("Hello, world!");
+}
+\end{lstlisting}
+
+The \texttt{!} matters: \texttt{println!} is a \emph{macro}, not a
+function, and it expands at compile time --- which means the format
+string and its arguments get \emph{checked} at compile time. Remember
+lecture 13, where \texttt{printf("\%d", sizeof(thingy))} compiled fine
+and just warned at us? In Rust a format-string/argument mismatch is a
+build error, full stop.
+
+\texttt{echo.rs} is our \texttt{read}-a-line-and-say-it-back program:
+
+\begin{lstlisting}[language=Rust]
+use std::io;
+
+fn main() {
+    let mut input = String::new(); // okay we need to talk about mut
+    println!("Say something: ");
+    io::stdin()
+        .read_line(&mut input)
+        .expect("reading stdin failed");
+
+    // read_line keeps the trailing newline; .trim() strips it
+    println!("You said: {}", input.trim());
+}
+\end{lstlisting}
+
+Two things to internalize:
+\begin{itemize}
+  \item Variables are \emph{immutable by default}. If you don't write
+    \texttt{mut}, you can't assign to it again --- and you can't pass
+    it somewhere that intends to modify it. Compare C, where
+    \texttt{const} exists but is opt-in and half the world ignores it.
+  \item \texttt{read\_line} doesn't return the string; it returns a
+    \texttt{Result} saying whether reading worked, and fills in the
+    buffer you lent it. \texttt{.expect(...)} says ``crash with this
+    message if it failed.'' It's the same information as C's
+    \texttt{-1} return values, except you \emph{cannot} forget to
+    look at it silently --- the compiler warns about an ignored
+    \texttt{Result}.
+\end{itemize}
+
+\subsection*{Borrowing, or: the bug C++ let us write}
+
+To see what ownership buys us, we first wrote the bug in C++, where
+it compiles happily. \texttt{badborrow.cpp}:
+
+\begin{lstlisting}[language=C++]
+vector<int> v{1, 2, 3};
+int& first = v[0];
+cout << first << endl;
+v.push_back(4);             // realloc moves the buffer; `first` now dangles
+cout << first << endl;      // this compiles but is naaaasty
+\end{lstlisting}
+
+\texttt{push\_back} can reallocate the vector's backing buffer, at
+which point \texttt{first} is a reference into freed memory. This is
+exactly the class of bug we spent lecture 3 worrying about, just
+wearing nicer syntax.
+
+The same program in Rust lives in \texttt{badborrow.moveme} --- the
+extension is a joke with a purpose: rename it to \texttt{.rs} and try
+to build it, and the compiler simply says no:
+
+\begin{lstlisting}[language=Rust]
+fn main() {
+    let mut v = vec![1, 2, 3];
+    let first = &v[0];
+    v.push(4);            // may reallocate the backing buffer
+    println!("{first}");  // error: cannot borrow `v` as mutable
+    // because it is also borrowed as immutable
+}
+\end{lstlisting}
+
+The rule: you can have either \emph{many} readers (\texttt{\&v}) or
+\emph{one} writer (\texttt{\&mut v}) at a time, never both. Holding
+\texttt{first} (a reader) across \texttt{v.push(4)} (a writer) is a
+compile error. And \texttt{fixborrow.rs} shows the fix is just
+reordering --- the borrow checker tracks \emph{last use}, so once the
+\texttt{println!} is above the \texttt{push}, the borrow has already
+ended and everything is fine:
+
+\begin{lstlisting}[language=Rust]
+fn main() {
+    let mut v = vec![1, 2, 3];
+    let first = &v[0];
+    println!("{first}");  // last use of `first`
+    v.push(4);            // fine -- the borrow ended at the line above
+}
+\end{lstlisting}
+
+\subsection*{Iteration, six ways}
+
+The \texttt{iteration$N$.rs} files walk through the loop forms; the
+interesting content is in what changes between them.
+\texttt{iteration1} is \texttt{loop} (an honest
+\texttt{while(1)} with \texttt{break}), \texttt{iteration2} is
+\texttt{while}, \texttt{iteration3} is \texttt{for x in 1..4} over a
+range. Then it gets Rust-flavored:
+
+\begin{lstlisting}[language=Rust]
+// iteration4.rs -- for over a collection
+fn main(){
+    let v = vec![1,2,3,4];
+    for x in v {
+        println!("{x}");
+    }
+}
+\end{lstlisting}
+
+Looks innocent, but \texttt{for x in v} \emph{consumes} the vector ---
+ownership of \texttt{v} moves into the loop, and after it, \texttt{v}
+is gone. Try to use \texttt{v} again below the loop and the compiler
+will tell you it was moved. If you want to look without taking, you
+borrow, which is \texttt{iteration5.rs}:
+
+\begin{lstlisting}[language=Rust]
+fn main(){
+    let v = vec![1,2,3,4];
+    for x in &v {
+        let mut y = *x;
+        y += 1;
+        println!("{y}");
+    }
+    for x in v {
+        println!("{x}");
+    }
+}
+\end{lstlisting}
+
+The first loop borrows (\texttt{\&v}), so each \texttt{x} is a
+reference and we copy out of it with \texttt{*x} --- note that
+bumping \texttt{y} does \emph{not} change the vector, which is why
+the second loop (which finally consumes \texttt{v}) still prints
+\texttt{1 2 3 4}. If you actually want to mutate in place, you say so
+out loud, which is \texttt{iteration6.rs}:
+
+\begin{lstlisting}[language=Rust]
+fn main(){
+    let mut v = vec![1,2,3,4];
+    for x in &mut v {
+        *x += 1;
+        println!("{:?}",*x);
+    }
+    for x in v {
+        println!("{x}");
+    }
+}
+\end{lstlisting}
+
+This time the second loop prints \texttt{2 3 4 5}. Three loops over
+the same vector, three different relationships to it: own it, borrow
+it, borrow it mutably. In C all three of these look identical at the
+call site.
+
+\subsection*{Functions, and the move you didn't mean to make}
+
+\texttt{func1.rs} shows the syntax --- note there's no
+\texttt{return}; the last expression of a function (no semicolon!) is
+its value:
+
+\begin{lstlisting}[language=Rust]
+fn helper(x : i32) -> i32 {
+    x+1
+}
+\end{lstlisting}
+
+The pair to study is \texttt{func2bad} versus \texttt{func2.rs}
+(\texttt{func2bad} has no extension for the same reason
+\texttt{badborrow.moveme} doesn't --- it's deliberately unbuildable).
+The bad version takes the vector by value:
+
+\begin{lstlisting}[language=Rust]
+fn helper(v : Vec<i32>) -> u32 { ... }
+
+fn main() {
+    let v = vec![1,2,3,4];
+    println!("{}",helper(v));   // v MOVES into helper and dies there
+
+    for x in v {                // error: use of moved value `v`
+        println!("{x}");
+    }
+}
+\end{lstlisting}
+
+Passing \texttt{v} to \texttt{helper} \emph{gives it away}. The fix
+in \texttt{func2.rs} is one character at the call site and one in the
+signature: \texttt{helper(v : \&Vec<i32>)} and
+\texttt{helper(\&v)} --- lend, don't give. This is the discipline C
+makes you keep in your head (``who frees this? who's allowed to still
+use it?''), written down in the types and enforced.
+
+\subsection*{Vectors, \texttt{Option}, and the end of in-band errors}
+
+\texttt{vectors1.rs} pops from a vector and prints
+\texttt{Some(4)} --- not \texttt{4}. \texttt{pop()} returns
+\texttt{Option<i32>}, because the vector might be empty, and Rust
+makes ``might not be there'' part of the type instead of an in-band
+sentinel like C's \texttt{-1} or \texttt{NULL}. The three files are a
+progression of how you can respond to that:
+
+\begin{lstlisting}[language=Rust]
+// vectors2.rs -- the honest way to crash
+let mut v = vec![];
+println!("{:?}",v.pop());              // None
+let x : i32 = v.pop().unwrap();        // panics right here
+\end{lstlisting}
+
+\texttt{.unwrap()} is ``I promise it's there'' --- and when it isn't,
+you get a clean panic pointing at this exact line, not memory
+corruption three functions later. \texttt{vectors3.rs} does it
+properly, with the thing we'll spend all of next lecture on ---
+\texttt{match}:
+
+\begin{lstlisting}[language=Rust]
+match v.pop() {
+    Some(x) => println!("{x}"),
+    None => println!("What have you done!")
+}
+\end{lstlisting}
+
+A \texttt{match} must be \emph{exhaustive}: leave out the
+\texttt{None} arm and the program doesn't compile. \texttt{res.rs}
+shows the same shape for operations that can fail with a reason,
+\texttt{Result<T, E>} with \texttt{Ok}/\texttt{Err} arms --- that's
+the type \texttt{read\_line} and friends have been handing us all
+lecture.
+
+\subsection*{Old friends: bitmunger and \texttt{args}}
+
+\texttt{bitmunger.rs} is lecture 1's interactive bit-flipper reborn.
+The loop is the same --- print the number, print its bits, flip a
+bit, maybe two's-complement it --- and the bit operators are
+literally the same (\texttt{num \^{}= 1i32 << bit}). What changes is
+what we can \emph{say} about the number:
+
+\begin{lstlisting}[language=Rust]
+println!("value (signed)   : {num}");
+println!("value (unsigned) : {}", num as u32);  // conversion is explicit
+println!("bits             : {:032b}", n as u32); // all 32 bits, zero-padded
+
+fn twos_complement(n: i32) -> i32 {
+    // ~(x - 1) is the C trick from the original; in Rust !x is bitwise
+    // NOT (not logical), and wrapping_sub keeps us from panicking on
+    // INT_MIN in debug builds. Equivalent to n.wrapping_neg().
+    !n.wrapping_sub(1)
+}
+\end{lstlisting}
+
+\texttt{i32} and \texttt{u32} are different types and converting
+between them takes an explicit \texttt{as} --- no silent
+signed/unsigned surprises. And \texttt{\{:032b\}} gives us the
+binary-printing loop we hand-wrote in C for free.
+
+Command-line arguments are similarly anticlimactic
+(\texttt{args.rs}, the whole file):
+
+\begin{lstlisting}[language=Rust]
+use std::env;
+
+fn main() {
+    for arg in env::args() {
+        println!("{arg}");
+    }
+}
+\end{lstlisting}
+
+No \texttt{argc}, no \texttt{argv}, no \texttt{char**} --- arguments
+are just an iterator of \texttt{String}s.
+
+\subsection*{Files, the Rust way (compare to lecture 13)}
+
+\begin{lstlisting}[language=Rust]
+use std::env;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
+
+fn main() -> io::Result<()> {
+    let path = env::args().nth(1).expect("usage: fileLines <file>");
+
+    let file = File::open(&path)?;            // ? returns Err on failure
+    let reader = BufReader::new(file);
+
+    for (i, line) in reader.lines().enumerate() {
+        let line = line?;                     // line is itself a Result
+        println!("{:4}: {}", i + 1, line);
+    }
+
+    Ok(())
+}
+\end{lstlisting}
+
+Things to notice against our lecture 13 file programs:
+\begin{itemize}
+  \item \texttt{main} itself returns a \texttt{Result}, and the
+    \texttt{?} operator means ``if this was an \texttt{Err}, return
+    it from the current function right now, otherwise unwrap the
+    \texttt{Ok}.'' It's the early-\texttt{return}-on-failed-\texttt{open}
+    pattern from \texttt{writefile1.c}, as one character.
+    (Next lecture we'll write out by hand exactly what \texttt{?}
+    expands to.)
+  \item There is no \texttt{fclose}. When \texttt{file} goes out of
+    scope it closes itself --- the same ownership machinery that
+    frees memory also releases file descriptors. This idea (RAII, if
+    you want the C++ name for it) is the answer to every ``fd leak''
+    comment I've made on lecture code this term.
+  \item \texttt{BufReader} is the \texttt{stdio}-style buffering
+    layer, opt-in and explicit --- the two-layer story from lecture
+    13 (raw fds vs.\ \texttt{FILE*}) exists here too, it's just that
+    both layers are visible in the types.
+\end{itemize}
+
+\texttt{lineEditor.rs} is the pay-off: lecture 13's ``tiny terrible
+line editor,'' which in C was a swarm of \texttt{malloc}/\texttt{free},
+manual array-shifting loops and a \texttt{fgets}-vs-\texttt{scanf}
+gotcha, becomes a \texttt{Vec<String>} plus four short functions ---
+\texttt{insert} is \texttt{lines.insert(i, s)}, \texttt{delete} is
+\texttt{lines.remove(i)}, and saving is \texttt{File::create} (which
+truncates, like \texttt{O\_TRUNC}) plus a \texttt{writeln!} per line.
+No raw pointers, nothing to free, no way to leak a line buffer. Go
+diff it against the C version; that's the whole sales pitch in one
+file pair.
+
+\subsection*{Threads and the shared counter, one more time}
+
+\texttt{thread1.rs} and \texttt{thread2.rs} are our lecture 7 thread
+spawner. The diff between them is one keyword: the closure in
+\texttt{thread2} says \texttt{move}, because it uses the loop
+variable \texttt{i}, and a thread that outlives the loop iteration
+cannot \emph{borrow} \texttt{i} --- it has to take its own copy.
+Sound familiar? This is the \texttt{\&i}-passed-to-\texttt{pthread\_create}
+bug from lecture 8, except here the program that has the bug
+\emph{does not compile}, and the fix (\texttt{move}) is demanded by
+name.
+
+The same thing happens with the shared counter.
+\texttt{sharedCounter.rs} keeps the naive translation of lecture 8's
+racy \texttt{thread3.c} in a comment, because it's rejected outright
+--- two closures can't both capture \texttt{counter} mutably. The
+version that compiles is:
+
+\begin{lstlisting}[language=Rust]
+let counter = Arc::new(Mutex::new(0i32));
+
+let mut handles = Vec::new();
+for _ in 0..2 {
+    let c = Arc::clone(&counter);   // bump the refcount for the new thread
+    handles.push(thread::spawn(move || {
+        for _ in 0..100_000 {
+            let mut guard = c.lock().unwrap(); // *guard is the i32
+            *guard += 1;
+            // guard is dropped here -> mutex released. no manual unlock.
+        }
+    }));
+}
+
+for h in handles { h.join().unwrap(); }
+
+println!("final counter (expected 200000): {}", *counter.lock().unwrap());
+\end{lstlisting}
+
+Read the type inside-out: \texttt{Arc<Mutex<i32>>} is a reference-counted
+pointer (so multiple threads can co-own it) around a mutex (so only
+one of them can touch it at a time) around the actual number. Two
+things worth savoring after lecture 8:
+\begin{itemize}
+  \item The data \emph{lives inside} the mutex. In C the mutex and
+    the counter were two separate globals whose association existed
+    only in our heads --- nothing stopped a thread from incrementing
+    the counter without taking the lock. Here the only way to reach
+    the \texttt{i32} is through \texttt{.lock()}.
+  \item There is no \texttt{unlock}. The lock guard releases the
+    mutex when it goes out of scope, exactly the way files close
+    themselves --- so the ``forgot to unlock on the early-return
+    path'' deadlock from lecture 8 is unwriteable.
+\end{itemize}
+
+\subsection*{Channels: pipes, but type-safe (compare to lecture 14)}
+
+\texttt{channels.rs} is our producer/consumer pipe demo, reborn:
+
+\begin{lstlisting}[language=Rust]
+let (sender, receiver) = mpsc::channel::<String>();
+
+// we can clone the sender as many times as we want; each clone is
+// its own producer. dropping ALL of them is what closes the channel.
+let sender2 = sender.clone();
+
+let p1 = thread::spawn(move || {
+    for i in 0..5 {
+        sender.send(format!("producer-A says {i}")).unwrap();
+        thread::sleep(Duration::from_millis(120));
+    }
+    // sender dropped here
+});
+
+// ...producer-B does the same with sender2...
+
+// we can treat this as an iterator!
+for msg in receiver {
+    println!("got: {msg}");
+}
+\end{lstlisting}
+
+Set this next to lecture 14's \texttt{anonPipeLoop.c} and the
+correspondences line up one-for-one, each a little nicer:
+\begin{itemize}
+  \item You send and receive whole \emph{typed values}
+    (\texttt{String}s here), not byte counts into a buffer you hope
+    is big enough.
+  \item ``Close the ends you aren't using'' happens by itself: each
+    producer's sender is dropped when its closure ends, and when the
+    \emph{last} sender is gone the channel reports end-of-stream ---
+    which is exactly the every-write-end-must-close EOF rule from
+    lecture 14, minus the chance to forget one.
+  \item The receiver is an iterator, so the read loop is a
+    \texttt{for}. When the loop ends, you \emph{know} all producers
+    are finished --- it's \texttt{read() == 0} on a pipe, as control
+    flow.
+\end{itemize}
+
+That's the tour. Next time: making our own types --- structs, enums
+that are secretly algebraic datatypes, and linked lists without
+tears.
+
+\section{Lecture 17 --- Rust II: Structs, Enums, ADTs, and Lists Without Tears}
+
+One thing I didn't mention last time, on the ``why Rust'' pile:
+it's the first language other than C to make real headway into the
+Linux kernel. Whatever you think of the language, that's an
+existence proof that the systems-programming world considers the
+ownership discipline worth the trouble.
+
+Today is about making our own types, and the arc of the lecture is:
+structs (fine, you've seen structs), then enums (which look like C
+enums right up until they don't), then the reveal that Rust enums
+are \emph{algebraic datatypes} and suddenly we're building linked
+lists that can't dangle.
+
+\subsection*{Structs, methods, and \texttt{impl}}
+
+\texttt{structs1.rs} builds a little 2-D vector type:
+
+\begin{lstlisting}[language=Rust]
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Vec2 {
+    x: f64,
+    y: f64
+}
+
+impl Vec2 {
+    fn origin() -> Vec2 {
+        Vec2{x : 0.0, y: 0.0}
+    }
+    fn scale(&mut self, c : f64) {
+        self.x = c*self.x;
+        self.y = c*self.y;
+    }
+    fn norm(&self) -> f64 {
+        (self.x * self.x + self.y*self.y).sqrt()
+    }
+    fn add(&self, v : Vec2) -> Vec2 {
+        Vec2{x: self.x + v.x, y: self.y+v.y}
+    }
+    fn dot(&self, v : Vec2) -> f64 {
+        self.x * v.x + self.y * v.y
+    }
+}
+\end{lstlisting}
+
+The data declaration looks like C. What's new:
+\begin{itemize}
+  \item Methods live in a separate \texttt{impl} block, and the
+    borrow rules from last lecture apply to \texttt{self} too:
+    \texttt{norm} and \texttt{dot} take \texttt{\&self} (just
+    looking), \texttt{scale} takes \texttt{\&mut self} (mutating, so
+    the caller's binding must be \texttt{mut}). The signature tells
+    you whether a call can change your value --- C structs passed by
+    pointer never make that promise.
+  \item \texttt{origin()} has no \texttt{self} at all --- it's an
+    associated function, called as \texttt{Vec2::origin()}, filling
+    the role of a constructor.
+  \item The \texttt{\#[derive(...)]} line asks the compiler to write
+    boilerplate for us: \texttt{Debug} is what makes
+    \texttt{\{:?\}} printing work, \texttt{PartialEq} gives us
+    \texttt{==}, and \texttt{Clone, Copy} says a \texttt{Vec2} is
+    plain-old-data that can be duplicated bit-for-bit instead of
+    moved --- which is why \texttt{add(\&self, v : Vec2)} can take
+    its argument by value without eating it. (There's also an
+    \texttt{impl fmt::Display} in the file, which is how you teach
+    \texttt{\{\}}-printing to print \texttt{(3, 4)} instead of a
+    debug dump.)
+\end{itemize}
+
+\subsection*{Enums: from C-style to \texttt{TryFrom}}
+
+\texttt{enums1.rs} starts somewhere deliberately boring:
+
+\begin{lstlisting}[language=Rust]
+#[derive(PartialEq)]
+enum CSClasses {
+    CS250,
+    CS201,
+    CS161,
+    CS162,
+    CS251,
+    CS260
+}
+
+fn main(){
+    println!("{}",CSClasses::CS250 == CSClasses::CS251);
+}
+\end{lstlisting}
+
+So far this is a C \texttt{enum} with namespacing. The important
+\emph{difference} from C is what's missing: there is no implicit
+integer underneath. You can't do arithmetic on these, can't compare
+them with \texttt{<} unless you ask, and --- the part that matters
+--- you can't just cast a user-supplied integer into one and hope.
+That last restriction is the whole plot of the next two files, whose
+shared question is: \emph{how do you get from an untrusted
+\texttt{u32} to a trusted \texttt{CSClasses}?}
+
+\texttt{enums2.rs} answers with a function returning
+\texttt{Option}:
+
+\begin{lstlisting}[language=Rust]
+impl CSClasses {
+    // The safe "read into the enum" step: every path returns a value,
+    // and anything we don't recognize becomes None instead of garbage.
+    fn from_number(n: u32) -> Option<CSClasses> {
+        match n {
+            250 => Some(CSClasses::CS250),
+            201 => Some(CSClasses::CS201),
+            161 => Some(CSClasses::CS161),
+            162 => Some(CSClasses::CS162),
+            251 => Some(CSClasses::CS251),
+            260 => Some(CSClasses::CS260),
+            _   => None,
+        }
+    }
+}
+\end{lstlisting}
+
+and then \texttt{main} has two fallible steps to sequence --- the
+parse might fail, and the number might not be a class --- which it
+handles with an honest nested \texttt{match}. That works, but the
+nesting is the smell. \texttt{enums3.rs} cleans it up by moving the
+conversion into the standard \texttt{TryFrom} trait (a trait is
+Rust's interface mechanism --- ``types that implement this behavior''):
+
+\begin{lstlisting}[language=Rust]
+impl TryFrom<u32> for CSClasses {
+    // The Error type is part of the contract: what do you get on failure?
+    type Error = String;
+
+    fn try_from(n: u32) -> Result<CSClasses, Self::Error> {
+        match n {
+            250 => Ok(CSClasses::CS250),
+            // ...
+            _   => Err(format!("{} isn't a CS class I know about.", n)),
+        }
+    }
+}
+
+let result = line
+    .trim()
+    .parse::<u32>()
+    .map_err(|_| "That wasn't even a number!".to_string())
+    .and_then(CSClasses::try_from);
+
+match result {
+    Ok(class) => println!("Got a real class: {:?}", class),
+    Err(msg)  => println!("{}", msg),
+}
+\end{lstlisting}
+
+The diff from \texttt{enums2} to \texttt{enums3} is the lesson:
+\texttt{Option} said only ``it didn't work''; \texttt{Result}'s
+\texttt{Err} carries \emph{why}. And once both failure-prone steps
+speak \texttt{Result}, they chain --- \texttt{map\_err} translates
+the parse error into our error type, \texttt{and\_then} runs the
+second step only if the first succeeded, and one final \texttt{match}
+handles everything. The nested-\texttt{if}, early-return
+error-handling ladders we wrote in C all term are being replaced by
+plumbing that composes.
+
+\subsection*{The reveal: enums have fields}
+
+Here's where Rust enums stop being C enums. \texttt{adts1.rs}:
+
+\begin{lstlisting}[language=Rust]
+#[derive(PartialEq)]
+enum Thingy {
+    AThing(i32),
+    Another(f64,f64),
+}
+
+fn main(){
+    let t = Thingy::AThing(5);
+    match t {
+        Thingy::AThing(i) => println!("{i}"),
+        Thingy::Another(f1,f2) => println!("{f1},{f2}")
+    }
+}
+\end{lstlisting}
+
+Each variant can carry its own payload --- a \texttt{Thingy} is
+\emph{either} an \texttt{i32} \emph{or} a pair of \texttt{f64}s, and
+\texttt{match} is how you find out which, binding the fields as it
+goes. C's closest cousin is a tagged union (a \texttt{union} plus an
+enum tag you maintain by hand and promise to check), except here the
+tag is invisible, automatic, and \emph{checkable}: you cannot read
+the \texttt{f64}s out of something that's currently an
+\texttt{AThing}.
+
+In the functional-programming world these are called \emph{algebraic
+datatypes}, and Haskell people write them like the snippets in
+\texttt{adts.hs} / \texttt{Tree.hs}, which are worth a squint even if
+you've never seen Haskell --- because they reveal that our friends
+from last lecture,
+
+\begin{lstlisting}
+data Result a b = Ok a | Err b
+
+data Option a = Some a | None
+\end{lstlisting}
+
+are not compiler magic at all. \texttt{Option} and \texttt{Result}
+are just enums with fields, defined in the standard library the same
+way we just defined \texttt{Thingy}. The entire error-handling story
+of the last two lectures is one language feature.
+
+\subsection*{Lists without tears (and \texttt{BadList.c}, with tears)}
+
+Enums with fields plus generics gets us recursive data structures.
+First, the C warm-up \texttt{BadList.c}, which exists to fail:
+
+\begin{lstlisting}[language=C]
+struct BadNode {
+  int payload;
+  struct BadNode next;
+}; // size(BadNode) = 4 + size(BadNode)
+
+struct GoodNode {
+  int payload;
+  struct GoodNode* next;
+}; // size(GoodNode) = 4 + 8
+\end{lstlisting}
+
+\texttt{BadNode} won't compile --- a struct that contains itself has
+infinite size (the compiler says ``field has incomplete type,''
+which is its way of refusing to solve
+$\mathrm{size} = 4 + \mathrm{size}$). The fix in C is indirection: a
+\emph{pointer} to the next node is 8 bytes no matter how long the
+list is. Rust has exactly the same constraint, and \texttt{lists1.rs}
+solves it the same way --- \texttt{Box<T>} is an owned pointer to a
+heap allocation, Rust's typed, self-freeing \texttt{malloc}:
+
+\begin{lstlisting}[language=Rust]
+enum List<T> {
+    Cons(T, Box<List<T>>),
+    Nil,
+}
+
+impl<T> List<T> {
+    fn new() -> Self {
+        List::Nil
+    }
+    fn prepend(self, elem: T) -> Self {
+        List::Cons(elem, Box::new(self))
+    }
+    fn len(&self) -> usize {
+        match self {
+            List::Cons(_, next) => 1 + next.len(),
+            List::Nil => 0,
+        }
+    }
+    fn head(&self) -> Option<&T> {
+        match self {
+            List::Cons(elem, _) => Some(elem),
+            List::Nil => None,
+        }
+    }
+}
+\end{lstlisting}
+
+A list is either \texttt{Nil} or a value plus a boxed rest-of-list
+--- compare \texttt{data List a = Cons a (List a) | Nil} in
+\texttt{adts.hs}; it's the same declaration. The \texttt{<T>} makes
+it generic over the element type, like \texttt{Vec<i32>} vs
+\texttt{Vec<String>}. Notice what's absent versus every linked list
+you've ever written in C: no \texttt{malloc} checks, no
+\texttt{free} walk at the end, no possibility of a dangling
+\texttt{next}.
+
+\texttt{lists2.rs} restyles the same structure the way real Rust
+code tends to (a struct wrapping \texttt{type Link<T> =
+Option<Box<Node<T>>>} --- ``null or pointer,'' but as a type the
+compiler checks) and adds mutation, which brings in two idioms worth
+staring at:
+
+\begin{lstlisting}[language=Rust]
+fn push(&mut self, elem: T) {
+    let new_node = Box::new(Node {
+        elem,
+        next: self.head.take(),
+    });
+    self.head = Some(new_node);
+}
+
+fn pop(&mut self) -> Option<T> {
+    match self.head.take() {
+        Some(node) => {
+            self.head = node.next;   // reattach the tail
+            Some(node.elem)          // hand the element back by value
+        }
+        None => None,
+    }
+}
+\end{lstlisting}
+
+\begin{itemize}
+  \item \texttt{.take()} pulls the value out of an \texttt{Option},
+    leaving \texttt{None} in its place. It exists because of
+    ownership: you can't just move \texttt{self.head} out of a
+    borrowed struct and leave a hole --- \texttt{take} swaps in a
+    valid placeholder in the same motion. It's the pointer-juggling
+    step of every C list insert, made un-forgettable.
+  \item \texttt{while let Some(x) = list.pop()} in \texttt{main} is
+    the standard drain-the-list loop: keep popping until a
+    \texttt{None} shows up. Compare our C loops that walk a list
+    checking \texttt{!= NULL} --- same shape, but the \texttt{x} you
+    get is guaranteed present.
+\end{itemize}
+
+\subsection*{Writing \texttt{?} ourselves}
+
+Last time I promised we'd de-mystify the \texttt{?} operator. The
+pair is \texttt{fileLines.rs} (last lecture's version, using
+\texttt{?}) and \texttt{fileLines2.rs}, identical except the loop
+body writes out by hand what \texttt{?} was doing:
+
+\begin{lstlisting}[language=Rust]
+for (i, line) in reader.lines().enumerate() {
+    match line {
+        Ok(l) => println!("{:4}: {}", i + 1, l),
+        Err(e) => return Err(e)
+    }
+}
+\end{lstlisting}
+
+That's the whole trick: \texttt{line?} \emph{is} ``\texttt{match}; on
+\texttt{Ok}, unwrap; on \texttt{Err}, return the error from this
+function right now.'' Now that we've built enums and matches
+ourselves, there is nothing left in our Rust programs that's magic
+--- \texttt{Option}, \texttt{Result}, and \texttt{?} are all things
+we could have written.
+
+\subsection*{Coda: where to go from here}
+
+That's the term. If this class worked, C should now feel less like
+arbitrary rules and more like a thin, honest layer over the machine
+--- and Rust like someone wrote down all the discipline C demanded
+of you and handed it to the compiler. For the curious: there's a
+reading list on kernel architectures (monolithic vs.\ micro vs.\ exo,
+with all the classic papers, plus resources for writing your own
+kernel --- including in Rust) in
+\texttt{lecture17/OldAgenda.org} in the repo. It's the natural next
+course after this one, whether or not anyone's teaching it.
 
 \end{document}
