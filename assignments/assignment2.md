@@ -15,7 +15,7 @@ Remember to check the assembly guide for help: <https://github.com/clarissalittl
 
 In particular, you'll want to link against the `readInt` and `writeInt` helpers from the guide rather than rewriting them from scratch.
 
-One important caveat: the provided `readInt` is a small teaching helper, not a full parser. Use it as an **interactive** helper: call `readInt`, type **one non-negative decimal integer**, and press Enter. It strips the trailing newline, does **not** validate bad input, and does **not** handle negative numbers. If you want richer input behavior than that, you should extend it or write your own input routine.
+One important caveat: the provided `readInt` is a small teaching helper, not a full parser. Use it as an **interactive** helper: call `readInt`, type **one non-negative decimal integer**, and press Enter. It strips the trailing newline, does **not** validate bad input, and does **not** handle negative numbers. If you want richer input behavior than that, you should extend it or write your own input routine. Also: test by typing numbers at the terminal, **not** by piping input (`printf '10\n20\n' | ./sum5`) — `readInt` assumes one line per `read()` call, so piped input arrives all at once and it will misparse or even crash.
 
 ---
 

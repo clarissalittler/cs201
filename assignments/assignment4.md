@@ -5,7 +5,7 @@ For your last assignment, you'll build a small HTTP server in C that serves stat
 This should be a pretty doable project that involves a number of the skills that we've been practicing over this term.
 ## Goals
 
-The goal is to make a very simple web-server that will serve files. When you open a browser and point it at `http://localhost:8080/` you should see the file `www/index.html` served. If you navigate to `http://localhost:8080/some_other_file.html` and see that file. If you ask for a file that doesn't exist you should get a 404 error rather than a crash.
+The goal is to make a very simple web-server that will serve files. When you open a browser and point it at `http://localhost:8080/` you should see the file `www/index.html` served. If you navigate to `http://localhost:8080/some_other_file.html` you should see that file. If you ask for a file that doesn't exist you should get a 404 error rather than a crash.
 
 What does this mean? It means you have to:
 
@@ -18,12 +18,11 @@ What does this mean? It means you have to:
 - Handle at least these file types: `.html`, `.txt`, `.css`, `.png`, `.jpg`. The scaffold has a starter MIME table you can extend.
 
 You only need to handle `GET` requests. You can assume the request
-fits in a 4kb buffer. 
+fits in a 4 KB buffer.
 
 ## Quick and dirty HTTP tutorial
 
-An HTTP/1.0 request looks like this (the `\r\n` are CRLF line endings, and
-there's a blank line at the end):
+An HTTP/1.0 request looks like this (the `\r\n` are CRLF line endings, and there's a blank line at the end):
 
 ```
 GET /index.html HTTP/1.0\r\n

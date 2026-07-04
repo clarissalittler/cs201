@@ -17,6 +17,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#include <signal.h>
 
 #define PORT     8080
 #define BUF_SIZE 4096
@@ -81,7 +82,10 @@ static const char* mimeFor(const char* path) {
  */
 static void handleRequest(int sock) {
     (void)sock;
-    /* Fill this out!! */
+    /* Fill this out!!
+     * (Until you use the helpers above, the compiler will warn that
+     * sendStatus and mimeFor are unused. That's expected -- the warnings
+     * go away once your implementation calls them.) */
 }
 
 static void* clientThread(void* arg) {
@@ -93,6 +97,12 @@ static void* clientThread(void* arg) {
 }
 
 int main(void) {
+    /* If a client hangs up mid-response (browsers do this all the time),
+     * write() to the dead socket raises SIGPIPE, which kills the whole
+     * process by default. Ignoring it makes write() return -1 instead,
+     * so one rude client can't take down the server. */
+    signal(SIGPIPE, SIG_IGN);
+
     int srv = socket(AF_INET, SOCK_STREAM, 0);
     if (srv < 0) { perror("socket"); return 1; }
 
@@ -113,7 +123,7 @@ int main(void) {
     }
     printf("httpd listening on http://localhost:%d/\n", PORT);
 
-    for (;;) {
+    while(1) {
         int cli = accept(srv, NULL, NULL);
         if (cli < 0) { perror("accept"); continue; }
 

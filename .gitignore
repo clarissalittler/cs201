@@ -152,3 +152,12 @@ winter2025/finalproj/*
 spring2025/*/*
 !spring2025/*/*.*
 !spring2025/*/*/
+
+# extensionless build products
+assignments/assignment4-scaffold/httpd
+spring2026/lecture16/a.out
+# LaTeX build products
+*.aux
+*.toc
+*.out
+lecture-notes.log
