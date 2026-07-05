@@ -164,3 +164,6 @@ lecture-notes.log
 spring2026/lecture16/bin/
 spring2026/lecture17/bin/
 rust-intro/bin/
+
+# local tooling state, never commit
+.codex/

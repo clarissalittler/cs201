@@ -1,0 +1,2624 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{parskip}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  showstringspaces=false,
+  columns=fullflexible,
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!60!black}
+}
+
+\title{CS201 Fall 2025 --- Lecture Notes}
+\author{Clarissa Littler}
+\date{Fall 2025}
+
+\begin{document}
+\maketitle
+
+\section*{Preface}
+
+This document is a running narrative of what we covered in each class
+meeting this term. Each section pairs the agenda for the day with the
+little code samples we actually typed up together, so if you missed a
+lecture or want to go back and re-read, the whole arc of a day should be
+here in one place. The source files themselves live in the
+\texttt{lecture$N$/} subdirectories of the class repo, and all of the
+snippets quoted below are verbatim from those files.
+
+The numbering reflects the lecture sequence as it actually ran ---
+some numbers are skipped (those days were holidays, midterms, or
+discussion-only sessions). After the numbered sequence I've included
+the file-I/O day, the sockets day, and a short appendix on the
+pointer-pyrotechnics examples.
+
+\tableofcontents
+
+\section{Lecture 1 --- Welcome, C vs.\ C++, Bit-Munging, and Two's Complement}
+
+This was an orientation day plus the first run at the parts of C that
+trip people up coming from C++, plus our opening foray into bitwise
+operations and integer representation.
+
+\subsection*{Logistics}
+
+The class is my own personal admixture of four things:
+\begin{itemize}
+  \item C
+  \item x86-64 assembly
+  \item Concurrency
+  \item Operating systems theory and practice
+\end{itemize}
+Our official hardware is \texttt{cslinux.pcc.edu}; if you can't log
+in yet, the stopgap is \texttt{onlinegdb.com}. The repo is where the
+textbook lives, where these Agenda files come from, and where every
+bit of code we write together gets dropped.
+
+\subsection*{C: what's different from C++?}
+
+The smaller surprises:
+\begin{itemize}
+  \item \texttt{struct} is its own keyword and you usually have to
+    write \texttt{struct Foo} when referring to one.
+  \item No native \texttt{bool} --- nonzero is truthy, zero is falsy,
+    and that's that.
+\end{itemize}
+The bigger surprises are the I/O functions: \texttt{printf} and
+\texttt{scanf} instead of streams. \texttt{firstC.c} is our first
+worked example, showing both \texttt{malloc} on an array and
+\texttt{printf} as the way you talk to the world:
+
+\begin{lstlisting}[language=C]
+#include "stdio.h"
+#include "stdbool.h"
+#include "stdlib.h"
+
+struct Rect {
+  int width;
+  int height;
+};
+
+int main(){
+  int* arr1 = malloc(100*sizeof(int));
+
+  for(int i=0; i<100; i++){
+    *(arr1 + i) = i*i;
+    printf("The %d th element is %d\n",i,arr1[i]);
+  }
+
+  free(arr1);
+  return 0;
+}
+\end{lstlisting}
+
+Two things to soak in here. First, \texttt{*(arr1 + i)} and
+\texttt{arr1[i]} are literally the same thing --- indexing is just
+pointer arithmetic in disguise. We'll lean on that all term. Second,
+\texttt{malloc} returns a pointer and needs a size in bytes; unlike
+\texttt{new T} in C++, it doesn't know your type.
+
+(Side note that will come back to bite us in the audit: I keep
+writing \texttt{\#include "stdio.h"} with quotes instead of
+\texttt{<stdio.h>}. It works on our setup because the system headers
+end up resolved either way, but the angle-bracket form is the
+correct convention for system headers --- I'll start using it more
+strictly later.)
+
+\subsection*{Bitwise operations}
+
+We went through the usual cast: \texttt{\&} (AND), \texttt{|} (OR),
+\texttt{\^{}} (XOR), \texttt{\textasciitilde{}} (NOT), and the
+shifts \texttt{<<} and \texttt{>>}. The classic XOR trick is
+``XOR-ing a bit with 1 flips it, XOR-ing with 0 leaves it alone,''
+which is the entire content of \texttt{toggleBit} in
+\texttt{bitmunger1.c}:
+
+\begin{lstlisting}[language=C]
+void printBits(int num1){
+  printf("%d in bits is: ",num1);
+  for(int i=31; i>=0;i--){
+    printf("%d",(num1>>i)&1);
+  }
+  printf("\n");
+}
+
+void toggleBit(int* num,int place){
+  *num = (*num) ^ (1 << place);
+}
+\end{lstlisting}
+
+The \texttt{printBits} function is itself a nice little exercise in
+bit-twiddling: shift the bit you want down to position 0, then mask
+with \texttt{\& 1} to get just that bit. The driver loops, prints
+the integer in both signed and unsigned interpretations, and lets
+you flip bits interactively until you type \texttt{-1}.
+
+\subsection*{Two's complement, derived}
+
+A plain $n$-bit unsigned integer encodes
+\[
+  \sum_{i=0}^{n-1} b_i \cdot 2^i,
+\]
+so all-ones in 32 bits is $2^{32}-1$. In two's complement, the top
+bit's weight goes negative:
+\[
+  -b_{n-1} \cdot 2^{n-1} + \sum_{i=0}^{n-2} b_i \cdot 2^i.
+\]
+That's the whole magic. The largest signed 32-bit value is
+$2^{31}-1$, the smallest is $-2^{31}$, and all-ones is always $-1$
+because $-2^{n-1} + (2^{n-1} - 1) = -1$.
+
+\section{Lecture 2 --- Floating Point, IEEE-754, \texttt{malloc} on Structs}
+
+Today we changed our bit-munger to look at floats, talked through
+the IEEE-754 standard, then pivoted to \texttt{malloc} on structs
+and pointers in C.
+
+\subsection*{Floats and the bit-munger}
+
+\texttt{bitmunger2.c} is structurally the same as last time's
+\texttt{bitmunger1.c}, but it reinterprets the bits of a
+\texttt{float} via a pointer cast. The little spaces it prints
+(between bits 31/30 and 23/22) are previewing the IEEE-754
+sign / exponent / fraction split:
+
+\begin{lstlisting}[language=C]
+void printBits(int* num1){
+  printf("in bits is: ");
+  for(int i=31; i>=0;i--){
+    printf("%d",(*num1>>i)&1);
+    if(i == 31 || i == 23){
+      printf(" ");
+    }
+  }
+  printf("\n");
+}
+
+int main(){
+  float num1;
+  printf("Choose a starting number: ");
+  scanf("%f",&num1);
+  int choice;
+
+  do {
+    printf("The number %f ",num1);
+    printBits((int*)&num1);
+    printf("Enter a bit to flip: ");
+    scanf("%d",&choice);
+    toggleBit((int*)&num1,choice);
+  }while (choice != -1);
+}
+\end{lstlisting}
+
+The \texttt{(int*)\&num1} cast is the load-bearing trick: take the
+address of the float, lie to the compiler about its type, and now
+we can twiddle bits with integer operations and watch the
+floating-point value change.
+
+\subsection*{IEEE-754, formally}
+
+A 32-bit float has:
+\begin{itemize}
+  \item 1 sign bit
+  \item 8 exponent bits (stored with bias 127)
+  \item 23 fraction bits
+\end{itemize}
+For normal values, the value encoded is
+\[
+  (-1)^s \cdot 2^{e - 127} \cdot \left(1 + \sum_{k=1}^{23} f_k \cdot 2^{-k}\right).
+\]
+Edge cases:
+\begin{itemize}
+  \item Exponent all 1s, fraction zero $\Rightarrow$ $\pm\infty$.
+  \item Exponent all 1s, fraction nonzero $\Rightarrow$ \texttt{NaN}.
+  \item Exponent all 0s $\Rightarrow$ subnormals: the implicit
+    leading 1 is dropped and the exponent is fixed at $2^{-126}$, so
+    we can gracefully approach 0.
+\end{itemize}
+
+\subsection*{Where floats lie to you}
+
+\texttt{floatround.c} is the gotcha:
+
+\begin{lstlisting}[language=C]
+double num = 0.00001;
+double acc = 0;
+
+for(int i = 0; i < 100000; i++){
+  acc = acc + num;
+}
+
+if(acc != 1){
+  printf("UH OH %f is not equal to 1\n",acc);
+}
+if((acc < 1 + 0.000001) && acc > (1 - 0.000001)){
+  printf("But it's close enough!\n");
+}
+\end{lstlisting}
+
+We accumulate a quantity that, in math-land, should be exactly 1.
+It isn't, because $0.00001$ has no exact binary representation, and
+we're piling up the rounding error 100{,}000 times. The
+``but it's close enough'' check is the practical answer: never
+compare floats with \texttt{==}; always use a tolerance.
+
+The deeper reason this is unavoidable: the rationals are countably
+infinite, the reals are uncountable. There is no way to cover the
+reals with finitely many bits; we're forced to scatter
+``breadcrumbs'' across the number line and round everything to its
+nearest breadcrumb.
+
+\subsection*{\texttt{malloc} on structs and pointer sizes}
+
+\texttt{malloc2.c} extends \texttt{malloc} from arrays to structs:
+
+\begin{lstlisting}[language=C]
+struct Rect {
+  int width;
+  int height;
+};
+
+int main(){
+  struct Rect* r = malloc(sizeof(struct Rect));
+
+  r->width = 10; // (*r).width
+  r->height = 20;
+
+  printf("%d\n", r->width * r->height);
+
+  free(r);
+  return 0;
+}
+\end{lstlisting}
+
+The arrow \texttt{->} is shorthand for ``dereference, then access a
+field.'' \texttt{r->width} is the same as \texttt{(*r).width} ---
+the parens matter because \texttt{*} has lower precedence than
+\texttt{.}.
+
+\texttt{malloc3.c} shows that \texttt{sizeof} on a struct gives
+back the total bytes the compiler reserved (which can include
+padding):
+
+\begin{lstlisting}[language=C]
+struct Goofus {
+  int arr[100];
+};
+
+int main(){
+  struct Goofus* g = malloc(sizeof(struct Goofus));
+  printf("A goofus is %ld bytes big\n",sizeof(struct Goofus));
+  free(g);
+  return 0;
+}
+\end{lstlisting}
+
+And \texttt{pointerSize.c} drives home that all pointers are the
+same size --- 8 bytes on a 64-bit machine --- regardless of what
+they point to:
+
+\begin{lstlisting}[language=C]
+int num1;
+float num2;
+long num3;
+double num4;
+printf("The size of an int* is: %ld\n",sizeof(&num1));
+printf("The size of a long* is: %ld\n",sizeof(&num3));
+printf("The size of a float* is: %ld\n",sizeof(&num2));
+printf("The size of a double* is: %ld\n",sizeof(&num4));
+\end{lstlisting}
+
+\subsection*{Stacks (the data structure)}
+
+The agenda also has a sketch for a stack data structure exercise.
+We didn't fully implement it in class, but the shape is:
+
+\begin{lstlisting}[language=C]
+struct Stack {
+  // an array, plus a current length
+  // pick a finite max size
+};
+
+void push(struct Stack *s, int i);
+int  pop(struct Stack *s);
+int  length(struct Stack s);
+void printStack(struct Stack s);
+\end{lstlisting}
+
+This will reappear later when we talk about the \emph{call} stack
+in assembly, which is a real instance of this same data structure
+managed by the CPU.
+
+\section{Lecture 3 --- Hex, Pointer Arithmetic, Casting, and Endianness}
+
+Today was about getting fluent with hex output, the actual
+mechanics of pointer arithmetic, casting between pointer types, and
+seeing endianness with our own eyes.
+
+\subsection*{Why hex}
+
+\texttt{whyHex.c} is a trivial program that asks \texttt{printf} to
+show the same number three ways:
+
+\begin{lstlisting}[language=C]
+int num1 = 1234;
+printf("As decimal: %d\n",num1);
+printf("As hex: %x\n",num1);
+printf("As octal: %o\n",num1);
+\end{lstlisting}
+
+The reason hex shows up everywhere --- addresses, color codes, byte
+dumps --- is that two hex digits are exactly one byte
+($16 \cdot 16 = 256 = 2^8$). So \texttt{0xFF} is one byte all-ones,
+which as unsigned is $255$.
+
+\texttt{printHex.c} prints the address of every element of a
+\texttt{char[10]}, which lets you see the addresses going up by
+exactly 1 each step (because \texttt{sizeof(char) == 1}).
+
+\subsection*{Pointer arithmetic, made tangible}
+
+\texttt{pointerArith.c} shows the rule you have to internalize:
+pointer arithmetic scales with the \emph{pointee} type:
+
+\begin{lstlisting}[language=C]
+int num1;
+printf("The address of num1 is: %p\n",(void*)&num1);
+printf("The address of &num1 + 1 is: %p \n",(void*)(&num1 + 1));
+\end{lstlisting}
+
+The two addresses printed differ by 4 (because \texttt{sizeof(int)
+== 4}), not by 1.
+
+\subsection*{Casting and ``zoom level''}
+
+\texttt{byteMunging.c} is a great little demo: cast the same array
+pointer to different types and watch \texttt{+1} mean different
+things:
+
+\begin{lstlisting}[language=C]
+int arr[10];
+for(int i = 0; i < 10; i++){
+  arr[i] = i*i;
+}
+
+printf("If we don't cast at all arr+1 is: %p\n", (void*)(arr + 1));
+printf("If we cast to long, arr+1 is: %p\n", (void*)(((long*)arr) + 1));
+printf("If we cast to char, arr+1 is: %p\n", (void*)(((char*)arr) + 1));
+\end{lstlisting}
+
+As an \texttt{int*}, \texttt{+1} jumps 4 bytes; as a \texttt{long*},
+\texttt{+1} jumps 8; as a \texttt{char*}, \texttt{+1} jumps 1. The
+``zoom level'' of a pointer is encoded entirely in the type.
+
+\subsection*{Endianness}
+
+\texttt{byteOrder.c} actually peers into the bytes of an integer:
+
+\begin{lstlisting}[language=C]
+int num = 0x1a2b3c4d;
+
+unsigned char* pty = (unsigned char*)&num;
+for(int i = 0; i<4; i++){
+  printf("%x ",pty[i]);
+}
+printf("\n");
+\end{lstlisting}
+
+On our x86-64 boxes this prints \texttt{4d 3c 2b 1a} --- the
+opposite order from how we wrote the literal. That's
+little-endian: the least-significant byte is at the lowest address.
+The cast to \texttt{unsigned char*} is the trick: once we have a
+byte-pointer, pointer arithmetic moves us one byte at a time, so
+we can walk the actual storage.
+
+There's also \texttt{byteOrder.s}, which is what \texttt{gcc -S}
+emits for this C program. We didn't pick through it line-by-line
+yet, but it's there to look at --- the \texttt{movzbl},
+\texttt{leaq}, and \texttt{call printf@PLT} are all things we'll
+unpack in detail when we get to assembly proper.
+
+\subsection*{Two's complement, redux}
+
+The agenda revisits two's complement with worked examples for one
+byte:
+\begin{itemize}
+  \item Unsigned: \texttt{0111 1111} = 127, \texttt{1000 0000} = 128,
+    \texttt{1111 1111} = 255.
+  \item Signed (two's complement): \texttt{0111 1111} = 127,
+    \texttt{1000 0000} = $-128$, \texttt{1111 1111} = $-1$.
+\end{itemize}
+And it shows the wraparound: $127+1$ in 8 bits is \texttt{1000 0000},
+which as unsigned is 128 and as signed is $-128$. That's overflow,
+and it's why $2^{31}-1+1$ becomes $-2^{31}$ on a 32-bit signed int.
+
+The agenda also flags two real-world dates this matters for: Y2K
+(rolling 2-digit years from 99 to 00) and Y2038 (the moment 32-bit
+signed Unix timestamps overflow). Same arithmetic, different
+calendar.
+
+\section{Lecture 5 --- Your First Assembly: \texttt{exit}, \texttt{add}, and Looking at What \texttt{gcc -S} Emits}
+
+(There was no Lecture 4 directory --- we shifted scheduling.)
+Today was the big jump from C to assembly. We talked about what a
+processor actually \emph{is}, then wrote the smallest possible
+assembly programs against the bare Linux syscall interface.
+
+\subsection*{What is a processor?}
+
+\begin{itemize}
+  \item A CPU fetches instructions from memory and does what they
+    say. Most instructions are one clock cycle (with a giant
+    asterisk).
+  \item All modern CPUs have a \emph{clock} --- an oscillator that
+    drives signals to happen synchronously.
+  \item The set of instructions a CPU understands is its
+    \emph{instruction set architecture} (ISA). Common ones:
+    x86 (legacy 32-bit), x86-64 (modern 64-bit, what we're using),
+    ARM64 (Apple Silicon, phones), RISC-V (open hardware).
+  \item Asking humans to write raw byte sequences is awful. So we
+    invented \emph{assembly languages} --- human-readable shorthand
+    for the instruction set, defined by an \emph{assembler}. We're
+    using GNU \texttt{as}, which speaks AT\&T syntax.
+\end{itemize}
+
+\subsection*{Pipeline: compiler $\to$ assembler $\to$ linker}
+
+\begin{itemize}
+  \item The \emph{compiler} turns C into assembly.
+  \item The \emph{assembler} turns assembly into raw machine
+    instructions in an object file.
+  \item But an object file isn't yet executable --- the \emph{linker}
+    pulls in library code and OS boilerplate to produce the actual
+    binary.
+\end{itemize}
+
+You can stop after the compiler stage with \texttt{gcc -S file.c},
+which spits out \texttt{file.s}. We'll use that all term to peek
+at what C compiles to.
+
+\subsection*{Registers}
+
+\begin{itemize}
+  \item Registers are the CPU's tiny, blazing-fast scratchpad:
+    16 general-purpose registers in x86-64, each 64 bits.
+  \item In AT\&T syntax all register names start with a \texttt{\%}.
+  \item Some registers have conventional uses (we'll fill that table
+    in next time); others (\texttt{\%r8}--\texttt{\%r15}) you can
+    do whatever you want with.
+\end{itemize}
+
+\subsection*{The smallest program that doesn't crash}
+
+\texttt{smallest.s} is the smallest assembly program that runs
+without segfaulting:
+
+\begin{lstlisting}
+        .text
+        .global _start
+
+_start:
+        mov $60, %rax
+        mov $-1, %rdi
+        syscall
+\end{lstlisting}
+
+That's it. The Linux \texttt{exit} syscall is number 60, the exit
+status goes in \texttt{\%rdi}, and \texttt{syscall} actually pulls
+the trigger. Run it and \texttt{echo \$?} --- you'll see 255
+(which is how the shell reads $-1$ as an unsigned byte).
+
+A few notes:
+\begin{itemize}
+  \item AT\&T immediates are prefixed with \texttt{\$}: \texttt{\$60}
+    is the constant 60, while \texttt{60} on its own would mean
+    ``the contents of memory address 60'' (which would be a
+    segfault).
+  \item \texttt{.text} is the section where code lives.
+  \item \texttt{.global \_start} tells the linker that \texttt{\_start}
+    is the entry point. There's no \texttt{main} runtime here ---
+    the kernel jumps straight to \texttt{\_start}.
+\end{itemize}
+
+\subsection*{\texttt{add} as a binary operation}
+
+\texttt{smaller.s} adds two numbers and feeds the sum back as the
+exit status:
+
+\begin{lstlisting}
+        .text
+        .global _start
+
+_start:
+        mov $1, %r8
+        mov $2, %r9
+        add %r8, %r9
+        mov %r9, %rdi
+        mov $60, %rax
+        syscall
+\end{lstlisting}
+
+The crucial syntax point that will bite you all term:
+\textbf{in AT\&T syntax, \texttt{add S, D} computes \texttt{D = D + S}.}
+The destination is on the \emph{right}. So \texttt{add \%r8, \%r9}
+leaves $1+2=3$ in \texttt{\%r9}.
+
+\subsection*{Skimming what \texttt{gcc -S} emits}
+
+For comparison, we wrote a tiny C program \texttt{adding.c} that
+adds two numbers via a function:
+
+\begin{lstlisting}[language=C]
+int adder(int n1, int n2){
+  int res;
+  res  = n1 + n2;
+  return res;
+}
+
+int main(){
+  int n1 = 10;
+  int n2 = 20;
+  printf("%d\n",adder(n1,n2));
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{gcc -S} produces \texttt{adding.s}, which is noisy with
+\texttt{.cfi\_*} directives, frame setup, and PLT calls, but the
+actual work is recognizable:
+
+\begin{lstlisting}
+adder:
+        pushq   %rbp
+        movq    %rsp, %rbp
+        movl    %edi, -20(%rbp)
+        movl    %esi, -24(%rbp)
+        movl    -20(%rbp), %edx
+        movl    -24(%rbp), %eax
+        addl    %edx, %eax
+        movl    %eax, -4(%rbp)
+        movl    -4(%rbp), %eax
+        popq    %rbp
+        ret
+\end{lstlisting}
+
+\texttt{\%edi} and \texttt{\%esi} are the 32-bit halves of
+\texttt{\%rdi} and \texttt{\%rsi} --- the first two integer
+arguments. The compiler spills them onto the stack
+(\texttt{-20(\%rbp)}, \texttt{-24(\%rbp)}), reloads them, adds, and
+returns the result in \texttt{\%eax}. We'll formalize this calling
+convention next time.
+
+\texttt{hello.c} is just \texttt{printf("Hello world\textbackslash n");}
+--- the placeholder for the C version of what we'll build in pure
+assembly later.
+
+\section{Lecture 6 --- \texttt{cmp}, \texttt{jmp}, Loops, and Globals}
+
+With one assembly instruction (\texttt{add}) under our belts, we
+filled in control flow: \texttt{cmp}, the conditional jumps, and a
+real loop.
+
+\subsection*{Quick recap}
+
+\texttt{smallredux.s} and \texttt{arith.s} are warm-ups from last
+time:
+
+\begin{lstlisting}
+_start:
+        mov $5,%r8
+        add $10,%r8             # r8 = r8 + 10
+        add %r8,%r8             # r8 = r8 + r8
+        mov %r8,%rdi
+
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+Exit status is 30. Adding a register to itself is the cheap way to
+double a value.
+
+\subsection*{\texttt{cmp} and the conditional jumps}
+
+\texttt{cmp S, D} computes \texttt{D - S} and sets flags but
+doesn't store the result:
+\begin{itemize}
+  \item ZF (zero flag): was the result zero?
+  \item SF (sign flag): was it negative?
+  \item OF (overflow flag): did signed overflow happen?
+  \item CF (carry flag): did unsigned carry happen?
+\end{itemize}
+The conditional jumps then read those flags. Critical AT\&T
+gotcha: after \texttt{cmp \%r8, \%r9}, the jump \texttt{jl} means
+\texttt{\%r9 < \%r8} (because the implicit comparison is
+\texttt{\%r9 - \%r8}). Trips me up every time.
+
+\texttt{cmp1.s} branches on equality:
+
+\begin{lstlisting}
+_start:
+        mov $2,%r8
+        mov $2,%r9
+        cmp %r8,%r9
+        je equal
+        mov $0,%rdi             # 0 if not equal
+        jmp finish
+
+equal:
+        mov $1,%rdi             # 1 if equal
+
+finish:
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+\texttt{cmp2.s} branches on \texttt{jl} (less-than) with two
+register operands; \texttt{cmp3.s} compares against an immediate:
+
+\begin{lstlisting}
+        cmp $3,%r9              # compare %r9 against the immediate 3
+        jl less
+\end{lstlisting}
+
+\subsection*{A for-loop in assembly}
+
+\texttt{for1.s} sums 1 through 10:
+
+\begin{lstlisting}
+_start:
+        mov $1,%rcx
+        mov $0,%r8
+
+loop:
+        cmp $11,%rcx
+        jge finish
+        add %rcx,%r8
+        add $1,%rcx
+        jmp loop
+
+finish:
+        mov %r8,%rdi
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+\texttt{\%rcx} is the conventional loop counter. The structure is
+``test before the body'' --- a while-style loop. Exit status is 55.
+
+\subsection*{Globals and the wonder of \texttt{\%rip}-relative addressing}
+
+\texttt{for2.s} introduces global variables in the \texttt{.data}
+section and walks them through the same loop:
+
+\begin{lstlisting}
+        .section .data
+num:    .quad 0
+num2:   .quad 0
+
+        .section .text
+        .global _start
+
+_start:
+        mov $1,%rcx
+
+loop:
+        cmp $11,%rcx
+        jge finish
+        add %rcx,num(%rip)
+        addq $1,num2(%rip)
+        add $1,%rcx
+        jmp loop
+
+finish:
+        mov num(%rip),%rdi
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+The mysterious \texttt{(\%rip)} bit is RIP-relative addressing.
+Here's the conceptual picture: \texttt{\%rip} is the instruction
+pointer, the address of the instruction currently executing. The
+assembler doesn't know where \texttt{num} will live at runtime
+(that depends on the loader and ASLR), but it \emph{does} know how
+many bytes \texttt{num} is from this very instruction. So
+\texttt{num(\%rip)} is really shorthand for ``take the runtime
+\texttt{\%rip}, add this assembler-computed offset, that's where
+\texttt{num} lives.''
+
+This is the modern, position-independent way to refer to globals.
+We'll keep using it.
+
+\section{Lecture 7 --- Globals, \texttt{lea}, Arrays, \texttt{read}/\texttt{write}, and Functions}
+
+A dense one. We made global variables real, used \texttt{lea} to
+take addresses, walked an array four ways, did \texttt{read} and
+\texttt{write} both in C and in assembly, and wrote our first
+function.
+
+\subsection*{Globals, properly}
+
+\texttt{global1.s} is the cleanest possible single-global program:
+
+\begin{lstlisting}
+        .section .data
+num:    .quad 10                # 64 bit integer (long)
+
+        .section .text
+        .global _start
+
+_start:
+        addq $10,num(%rip)
+        movq num(%rip), %rdi
+        movq $60, %rax
+        syscall
+\end{lstlisting}
+
+A few things to notice:
+\begin{itemize}
+  \item Globals declare a \emph{size}, not a type. \texttt{.quad} is
+    8 bytes, \texttt{.long} is 4, \texttt{.word} is 2,
+    \texttt{.byte} is 1.
+  \item \texttt{addq} has a \texttt{q} suffix because we're
+    operating on 64-bit (quadword) data. The size suffixes
+    (\texttt{b}, \texttt{w}, \texttt{l}, \texttt{q}) become
+    important when memory operands don't pin down the size.
+  \item I write \texttt{.global \_start} because the linker has to
+    see that symbol from outside; I do \emph{not} write
+    \texttt{.global num} because nothing outside this file needs
+    to refer to it.
+\end{itemize}
+
+\subsection*{\texttt{lea}: how pointers actually work}
+
+\texttt{lea} (``load effective address'') is the assembly
+equivalent of C's \texttt{\&}. \texttt{global2.s}:
+
+\begin{lstlisting}
+_start:
+        lea num(%rip),%r9
+        # %r9 = &num
+        addq $10,(%r9)
+        # *(%r9) = *(%r9) + 10
+        movq (%r9), %rdi
+        movq $60, %rax
+        syscall
+\end{lstlisting}
+
+The parens around a register --- \texttt{(\%r9)} --- mean
+``dereference,'' the same as the C \texttt{*} operator. So
+\texttt{addq \$10, (\%r9)} adds 10 to the 8 bytes at the address
+held in \texttt{\%r9}. That maps to C as
+\texttt{*ptr = *ptr + 10}.
+
+\subsection*{Arrays in assembly}
+
+Three files, one new addressing trick at a time.
+
+\texttt{globalArray1.s} declares an array as a sequence of values
+under one label:
+
+\begin{lstlisting}
+arr:    .quad 1,2,3,4
+
+_start:
+        lea arr(%rip),%r9
+        mov (%r9), %rdi         # *arr -> 1
+        mov $60, %rax
+        syscall
+\end{lstlisting}
+
+That gives us element 0. To get other elements, \texttt{globalArray2.s}
+uses scale-index addressing:
+
+\begin{lstlisting}
+        lea arr(%rip),%r9
+        mov $1,%rcx
+        mov (%r9,%rcx,8), %rdi
+        # *(%r9 + 1*8)
+\end{lstlisting}
+
+The form \texttt{(base, index, scale)} computes
+\texttt{base + index*scale}, where the scale is 1, 2, 4, or 8.
+Since our elements are \texttt{.quad} (8 bytes), the scale is 8.
+
+\texttt{globalArray3.s} sums a 5-element array with this pattern in
+a loop:
+
+\begin{lstlisting}
+arr:    .quad 1,2,3,4,5
+
+_start:
+        lea arr(%rip),%r8
+        mov $0,%r9              # accumulator
+        mov $0,%rcx             # i = 0
+
+loopStart:
+        cmp $5,%rcx
+        jge loopEnd
+        add (%r8,%rcx,8),%r9
+        add $1,%rcx
+        jmp loopStart
+
+loopEnd:
+        mov %r9,%rdi
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+Exit status is 15. This pattern --- base in one register, index in
+another, scale equal to element size --- is exactly how C array
+indexing compiles.
+
+\subsection*{\texttt{read} and \texttt{write}, first in C}
+
+\texttt{readWrite1.c} uses the raw POSIX \texttt{write} syscall
+wrapper:
+
+\begin{lstlisting}[language=C]
+#include "stdio.h"
+#include "unistd.h"
+
+int main(){
+  char hiThere[] = "Hey there, goofuses and goofuxen\n";
+  write(1, hiThere, 33);
+  return 0;
+}
+\end{lstlisting}
+
+The arguments are \texttt{(fd, buf, count)}, where \texttt{1} is
+stdout. \texttt{readWrite2.c} mirrors it for input:
+
+\begin{lstlisting}[language=C]
+char buff[30];
+int charsRead = read(0,buff,30);
+write(1,buff,charsRead);
+\end{lstlisting}
+
+\texttt{0} is stdin. \texttt{read} returns the number of bytes it
+actually got, and we feed that into \texttt{write} so we don't
+echo back uninitialized garbage at the tail of the buffer.
+
+\subsection*{\texttt{read} and \texttt{write}, in assembly}
+
+\texttt{readWriteASM1.s} writes a fixed string:
+
+\begin{lstlisting}
+        .section .data
+hiThere: .ascii "Hey there, goofuses and goofuxen\n"
+
+        .section .text
+        .global _start
+
+_start:
+        mov $1,%rdi
+        lea hiThere(%rip),%rsi
+        mov $33,%rdx
+        mov $1,%rax
+        syscall
+
+        mov $60,%rax
+        mov $0,%rdi
+        syscall
+\end{lstlisting}
+
+The Linux x86-64 syscall convention: syscall number in
+\texttt{\%rax}, then arguments in \texttt{\%rdi}, \texttt{\%rsi},
+\texttt{\%rdx}, \texttt{\%r10}, \texttt{\%r8}, \texttt{\%r9}.
+\texttt{write} is syscall 1, \texttt{(fd, buf, count)}.
+
+\texttt{readWriteASM2.s} chains \texttt{read} and \texttt{write}
+through a \texttt{.bss} buffer:
+
+\begin{lstlisting}
+        .section .bss
+buff:   .skip 100
+
+        .section .text
+        .global _start
+
+_start:
+        mov $0,%rdi
+        lea buff(%rip),%rsi
+        mov $100,%rdx
+        mov $0,%rax
+        syscall
+        ## %rax now holds the number of bytes read
+        mov $1,%rdi
+        lea buff(%rip),%rsi
+        mov %rax,%rdx
+        mov $1,%rax
+        syscall
+
+        mov $60,%rax
+        mov $0,%rdi
+        syscall
+\end{lstlisting}
+
+\texttt{.bss} is zero-initialized scratch storage; \texttt{.skip 100}
+reserves 100 bytes. The clever line is \texttt{mov \%rax, \%rdx} ---
+the syscall returns its byte-count in \texttt{\%rax}, and we funnel
+that into \texttt{\%rdx} as the count argument for \texttt{write},
+so we only echo back what was actually typed.
+
+\subsection*{Functions and the calling convention}
+
+The Linux x86-64 calling convention for user-space functions:
+\begin{itemize}
+  \item Arguments in order: \texttt{\%rdi}, \texttt{\%rsi},
+    \texttt{\%rdx}, \texttt{\%rcx}, \texttt{\%r8}, \texttt{\%r9}.
+  \item Return value in \texttt{\%rax}.
+\end{itemize}
+(Syscalls are slightly different --- the fourth argument is
+\texttt{\%r10}, not \texttt{\%rcx} --- but for plain function calls,
+the list above is what you want.)
+
+\texttt{firstFunc.s} is the first ``real'' function we wrote:
+
+\begin{lstlisting}
+sillyAdd:
+        mov $0,%rax
+        add %rdi,%rax
+        add %rsi,%rax
+        ret
+
+_start:
+        mov $10,%rdi
+        mov $20,%rsi
+        call sillyAdd
+
+        mov %rax,%rdi
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+\texttt{call sillyAdd} pushes the address of the next instruction
+onto the stack and jumps; \texttt{ret} pops that address and jumps
+back. The stack carries the return address invisibly --- that's the
+whole magic trick.
+
+\section{Lecture 8 --- The Stack, Local Variables, \texttt{readInt}/\texttt{writeInt}, and Recursion}
+
+Today we made the call stack real, wrote a function with locals by
+hand, linked in pre-written \texttt{readInt} and \texttt{writeInt}
+helpers, and warned about stack overflow via runaway recursion.
+
+\subsection*{Logistics}
+
+Coding assignment 2 is due in two weeks. The next discussions are
+fluffier so people can really sit with assembly. Quizzes are
+unlimited attempts --- if you don't like your score, just try
+again.
+
+\subsection*{Local variables and the stack}
+
+Every process gets a chunk of address space laid out roughly:
+\begin{itemize}
+  \item Stack at the top, growing \emph{downward}.
+  \item Heap (\texttt{malloc}-land) growing upward from somewhere
+    lower.
+  \item Data sections (\texttt{.data}, \texttt{.bss},
+    \texttt{.rodata}) below that.
+  \item Executable instructions at the bottom.
+\end{itemize}
+Local variables live on the stack. Each function call gets a
+\emph{stack frame} of contiguous bytes. Two registers run the show:
+\begin{itemize}
+  \item \texttt{\%rsp} --- stack pointer (top of stack, lowest
+    address).
+  \item \texttt{\%rbp} --- base pointer (bottom of the current
+    frame).
+\end{itemize}
+
+\subsection*{\texttt{push} and \texttt{pop}}
+
+\texttt{pushpop1.s} demonstrates the two primitives:
+
+\begin{lstlisting}
+_start:
+        push $10
+        pop %rdi
+
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+\texttt{push \$10} subtracts 8 from \texttt{\%rsp} and stores 10
+there. \texttt{pop \%rdi} loads from \texttt{(\%rsp)} into
+\texttt{\%rdi} and adds 8 back. Exit status: 10.
+
+\subsection*{The function prologue and epilogue}
+
+To carve out local space:
+\begin{enumerate}
+  \item \texttt{push \%rbp} --- save the caller's base pointer.
+  \item \texttt{mov \%rsp, \%rbp} --- new frame starts here.
+  \item \texttt{sub \$N, \%rsp} --- reserve $N$ bytes (multiple of
+    16 for ABI alignment).
+\end{enumerate}
+Local $i$ then lives at \texttt{-(8*i)(\%rbp)}. To clean up:
+\begin{enumerate}
+  \item \texttt{mov \%rbp, \%rsp} --- pop all locals at once.
+  \item \texttt{pop \%rbp} --- restore caller's base pointer.
+  \item \texttt{ret}.
+\end{enumerate}
+
+\texttt{stackfunk1.s} puts it together:
+
+\begin{lstlisting}
+sillyFunk:
+        push %rbp
+        mov %rsp,%rbp
+        sub $16,%rsp
+        movq $1,-8(%rbp)
+        movq $2,-16(%rbp)
+        mov $0,%rax
+        add -8(%rbp),%rax
+        add -16(%rbp),%rax
+
+        mov %rbp,%rsp
+        pop %rbp
+        ret
+
+_start:
+        call sillyFunk
+        mov %rax,%rdi
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+The C analogue is just:
+
+\begin{lstlisting}[language=C]
+long sillyfunk(){
+  long num1 = 1;
+  long num2 = 2;
+  return num1 + num2;
+}
+\end{lstlisting}
+
+Exit status is 3.
+
+\subsection*{Linking external functions: \texttt{readInt} and \texttt{writeInt}}
+
+\texttt{readInt.s} reads a line from stdin and parses it as an
+integer:
+
+\begin{lstlisting}
+        .section .bss
+buffer: .zero 128
+
+        .section .text
+        .global readInt
+
+parseInt:
+intRead:
+        movb (%rdi,%rcx,1), %r8b
+        sub $'0', %r8
+        imul $10, %rax
+        add %r8, %rax
+        inc %rcx
+        cmp %rsi, %rcx
+        jl intRead
+        ret
+
+readInt:
+        mov $0, %rax
+        mov $0, %rdi
+        lea buffer(%rip), %rsi
+        mov $128, %rdx
+        syscall
+
+        mov %rax, %rbx
+        mov $0, %rcx
+        mov $0, %rax
+        lea buffer(%rip), %rdi
+        dec %rbx
+        mov %rbx, %rsi
+
+        call parseInt
+        ret
+\end{lstlisting}
+
+Heads up --- this is one of our recurring ``almost-but-not-quite''
+bugs. \texttt{movb (\%rdi, \%rcx, 1), \%r8b} loads one byte into
+the low byte of \texttt{\%r8}, but \emph{doesn't clear the upper
+bits}. If \texttt{\%r8} happened to have garbage in its upper 56
+bits, the subsequent \texttt{sub} and \texttt{add} would compound
+that garbage. The corrected idiom uses \texttt{movzbl} (move byte
+to long, zero-extended) so the upper bits get zeroed for free. The
+version in the assembly guide uses \texttt{movzbl} for exactly
+this reason. Worth fixing if you're using this as a starting point
+for your own code.
+
+\texttt{readInt} also forgets to push/pop \texttt{\%rbx} around its
+use --- \texttt{\%rbx} is callee-saved in the System V ABI, so a
+caller is entitled to find it intact when we return. That's another
+fix-it-please.
+
+\texttt{writeInt.s} is the mirror image: it takes an integer in
+\texttt{\%rdi}, allocates a 32-byte buffer on the stack, fills it
+\emph{from the end} by repeatedly dividing by 10 and stashing the
+ASCII digit, then writes the result. It handles negatives, has a
+special case for \texttt{INT\_MIN} (which can't be negated in
+two's complement, so we load $2^{63}$ via \texttt{movq} of a 64-bit
+immediate), and uses \texttt{leave} as the shorthand for
+``\texttt{mov \%rbp, \%rsp; pop \%rbp}.''
+
+(There's also \texttt{writeIntBad.s} sitting in the directory ---
+identical to \texttt{writeInt.s} except the \texttt{.global writeInt}
+line is commented out. The point: without \texttt{.global}, the
+linker can't find the symbol from another file, and you get an
+``undefined reference to writeInt'' error.)
+
+\texttt{echoInt.s} is the smallest possible client:
+
+\begin{lstlisting}
+        .section .text
+        .extern readInt,writeInt
+        .global _start
+
+_start:
+        call readInt
+        mov %rax,%rdi
+        call writeInt
+
+        mov $0,%rdi
+        mov $60,%rax
+        syscall
+\end{lstlisting}
+
+\texttt{.extern} declares that \texttt{readInt} and \texttt{writeInt}
+live in another file. Build by assembling each separately and
+linking together.
+
+\subsection*{Recursion and stack overflow}
+
+Every recursive call allocates a fresh stack frame. The Linux
+default stack is around 4MB --- not infinite. \texttt{overflowPractice.c}
+shows what happens when you go too deep:
+
+\begin{lstlisting}[language=C]
+int counter = 0;
+
+int badRec(int n){
+  int stuff = 1;
+  int moreStuff = 2;
+  counter++;
+  if(n == 0){
+    return 0;
+  }
+  else{
+    printf("%d\n",counter);
+    return badRec(n+1)+stuff+moreStuff;
+  }
+}
+
+int main(){
+  badRec(1000);
+  return 0;
+}
+\end{lstlisting}
+
+Notice the bug: \texttt{badRec(n+1)} instead of \texttt{badRec(n-1)}.
+This will never reach the base case --- it just keeps allocating
+frames until the stack collides with the heap and the kernel kills
+the process. This is the canonical ``stack overflow.''
+
+\section{Lecture 9 --- Processes and the First Look at Threads}
+
+A pivot day: assembly roundup, the discussion problem in detail,
+and then the start of concurrency --- processes, fork, and a teaser
+on threads.
+
+\subsection*{Discussion 4 walkthrough}
+
+The discussion was: write a C program that reads two numbers and
+adds them, then use \texttt{gcc -S} to find the addition in the
+assembly and change it to a multiplication. \texttt{discussionDiscussion.c}
+is the C version:
+
+\begin{lstlisting}[language=C]
+int main(){
+  int num1; // -8(%rbp)
+  int num2; // -12(%rbp)
+
+  printf("Enter a number: ");
+  scanf("%d",&num1);
+  printf("Enter another: ");
+  scanf("%d",&num2);
+
+  int num3 = num1 + num2; // num3 is -4(%rbp)
+  printf("Ta-da! %d\n",num3);
+  return 0;
+}
+\end{lstlisting}
+
+In \texttt{discussionDiscussion.s} the patch is at the addition
+site --- the original was an \texttt{addl}, and the discussion
+modification turns it into:
+
+\begin{lstlisting}
+        movl    -8(%rbp), %edx
+        movl    -12(%rbp), %eax
+        imul    %edx, %eax
+        movl    %eax, -4(%rbp)
+\end{lstlisting}
+
+There's also \texttt{dd2.s} where I tried it with the unary form
+\texttt{mull \%edx} (which multiplies \texttt{\%eax} by the operand
+implicitly --- that's the historical x86 form, where the result
+spans \texttt{\%edx:\%eax}). Both work; \texttt{imul} with two
+operands is cleaner.
+
+\subsection*{Cross-platform notes on calling convention}
+
+\begin{itemize}
+  \item Windows on x86-64 has the \emph{same} instruction set ---
+    that's set by the chip --- but a different calling convention:
+    arguments go in \texttt{\%rcx}, \texttt{\%rdx}, \texttt{\%r8},
+    \texttt{\%r9} for the first four, the rest on the stack, and
+    there's a 32-byte ``shadow space'' the caller has to reserve.
+  \item Modern Macs are on ARM64 (Apple Silicon). The instruction
+    set is totally different, but the calling convention is largely
+    Unix-shaped.
+\end{itemize}
+The compiler is what bridges all this --- one language, different
+codegen for each target.
+
+\subsection*{Processes}
+
+A \emph{process} is the OS-level unit of ``a running program.''
+The OS bundles together the executable code, register state,
+file handles, mapped memory, and so on into one process data
+structure.
+
+A ``thread of execution'' is the actual entity scheduled onto a CPU
+core. A process has at least one.
+
+\subsection*{\texttt{fork}: the OG concurrency primitive}
+
+\texttt{fork1.c} is the simplest possible:
+
+\begin{lstlisting}[language=C]
+#include "stdio.h"
+#include "stdlib.h"
+#include "unistd.h"
+
+int main(){
+  printf("How's it going?\n");
+
+  fork(); // create a new process that's a CLONE of the original
+
+  printf("Hi there\n");
+  return 0;
+}
+\end{lstlisting}
+
+You'll see ``How's it going?'' once and ``Hi there'' twice, because
+after \texttt{fork()} there are two processes and both run the rest
+of \texttt{main}.
+
+\texttt{fork2.c} distinguishes parent from child by inspecting the
+return value of \texttt{fork}:
+
+\begin{lstlisting}[language=C]
+int num1 = 10;
+pid_t pid = fork();
+
+if(pid != 0){
+  num1++;
+  printf("I'm the parent. Here's my number  %d\n",num1);
+}
+else{
+  num1--;
+  printf("I'm the child. Here's my number %d\n",num1);
+}
+\end{lstlisting}
+
+\texttt{fork} returns the child's PID in the parent and 0 in the
+child. The two processes have \emph{independent} copies of
+\texttt{num1} --- forking clones the entire memory space, so the
+parent and child are now operating on different bytes that just
+happen to have the same name.
+
+\texttt{fork3.c} shows what happens when you fork in a loop ---
+you get $2^n$ processes:
+
+\begin{lstlisting}[language=C]
+int main(){
+  for(int i=0; i< 4;i++){
+    fork();
+    printf("I'm Mr. %d here at index %d\n",getpid(),i);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+After 4 iterations there are 16 processes flooding stdout. This is
+how runaway forks become fork bombs in real life.
+
+(One thing missing here that we'll fix later: there's no
+\texttt{wait()} in the parent, so children can become zombies until
+\texttt{init} reaps them. Add \texttt{wait(NULL);} after \texttt{fork()}
+in real code.)
+
+\subsection*{Threads, briefly}
+
+The crucial difference between processes and threads: when you
+make a new thread, you do \emph{not} clone everything. A thread
+gets its own registers (including its own \texttt{\%rip} and stack)
+but \emph{shares the address space} with all the other threads in
+the process. That's the source of all the power and all the pain.
+
+\texttt{thread1.c} is the minimum:
+
+\begin{lstlisting}[language=C]
+#include <stdio.h>
+#include <pthread.h>
+
+void* thread_function(void* arg) {
+    (void)arg;
+    printf("Thread executing\n");
+    return NULL;
+}
+
+int main() {
+    pthread_t thread;
+    pthread_create(&thread, NULL, thread_function, NULL);
+    pthread_join(thread, NULL);
+    printf("Thread joined\n");
+    return 0;
+}
+\end{lstlisting}
+
+\texttt{pthread\_create} takes a thread handle, an attributes
+object (NULL for ``default''), the function to run, and a
+\texttt{void*} argument to pass to it. \texttt{pthread\_join} waits
+for the thread to finish.
+
+\texttt{thread2.c} is the sneak preview of why concurrency is hard:
+
+\begin{lstlisting}[language=C]
+int num = 0;
+
+void* thread_function(void* arg) {
+  for(int i=0; i<100; i++){
+    int num2 = num;
+    num2 = num2+1;
+    num = num2;
+  }
+  return NULL;
+}
+
+int main() {
+  pthread_t thread[100];
+  for(int i=0;i<100;i++){
+    pthread_create(&thread[i], NULL, thread_function, NULL);
+  }
+  for(int i=0; i<100; i++){
+    pthread_join(thread[i], NULL);
+  }
+  printf("And the total is: %d\n",num);
+  return 0;
+}
+\end{lstlisting}
+
+In math-land, that should print 10000 (100 threads each
+incrementing 100 times). In real life, you'll often see less,
+because the read--modify--write of \texttt{num} isn't atomic and
+two threads can step on each other. That's a \emph{race condition},
+and we'll spend the next couple of lectures fixing it.
+
+\section{Lecture 11 --- Function Pointers, Threads in Earnest, and Mutexes}
+
+(There was no Lecture 10 directory.) Today: function pointers,
+because \texttt{pthread\_create} demands one; \texttt{void*} as the
+universal pointer type; threads with arguments and return values;
+race conditions; mutexes; and packaging shared state in a struct.
+
+\subsection*{Function pointers}
+
+A function pointer is just an address you can call. The syntax is
+ugly but the idea is simple. \texttt{funcpoint1.c} writes a
+\texttt{map}:
+
+\begin{lstlisting}[language=C]
+int incWrongly(int a){
+  return (a + 2);
+}
+
+void map(int arr[], int sz, int (*func)(int)){
+  for(int i=0;i<sz;i++){
+    arr[i] = func(arr[i]);
+  }
+}
+\end{lstlisting}
+
+The parameter \texttt{int (*func)(int)} is read as ``a pointer to
+a function that takes an \texttt{int} and returns an \texttt{int}.''
+You call it just like a regular function: \texttt{func(arr[i])}.
+
+\texttt{funcpoint2.c} adds a two-argument \texttt{reduce}:
+
+\begin{lstlisting}[language=C]
+int reduce(int arr[], int sz,
+           int (*func)(int,int),
+           int base){
+  int acc = base;
+  for(int i=0;i<sz;i++){
+    acc = func(acc,arr[i]);
+  }
+  return acc;
+}
+\end{lstlisting}
+
+Function pointers are how we get higher-order functions in C ---
+which we need because \texttt{pthread\_create}'s signature
+\emph{requires} a function pointer.
+
+\subsection*{\texttt{void} versus \texttt{void*}}
+
+\texttt{voidArith.c} demonstrates that \texttt{void*} arithmetic
+behaves like \texttt{char*} arithmetic --- it advances one byte per
+\texttt{+1}:
+
+\begin{lstlisting}[language=C]
+int arr[5];
+void* weirdo = arr;
+printf("weirdo: %p\n",weirdo);
+printf("weirdo+1: %p\n",weirdo+1);
+\end{lstlisting}
+
+This is a GCC extension; standard C says \texttt{void*} arithmetic
+is undefined. But the practical takeaway: \texttt{void} is ``the
+type of nothing,'' and \texttt{void*} is ``the universal donor of
+pointer types'' --- anything can be cast to or from \texttt{void*},
+which is how C does generic programming.
+
+\subsection*{Threads, with arguments and return values}
+
+\texttt{threads1.c} is the bare-bones version we already saw last
+time. \texttt{threads2.c} passes an argument:
+
+\begin{lstlisting}[language=C]
+void* func(void* arg){
+  printf("Hi I'm a thread and I'm holding: %d\n",
+         *((int*)arg));
+  return NULL;
+}
+
+int main(){
+  pthread_t thread;
+  int arg = 10;
+
+  pthread_create(&thread,NULL,func,&arg);
+  pthread_join(thread,NULL);
+  return 0;
+}
+\end{lstlisting}
+
+The cast inside the worker --- \texttt{*((int*)arg)} --- is the
+universal pattern: take the \texttt{void*}, lie about its type,
+dereference. Don't pass pointers to short-lived stack variables
+across thread boundaries; use heap-allocated or longer-lived
+storage.
+
+\texttt{threads3.c} returns a value:
+
+\begin{lstlisting}[language=C]
+void* func(void* arg){
+  int convArg = *((int*)arg);
+  int* ret = malloc(sizeof(int));
+  *ret = 2*convArg;
+  return ret;
+}
+
+int main(){
+  pthread_t thread;
+  int arg = 10;
+  int* res;
+
+  pthread_create(&thread,NULL,func,&arg);
+  pthread_join(thread,(void**)&res);
+
+  printf("The return value from the thread is: %d\n",*res);
+  free(res);
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{pthread\_join} takes a \texttt{void**} (yes, two stars) so
+it can write the worker's return value back into a caller-side
+pointer. The thread \texttt{malloc}s its return so it survives past
+the thread's death; the main thread \texttt{free}s it.
+
+\subsection*{Race conditions: \texttt{threadRace.c}}
+
+\begin{lstlisting}[language=C]
+int counter = 0;
+
+void* incer(void* arg){
+  int temp = counter;
+  sleep(rand()%3+1); // simulated work
+  counter = temp+1;
+  return NULL;
+}
+
+int main(){
+  pthread_t threads[100];
+  for(int i=0; i<100;i++){
+    pthread_create(threads+i,NULL,incer,NULL);
+  }
+  for(int i=0; i<100;i++){
+    pthread_join(threads[i],NULL);
+  }
+  printf("The counter is: %d\n",counter);
+  return 0;
+}
+\end{lstlisting}
+
+The \texttt{sleep} is fake-work that makes the race \emph{much}
+more likely to happen. With 100 threads each doing a non-atomic
+read-modify-write of \texttt{counter}, you'll often see a final
+value of 1 --- everyone read 0, slept, then wrote 1.
+
+\subsection*{Mutexes: \texttt{threadRace2.c}}
+
+\begin{lstlisting}[language=C]
+int counter = 0;
+pthread_mutex_t mutex;
+
+void* incer(void* arg){
+  pthread_mutex_lock(&mutex);
+
+  int temp = counter;
+  sleep(rand()%3+1);
+  counter = temp+1;
+  pthread_mutex_unlock(&mutex);
+  return NULL;
+}
+
+int main(){
+  pthread_t threads[5];
+  pthread_mutex_init(&mutex,NULL);
+
+  for(int i=0; i<5;i++){
+    pthread_create(threads+i,NULL,incer,NULL);
+  }
+  for(int i=0; i<5;i++){
+    pthread_join(threads[i],NULL);
+  }
+  printf("The counter is: %d\n",counter);
+  pthread_mutex_destroy(&mutex);
+  return 0;
+}
+\end{lstlisting}
+
+A mutex is a thing where exactly one thread can hold the lock at a
+time --- everyone else \texttt{lock}s and waits. Wrap your critical
+section between \texttt{lock} and \texttt{unlock}, and the
+read-modify-write becomes atomic from the rest of the world's
+perspective. Now the count is reliably 5.
+
+\subsection*{Bundling state with its lock: \texttt{threadRace3.c}}
+
+\begin{lstlisting}[language=C]
+struct guardedCounter {
+  int counter;
+  pthread_mutex_t mutex;
+};
+
+void* incer(void* arg){
+  struct guardedCounter* g = (struct guardedCounter*)arg;
+
+  pthread_mutex_lock(&g->mutex);
+  int temp = g->counter;
+  sleep(rand()%3+1);
+  g->counter = temp+1;
+  pthread_mutex_unlock(&g->mutex);
+  return NULL;
+}
+\end{lstlisting}
+
+The argument is a \texttt{void*} that's secretly a
+\texttt{struct guardedCounter*}. Putting the mutex inside the
+struct means anyone with access to the data also has access to its
+lock --- the protection travels with the resource. This is the
+shape of nearly all real concurrent code.
+
+For more details and a longer worked discussion of these patterns,
+see \texttt{concurrencyGuide.org} in the repo.
+
+\section{File I/O --- Files, File Descriptors, \texttt{argv}, and a Line Editor}
+
+(This was our deep dive into file I/O, which fits naturally between
+the threading lectures and the signal lectures since it doesn't
+involve concurrency itself.)
+
+\subsection*{Everything is a file}
+
+In Unix, ``file'' is a wildly general abstraction. Regular files,
+directories, devices, terminal emulators, named pipes, and sockets
+all show up to your program through the same set of operations
+(\texttt{open}, \texttt{read}, \texttt{write}, \texttt{close}). The
+kernel maintains a per-process table of open file objects, and a
+\emph{file descriptor} is just an integer index into that table.
+
+\subsection*{File descriptors and \texttt{open}}
+
+\texttt{fd1.c} is the minimal open/close:
+
+\begin{lstlisting}[language=C]
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+int main(){
+  char fname[] = "Agenda.org";
+  int fd = open(fname,O_RDONLY);
+
+  printf("stdin: %d\n",STDIN_FILENO);
+  printf("stdout: %d\n",STDOUT_FILENO);
+  printf("stderr: %d\n",STDERR_FILENO);
+
+  if(fd >= 0){
+    printf("Hey we opened the file %s and its file descriptor is: %d\n",fname,fd);
+  }
+  else {
+    printf("We couldn't open the file\n");
+  }
+  close(fd);
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{STDIN\_FILENO}, \texttt{STDOUT\_FILENO}, and
+\texttt{STDERR\_FILENO} are the macros for 0, 1, 2 respectively.
+The first \texttt{open} call gets you fd 3 (next free slot).
+
+\subsection*{Command-line arguments: \texttt{argv}}
+
+\texttt{fd3.c} is the canonical \texttt{argc}/\texttt{argv} demo:
+
+\begin{lstlisting}[language=C]
+int main(int argc, char* argv[]){
+  printf("%d arguments were passed in\n",argc);
+  for(int i=0; i<argc; i++){
+    printf("The %dth argument is: %s\n",i,argv[i]);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+\texttt{argv[0]} is conventionally the program name; the actual
+arguments start at \texttt{argv[1]}. \texttt{argc} is the count.
+
+\texttt{fd2.c} chains those: it tries to \texttt{open} every argv
+entry, prints the resulting fd (or an error), and closes everything
+at the end. Notice that \texttt{argv[0]} is the program name itself
+and we happily try to \texttt{open} it --- which works! The binary
+is just another file.
+
+\subsection*{Reading bytes: \texttt{read}}
+
+\texttt{read1.c} reads up to 1024 bytes from a file:
+
+\begin{lstlisting}[language=C]
+char readData[1024];
+int bytesRead = read(fds[1],readData,1024);
+printf("We read in %d out of the file %s\n", bytesRead, argv[1]);
+\end{lstlisting}
+
+\texttt{read2.c} reads twice in a row, demonstrating that the
+file's read position advances --- the second \texttt{read} picks
+up where the first left off.
+
+\texttt{read3.c} loops until \texttt{read} returns 0 (end of file)
+or negative (error):
+
+\begin{lstlisting}[language=C]
+char readData[10];
+int bytesRead = 0;
+while((bytesRead = read(fds[1],readData,10)) > 0){
+  printf("We read in %d out of the file %s\n", bytesRead, argv[1]);
+}
+\end{lstlisting}
+
+This is the canonical ``read until done'' loop.
+
+\subsection*{Writing our own \texttt{cat}}
+
+\texttt{mycat.c} concatenates all the files named on the command
+line and writes them to stdout:
+
+\begin{lstlisting}[language=C]
+int main(int argc, char* argv[]){
+  int numFiles = argc - 1;
+  int* fds = malloc(numFiles * sizeof(int));
+
+  for(int i=0; i < numFiles; i++){
+    fds[i] = open(argv[i+1],O_RDONLY);
+  }
+
+  for(int i=0; i < numFiles; i++){
+    char readData[1024];
+    int bytesRead = 0;
+    while((bytesRead = read(fds[i],readData,1024)) > 0){
+      write(STDOUT_FILENO,readData,bytesRead);
+    }
+  }
+  for(int i=0; i< argc; i++){
+    close(fds[i]);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+That's basically what \texttt{cat} does. (Subtle bug in the close
+loop: it goes from 0 to \texttt{argc}, but \texttt{fds} is only
+\texttt{numFiles = argc - 1} long. The last \texttt{close(fds[argc-1])}
+reads off the end of the array. Not a crash in practice, but worth
+fixing.)
+
+\subsection*{The \texttt{FILE*} world: \texttt{fopen}, \texttt{fgets}, \texttt{fputs}}
+
+The \texttt{stdio} ``\texttt{FILE*}'' interface is a buffered
+wrapper over file descriptors. \texttt{file1.c}:
+
+\begin{lstlisting}[language=C]
+FILE* ourFile = fopen(argv[1],"r+");
+
+char line[1024];
+while( fgets(line,1024,ourFile) != NULL){
+  printf("%s",line);
+}
+\end{lstlisting}
+
+\texttt{fgets} reads a line at a time --- much friendlier than
+raw \texttt{read} when you actually have line-structured data.
+
+\texttt{weirdcopy.c} uses \texttt{fopen} and \texttt{fputs} to copy
+a file line-by-line.
+
+\subsection*{Parsing CSVs: \texttt{petsDB.c} and \texttt{petsDB2.c}}
+
+\texttt{petsDB.c} parses one line of a comma-separated
+\texttt{name,species,age} file:
+
+\begin{lstlisting}[language=C]
+struct petData {
+  char name[50];
+  char species[50];
+  int age;
+};
+
+void readPet(FILE* f, struct petData* p){
+  fscanf(f,"%49[^,],%49[^,],%d",p->name,p->species,&p->age);
+}
+\end{lstlisting}
+
+The \texttt{\%49[\^{},]} format means ``read up to 49 chars that
+aren't a comma.'' \texttt{petsDB2.c} extends this into a full
+loop, using the fact that \texttt{fscanf} returns the number of
+fields it parsed --- when that drops below 3 we know we're done:
+
+\begin{lstlisting}[language=C]
+while(readPet(petFile,&p) == 3){
+  printf("%s is a %s and is %d years old\n",p.name,p.species,p.age);
+}
+\end{lstlisting}
+
+\subsection*{Directories with \texttt{opendir}/\texttt{readdir}}
+
+\texttt{directory1.c} lists regular files in a directory:
+
+\begin{lstlisting}[language=C]
+DIR* dir = opendir(path);
+struct dirent *entry;
+while ((entry = readdir(dir)) != NULL) {
+  if(entry->d_type == DT_REG){
+    printf("%s\n", entry->d_name);
+  }
+}
+closedir(dir);
+\end{lstlisting}
+
+\texttt{readdir} returns one entry per call; \texttt{NULL} means
+we're done. The \texttt{d\_type} field tells you regular file vs.
+directory vs. symlink vs. socket vs. etc.
+
+\texttt{openDir.c} is similar but listed as part of the same
+exercise.
+
+\subsection*{File metadata with \texttt{lstat}/\texttt{fstat}}
+
+\texttt{lstatTest.c} (and the identical \texttt{fstatTest.c}) builds
+a tiny version of \texttt{ls -l}, decoding the mode bits to print
+file type and permissions:
+
+\begin{lstlisting}[language=C]
+struct stat file_stat;
+lstat(argv[1], &file_stat);
+
+switch (file_stat.st_mode & S_IFMT) {
+ case S_IFREG:  printf("regular file\n"); break;
+ case S_IFDIR:  printf("directory\n"); break;
+ case S_IFLNK:  printf("symbolic link\n"); break;
+ // ...
+}
+
+printf("%c", file_stat.st_mode & S_IRUSR ? 'r' : '-');
+printf("%c", file_stat.st_mode & S_IWUSR ? 'w' : '-');
+printf("%c", file_stat.st_mode & S_IXUSR ? 'x' : '-');
+// ...
+
+printf("Size of file in bytes: %ld\n", (long) file_stat.st_size);
+\end{lstlisting}
+
+\texttt{lstat} doesn't follow symlinks (it tells you about the link
+itself), \texttt{fstat} works on an already-open fd, and plain
+\texttt{stat} follows symlinks. The mode bits are a bitfield ---
+mask with \texttt{S\_IRUSR} etc. to read individual permissions.
+
+\subsection*{Putting it together: a line editor}
+
+\texttt{lineEditor.c} is the grand finale. It loads a file into a
+\texttt{char**} (an array of lines), then offers an interactive
+menu to edit, delete, or insert lines, and writes the result back
+on quit. The interesting bits:
+
+\begin{lstlisting}[language=C]
+void cleanUp(FILE* f, char** ls, int nL){
+  ftruncate(fileno(f),0);
+  fseek(f, 0, SEEK_SET);
+  for(int i=0; i < nL; i++){
+    fputs(ls[i],f);
+    free(ls[i]);
+  }
+  free(ls);
+  fclose(f);
+}
+
+void insLine(int line, char** ls, int* nL){
+  char* newLine = malloc(linesize*sizeof(char));
+  // shift everything from line..end down by one
+  for(int i = *nL; i > line; i--){
+    ls[i] = ls[i-1];
+  }
+  ls[line] = newLine;
+  (*nL)++;
+}
+\end{lstlisting}
+
+\texttt{ftruncate} on the underlying fd zeroes the file; then we
+\texttt{fseek} to the start and write everything back. The line
+shifting is the classic ``insert into an array'' move --- walk
+backwards from the end so you don't overwrite data you haven't
+copied yet.
+
+There's also a tiny demo \texttt{cursing.c} for \texttt{ncurses}
+(initialize, print, refresh, wait for keypress, end) --- ncurses is
+the standard library for terminal-based UIs and is what you'd
+build a more polished editor on top of.
+
+\section{Lecture 13 --- Signals and Signal Handlers}
+
+Today: exceptions, processes, virtual memory, and signals --- the
+mechanism by which the OS interrupts your normal control flow.
+
+\subsection*{Exceptions, broadly}
+
+The OS interrupts your program in three flavors:
+\begin{itemize}
+  \item \emph{Hardware interrupts}: external signals to the CPU,
+    e.g.\ a key press. Handled by a kernel-maintained interrupt
+    descriptor table.
+  \item \emph{Faults}: things like segfaults (serious) and page
+    faults (often routine --- ``go fetch this page from RAM'').
+  \item \emph{Traps and aborts}: divide-by-zero, illegal
+    instruction, and similar.
+\end{itemize}
+
+\subsection*{What's in a process?}
+
+Each process bundles together:
+\begin{itemize}
+  \item The actual executable code.
+  \item Saved register state (what the kernel snapshots on a context
+    switch).
+  \item Open file descriptors.
+  \item Mapped memory pages.
+\end{itemize}
+The \emph{scheduler} is the part of the OS that decides which
+process gets the CPU next. A \emph{context switch} is the (relatively
+expensive) operation of saving one process's registers and
+restoring another's.
+
+\emph{Virtual memory} gives every process the illusion that it owns
+the entire address space. The MMU translates virtual addresses to
+physical ones on the fly, which is how processes are isolated from
+each other. When working sets exceed RAM, the system starts
+\emph{swapping} pages to disk and everything grinds to a halt.
+
+\subsection*{\texttt{getpid} and \texttt{pidLoop.c}}
+
+\texttt{pidLoop.c} is the simplest possible ``find my PID and yell
+about it'' loop:
+
+\begin{lstlisting}[language=C]
+int main(){
+ pid_t myPID = getpid();
+ while(1){
+  printf("I'm mr. %d\n",myPID);
+  sleep(1);
+ }
+ return 0;
+}
+\end{lstlisting}
+
+Run it in one terminal, take the PID it prints, then in another
+terminal you can \texttt{kill -9 <pid>} or \texttt{kill -USR1 <pid>}
+to send signals at it. That's the setup for everything below.
+
+\subsection*{Common signals}
+
+\begin{itemize}
+  \item SIGINT --- Ctrl-C
+  \item SIGFPE --- divide by zero (and friends)
+  \item SIGKILL --- ``you're going to die, no questions, no handler''
+  \item SIGSEGV --- segfault
+  \item SIGALRM --- alarm timer
+  \item SIGSTOP / SIGTSTP --- stop / Ctrl-Z
+  \item SIGUSR1, SIGUSR2 --- user-defined, no system meaning
+\end{itemize}
+
+\subsection*{Catching SIGINT: \texttt{uninterruptable.c}}
+
+\begin{lstlisting}[language=C]
+void uninterruptable(int signum){
+  (void)signum;
+  write(1,"\nOuch!\n",6);
+}
+
+int main(){
+  signal(SIGINT, uninterruptable);
+
+  while(1){
+    printf("I'm Mr. %d and I cannot be stopped!\n\n",getpid());
+    sleep(1);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+Install a handler with \texttt{signal(SIGNAL, handler\_function)};
+now Ctrl-C prints ``Ouch!'' instead of killing the process. To
+actually quit you need a second terminal and \texttt{kill -9}, or
+use SIGTERM, etc.
+
+(Note: inside a signal handler, \texttt{printf} is not safe ---
+it's not async-signal-safe and can deadlock if the signal arrived
+mid-\texttt{printf}. Use \texttt{write} on the raw fd, as we do
+here.)
+
+\subsection*{Custom signals: \texttt{sigusr1.c} and \texttt{sigusr2.c}}
+
+\texttt{sigusr1.c} listens for two user-defined signals:
+
+\begin{lstlisting}[language=C]
+void sigh_andler(int signum){
+  if(signum == SIGUSR1){
+    char msg[] = "I guess we're done?\n";
+    write(1,msg,strlen(msg));
+    exit(0);
+  }
+  else if(signum == SIGUSR2){
+    char msg2[] = "Did you say something?\n";
+    write(1,msg2,strlen(msg2));
+  }
+}
+
+int main(){
+  signal(SIGUSR1,sigh_andler);
+  signal(SIGUSR2,sigh_andler);
+
+  while(1){
+    printf("I'm Mr. %d and I'm just minding my own business...\n",getpid());
+    sleep(1);
+  }
+}
+\end{lstlisting}
+
+From another terminal: \texttt{kill -USR1 <pid>} makes it exit;
+\texttt{kill -USR2 <pid>} makes it talk back.
+
+\texttt{sigusr2.c} introduces \texttt{volatile sig\_atomic\_t}
+state shared between handler and main loop:
+
+\begin{lstlisting}[language=C]
+volatile sig_atomic_t state = 0;
+
+void sigh_andler(int signum){
+  if(signum == SIGUSR1){
+    state +=1;
+  }
+  else if(signum == SIGUSR2){
+    state -= 1;
+  }
+}
+
+int main(){
+  signal(SIGUSR1,sigh_andler);
+  signal(SIGUSR2,sigh_andler);
+
+  while(state < 5){
+    printf("I'm Mr. %d and I'm just minding my own business...\n",getpid());
+    sleep(1);
+  }
+}
+\end{lstlisting}
+
+\texttt{volatile} tells the compiler ``don't cache this in a
+register, reload it from memory every time'' --- otherwise an
+optimizer might decide \texttt{state < 5} can never change inside
+the loop and turn the whole thing into \texttt{while(true)}.
+\texttt{sig\_atomic\_t} is the type guaranteed to be readable and
+writable atomically with respect to signals.
+
+\subsection*{Signaling between fork-children: \texttt{sigusr3.c}}
+
+\begin{lstlisting}[language=C]
+int main(){
+  signal(SIGUSR1,sigh_andler);
+  signal(SIGUSR2,sigh_andler);
+
+  pid_t pid = fork();
+  if(pid == 0){
+    // child: ping the parent every two seconds
+    for(int i=0; i<5;i++){
+      kill(getppid(), SIGUSR1);
+      sleep(2);
+    }
+  }
+
+  while(state < 5){
+    printf("I'm Mr. %d and I'm just minding my own business...\n",getpid());
+    sleep(1);
+  }
+}
+\end{lstlisting}
+
+The child uses \texttt{getppid()} (parent PID) and
+\texttt{kill(pid, SIG)} to send SIGUSR1 to the parent five times.
+The parent's handler bumps \texttt{state} each time, and once
+\texttt{state >= 5} the parent exits.
+
+\subsection*{An incremental game with signals: \texttt{forkIncremental.c}}
+
+\begin{lstlisting}[language=C]
+volatile sig_atomic_t income = 0;
+volatile sig_atomic_t gen1 = 0;
+volatile sig_atomic_t gen2 = 0;
+volatile sig_atomic_t gen3 = 0;
+
+void heartbeat(int signumb){
+  printMenu();
+  gen2 += gen3;
+  gen1 += gen2;
+  income += gen1;
+}
+
+int main(){
+  pid_t pinger = fork();
+
+  if(pinger == 0){
+    while(1){
+      pid_t parent = getppid();
+      sleep(1);
+      kill(parent,SIGUSR1);
+    }
+  }
+
+  signal(SIGUSR1,heartbeat);
+
+  printMenu();
+  while(1){
+    int choice;
+    scanf("%d",&choice);
+    switch(choice){
+    case 1: income++; break;
+    case 2:
+      if(income >= 10){ income -= 10; gen1++; }
+      break;
+    // ...
+    }
+  }
+}
+\end{lstlisting}
+
+A child process pings the parent once per second with SIGUSR1; the
+parent's handler advances the game state. Meanwhile the parent's
+main loop reads keyboard input. This is a real little incremental
+``cookie-clicker''-style game using nothing but signals as the
+heartbeat. Next lecture we'll redo this same game with threads
+instead, which is a much cleaner pattern.
+
+\section{Lecture 14 --- Threads in Earnest, and Reworking the Incremental Game}
+
+The thread review day: re-doing the incremental game with threads
+and mutexes instead of signals, plus some standalone thread review
+examples and a teaser on \texttt{sigaction}.
+
+\subsection*{Logistics for the assignment}
+
+The next coding assignment is parallel processing: do some
+operation in parallel on a big malloc'd array (hundreds of
+thousands or millions of elements). Pick a fixed thread count (say
+10), and have each thread grab a fixed-size chunk (say 1000
+elements) at a time, using a shared counter (protected by a mutex)
+to track the next chunk. Don't divide the array by the number of
+threads --- the chunk size should be a constant.
+
+\subsection*{Thread review: \texttt{threadreview1.c}}
+
+\begin{lstlisting}[language=C]
+void* threadWorker(void* arg){
+  char* msg = (char*)arg;
+  usleep(rand()%15000);
+  printf("%s", msg);
+  return NULL;
+}
+
+int main(){
+  pthread_t thread1, thread2, thread3;
+
+  char msg1[] = "Hi there\n";
+  char msg2[] = " how are you?\n";
+  char msg3[] = " I hope this message came through\n";
+
+  pthread_create(&thread1,NULL,threadWorker,msg1);
+  pthread_create(&thread2,NULL,threadWorker,msg2);
+  pthread_create(&thread3,NULL,threadWorker,msg3);
+
+  pthread_join(thread1,NULL);
+  pthread_join(thread2,NULL);
+  pthread_join(thread3,NULL);
+}
+\end{lstlisting}
+
+Three threads each print a different message after a random short
+sleep. The output order is unpredictable, which is the point ---
+threads run when the scheduler decides, not when you wrote the
+\texttt{pthread\_create}.
+
+(The \texttt{usleep} takes microseconds, so \texttt{rand()\%15000}
+sleeps up to 15 ms.) After joining all three, we then re-create
+\texttt{thread1} again to show that you can reuse the
+\texttt{pthread\_t} variable once the previous use is joined.
+
+\subsection*{Mutex review: \texttt{threadreview2.c}}
+
+\begin{lstlisting}[language=C]
+char* msgs[] = {"Hi there ","how are you? ","I hope this message came through"};
+int counter = 0;
+pthread_mutex_t mut;
+
+void* threadWorker(void* arg){
+  sleep(rand()%3+1);
+
+  int temp;
+  pthread_mutex_lock(&mut);
+  temp = counter;
+  counter++;
+  pthread_mutex_unlock(&mut);
+  printf("%s", msgs[temp]);
+  return NULL;
+}
+\end{lstlisting}
+
+Each thread grabs the lock, snapshots and increments a shared
+counter, releases the lock, then uses the snapshotted value to
+pick which message to print. The lock makes the
+``read-and-increment'' indivisible.
+
+\subsection*{Little simulation: \texttt{test1.c}}
+
+\texttt{test1.c} is a sketch of an agent simulation:
+
+\begin{lstlisting}[language=C]
+enum lilguyState { eating, sleeping, moving, vibing };
+
+struct lilguyData {
+  int id;
+  enum lilguyState state;
+};
+
+sig_atomic_t simulationRunning = 1;
+
+void handler(int signum){
+  char msg[] = "Alright everyone clean up and go!\n";
+  simulationRunning = 0;
+  write(1,msg,strlen(msg));
+}
+
+void* threadWorker(void* arg){
+  struct lilguyData dat = *((struct lilguyData*) arg);
+  while(simulationRunning){
+    printf("I'm Miss %d and I'm ",dat.id);
+    printState(dat.state);
+    dat.state = rand()%4;
+    sleep(rand()%3+1);
+  }
+  return NULL;
+}
+\end{lstlisting}
+
+Five ``little guy'' threads each randomly cycle through states
+until SIGINT (Ctrl-C) flips \texttt{simulationRunning} to 0 and
+they all clean up and exit.
+
+\subsection*{Incremental game, take two: \texttt{threadIncremental.c}}
+
+\begin{lstlisting}[language=C]
+pthread_mutex_t mut;
+int income = 0, gen1 = 0, gen2 = 0, gen3 = 0;
+
+void* heartbeat(void* arg){
+  while(1){
+    pthread_mutex_lock(&mut);
+    printMenu();
+    gen2 += gen3;
+    gen1 += gen2;
+    income += gen1;
+    pthread_mutex_unlock(&mut);
+    sleep(1);
+  }
+  return NULL;
+}
+
+int main(){
+  pthread_t pulse;
+  pthread_mutex_init(&mut,NULL);
+  pthread_create(&pulse,NULL,heartbeat,NULL);
+
+  while(1){
+    int choice;
+    scanf("%d",&choice);
+    switch(choice){
+    case 1:
+      pthread_mutex_lock(&mut);
+      income++;
+      pthread_mutex_unlock(&mut);
+      break;
+    // ...
+    }
+  }
+}
+\end{lstlisting}
+
+Same game as last time, but now the heartbeat is a worker thread
+(not a signal-driven side-effect) and every read or write of the
+shared state is wrapped in mutex lock/unlock. This is dramatically
+cleaner than the SIGUSR1-driven version, and is how you'd actually
+build something like this in production.
+
+\subsection*{Adding a clean shutdown: \texttt{threadIncremental2.c}}
+
+\begin{lstlisting}[language=C]
+volatile sig_atomic_t toContinue = 1;
+
+void cleanup(int signum){
+  toContinue = 0;
+}
+
+// ...
+struct sigaction sigsettings;
+sigsettings.sa_handler = cleanup;
+sigsettings.sa_flags = 0; // makes scanf not block
+sigaction(SIGINT,&sigsettings,NULL);
+
+while(toContinue){
+  int choice;
+  scanf("%d",&choice);
+  // ...
+}
+\end{lstlisting}
+
+We add a SIGINT handler that flips \texttt{toContinue} to 0, and
+both the heartbeat loop and main loop check that flag. The catch:
+plain \texttt{signal()} sets \texttt{SA\_RESTART} by default on
+Linux, which means \texttt{scanf} will silently retry after the
+signal --- you'd have to type something to break out. Using
+\texttt{sigaction} with \texttt{sa\_flags = 0} disables that, so
+\texttt{scanf} returns with an error on signal and the loop checks
+\texttt{toContinue}.
+
+\texttt{threadIncremental3.c} and
+\texttt{threadIncremental3\_sigaction.c} are tiny variations on
+the same theme: one with the plain \texttt{signal()} call (which
+will get stuck in \texttt{scanf}), one with \texttt{sigaction}
+(which won't), and a version where the cleanup handler also writes
+a final ``make one last purchase'' message. The diff between the
+two versions is the whole pedagogical point: \texttt{signal()} is
+the old, slightly-broken interface; \texttt{sigaction()} is what
+you actually want for real code.
+
+\section{Sockets --- Networks, the TCP/IP Stack, and Three Echo Servers}
+
+This was our networking day. Final project handling has moved to
+GitHub at \texttt{https://github.com/clarissalittler/cs201}; the
+\texttt{sockets-lecture/} directory has the working examples.
+
+\subsection*{The TCP/IP model in 5 minutes}
+
+\begin{itemize}
+  \item \emph{Application} layer: HTTP, DNS, SSH, BitTorrent ---
+    things built on top of the protocols.
+  \item \emph{Transport} layer: TCP (reliable, ordered) and UDP
+    (best-effort, unordered, fast). TCP guarantees every byte
+    arrives and arrives in order; UDP just lobs packets and hopes.
+  \item \emph{Internet} layer: IP addresses (IPv4, 32-bit, four
+    dotted octets; IPv6, 128-bit) and routing.
+  \item \emph{Link} layer: the physical connection --- ethernet,
+    wi-fi.
+\end{itemize}
+
+\subsection*{Sockets and network byte order}
+
+A \emph{socket} is the OS abstraction for a network endpoint.
+Surprise: it's just a file descriptor, so once you've opened one
+you can \texttt{read}/\texttt{write} on it like any other file.
+
+Network byte order is \emph{big-endian} (most-significant byte
+first), which is the opposite of x86-64. So before you stuff a port
+number or IP address into the socket structures, you call
+\texttt{htons} (host-to-network short) or \texttt{htonl}
+(host-to-network long) to byte-swap.
+
+\subsection*{Echo server, simplest form}
+
+\texttt{echo\_server\_simplistic.c} is the bare minimum:
+
+\begin{lstlisting}[language=C]
+int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+int optval = 1;
+setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR,
+           &optval, sizeof(optval));
+
+struct sockaddr_in server_addr;
+memset(&server_addr, 0, sizeof(server_addr));
+server_addr.sin_family = AF_INET;
+server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+server_addr.sin_port = htons(port);
+
+bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+listen(server_fd, 10);
+
+while (1) {
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    int client_fd = accept(server_fd,
+                           (struct sockaddr *)&client_addr,
+                           &client_len);
+
+    char buffer[1024];
+    ssize_t bytes_received;
+    while ((bytes_received = recv(client_fd, buffer,
+                                  sizeof(buffer), 0)) > 0) {
+        send(client_fd, buffer, bytes_received, 0);
+    }
+    close(client_fd);
+}
+\end{lstlisting}
+
+The five-step recipe:
+\begin{enumerate}
+  \item \texttt{socket(AF\_INET, SOCK\_STREAM, 0)} --- TCP socket
+    over IPv4.
+  \item Fill out a \texttt{sockaddr\_in} (family, IP, port) and
+    \texttt{bind} it to the socket.
+  \item \texttt{listen} marks the socket as accepting connections.
+  \item \texttt{accept} blocks until a connection comes in,
+    returning a new fd for that client.
+  \item \texttt{recv} and \texttt{send} are the socket flavors of
+    \texttt{read} and \texttt{write}.
+\end{enumerate}
+
+The \texttt{SO\_REUSEADDR} option lets you restart the server
+without waiting for the kernel's TIME\_WAIT timeout, which is a
+huge quality-of-life thing during development.
+
+You can connect to it with \texttt{ncat localhost 8080} (or any
+port you bound) and watch your typing get echoed back.
+
+\subsection*{Echo server with error handling: \texttt{echo\_server.c}}
+
+\texttt{echo\_server.c} is the same logic but with proper
+\texttt{perror} calls on every step that can fail, and
+\texttt{inet\_ntop} to log the client's IP and port:
+
+\begin{lstlisting}[language=C]
+char client_ip[INET_ADDRSTRLEN];
+inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
+printf("Connection from %s:%d\n", client_ip, ntohs(client_addr.sin_port));
+\end{lstlisting}
+
+\subsection*{Multi-client echo server: \texttt{echo\_server\_threaded.c}}
+
+The simplistic version handles exactly one client at a time. To
+handle many in parallel, we spin up a thread per connection:
+
+\begin{lstlisting}[language=C]
+void *handle_client(void *arg) {
+    int client_fd = *(int *)arg;
+    free(arg);
+
+    char buffer[1024];
+    ssize_t bytes_received;
+    while ((bytes_received = recv(client_fd, buffer,
+                                  sizeof(buffer), 0)) > 0) {
+        send(client_fd, buffer, bytes_received, 0);
+    }
+    close(client_fd);
+    return NULL;
+}
+
+int main(int argc, char *argv[]) {
+    // ... socket/bind/listen as before ...
+    while (1) {
+        int client_fd = accept(server_fd,
+                               (struct sockaddr *)&client_addr,
+                               &client_len);
+
+        int *client_fd_ptr = malloc(sizeof(int));
+        *client_fd_ptr = client_fd;
+
+        pthread_t thread;
+        pthread_create(&thread, NULL, handle_client, client_fd_ptr);
+        pthread_detach(thread);
+    }
+}
+\end{lstlisting}
+
+Two things to note. First, we \texttt{malloc} a single \texttt{int}
+to pass the fd into the thread --- if we passed \texttt{\&client\_fd}
+directly, the next iteration would clobber it before the thread
+read it. Second, we \texttt{pthread\_detach} so we don't have to
+\texttt{join} --- the thread cleans up after itself when it
+returns. (We don't have a meaningful return value to wait on.)
+
+\subsection*{The grand finale: \texttt{chat\_server.c}}
+
+A multi-client \emph{broadcast} server: every connected client sees
+every other client's messages. The data structure:
+
+\begin{lstlisting}[language=C]
+typedef struct {
+    int fd;
+    int active;
+    char ip[INET_ADDRSTRLEN];
+    int port;
+} Client;
+
+Client clients[MAX_CLIENTS];
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+\end{lstlisting}
+
+A fixed-size array of clients, protected by a single global mutex.
+The broadcast routine grabs the lock and writes to every active
+client except the sender:
+
+\begin{lstlisting}[language=C]
+void broadcast(char *message, int sender_fd) {
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i].active && clients[i].fd != sender_fd) {
+            send(clients[i].fd, message, strlen(message), 0);
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+}
+\end{lstlisting}
+
+This is everything we've built all term, all in one place: file
+descriptors, threads, mutexes, structured shared state. Try
+connecting two terminals to the same server with \texttt{ncat} and
+watch the messages cross-pollinate.
+
+For the deeper details (especially around partial reads, message
+framing, and what \texttt{recv} \emph{actually} returns at TCP
+boundaries), see \texttt{socketsGuide.org} in the repo.
+
+\section{Appendix: Pointer Pyrotechnics (\texttt{pointerExtras/})}
+
+These were extra examples I dropped into the repo for practice ---
+not tied to a specific lecture, but worth a read.
+
+\subsection*{\texttt{pointymcpointface.c}: pointers as a substitute for pass-by-reference}
+
+\begin{lstlisting}[language=C]
+void worldsWorstInc(int* p){
+  *p = *p + 1;
+}
+
+int main(){
+  int num = 0;
+  printf("%p\n",(void*)&num);
+  int* np = &num;
+
+  printf("The variable with address %p has a value of %d\n", (void*)np, *np);
+
+  worldsWorstInc(np);
+  worldsWorstInc(np);
+
+  printf("The variable with address %p now has a value of %d\n", (void*)np, *np);
+}
+\end{lstlisting}
+
+The two reasons pointers exist in C: dynamic memory
+(\texttt{malloc}/\texttt{free}), and faking pass-by-reference. This
+is the latter, distilled.
+
+\subsection*{\texttt{multiarray.c}: dynamic 2D arrays as pointers-to-pointers}
+
+\begin{lstlisting}[language=C]
+int** arr = malloc(10*sizeof(int*));
+for(int i = 0; i<10; i++){
+  arr[i] = malloc(10*sizeof(int));
+}
+
+for(int i=0; i < 10; i++){
+  for(int j=0; j < 10; j++){
+    arr[i][j] = 100*(i+1) + j;
+  }
+}
+\end{lstlisting}
+
+A 10x10 matrix as an array of 10 pointers, each pointing to a row
+of 10 ints. The double-subscript \texttt{arr[i][j]} expands to
+\texttt{*(*(arr+i)+j)} --- two dereferences and two pointer
+arithmetics. Note this isn't contiguous in memory like a true 2D
+array (\texttt{int arr[10][10]}); the rows can be allocated wherever.
+
+\subsection*{\texttt{pointstack.c}: a linked-list stack with pointer-to-pointer for the head}
+
+\begin{lstlisting}[language=C]
+struct Node {
+  int v;
+  struct Node* next;
+};
+
+void pushStack(struct Node** s, int v){
+  struct Node* h = malloc(sizeof(struct Node));
+  h->v = v;
+  h->next = *s;
+  *s = h;
+}
+\end{lstlisting}
+
+The function takes \texttt{struct Node**} (not \texttt{struct
+Node*}) because it needs to mutate the caller's head pointer.
+This is the same ``pass an address so the function can modify the
+variable'' move from \texttt{worldsWorstInc}, just one level of
+indirection deeper. If you internalize \texttt{**} here, every
+later use of pointer-to-pointer (e.g.\ \texttt{argv}, the
+\texttt{void**} in \texttt{pthread\_join}) becomes much less
+mysterious.
+
+\end{document}
