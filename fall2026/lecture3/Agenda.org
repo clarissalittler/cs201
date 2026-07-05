@@ -1,0 +1,15 @@
+* Agenda
+** Admin / questions
+** malloc
+ + =malloc.c=, =malloc2.c=
+ + the heap vs. the stack; who frees what
+ + valgrind demo -- run everything under valgrind this term
+** Conceptual step-back: what even is a program?
+ + memory layout: text / data / heap / stack
+** Your first real assembly
+ + =first.s= -- the smallest program that exits
+ + exit codes and =echo $?= (they're 8 bits! =firstfixed.s= exits -1 -> 255)
+ + =firstadd.s=, =firstsub.s= -- doing arithmetic in registers
+ + =test.c= / =test.s= -- what gcc generates for a tiny C file
+** How to build
+ + as file.s -o file.o && ld file.o -o file

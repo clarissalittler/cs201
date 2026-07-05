@@ -1,0 +1,25 @@
+* Agenda
+** Admin / questions
+** One thing I didn't mention: why Rust matters
+ + first language besides C to make real headway into the Linux kernel
+** Structs
+ + =structs1.rs= -- impl blocks, &self vs &mut self, derive, Display
+** Enums
+ + =enums1.rs= -- looks like a C enum (but there's no integer under it)
+ + =enums2.rs= -- untrusted u32 -> Option<CSClasses> via from_number
+ + =enums3.rs= -- the same as a TryFrom impl; map_err + and_then chain
+** The reveal: enums have fields (algebraic datatypes)
+ + =adts1.rs= -- variants with payloads; match binds the fields
+ + =adts.hs= / (lecture16's) =Tree.hs= -- Option and Result are just enums
+** Lists without tears
+ + =BadList.c= -- a struct containing itself has infinite size
+   (struct BadNode next; -> "field has incomplete type")
+ + =lists1.rs= -- Cons(T, Box<List<T>>) | Nil; Box is the typed,
+   self-freeing malloc
+ + =lists2.rs= -- Option<Box<Node<T>>>, .take(), while let Some(x) = pop()
+** Writing ? ourselves
+ + =fileLines.rs= vs =fileLines2.rs= -- the match that ? expands to
+** Coda
+ + kernel-architectures reading list lives in
+   spring2026/lecture17/OldAgenda.org for the curious
+** Build with the Makefile in this directory

@@ -8,6 +8,11 @@ This repository is organized by semester and topic. Here's a guide to help you n
 
 ### Semester-Based Materials
 
+#### `fall2026/` (next term — skeleton)
+A pre-built skeleton for the Fall 2026 run: audited examples organized
+lecture-by-lecture with outline agendas, including a new condition-variables
+lecture. See `fall2026/README.md` for the layout.
+
 #### `spring2026/` (current term)
 Spring 2026 lecture materials (lectures 1-17). Each lecture folder contains an
 `Agenda.org` outline plus the code written in class. The term also has

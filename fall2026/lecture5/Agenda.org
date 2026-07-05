@@ -1,0 +1,16 @@
+* Agenda
+** Admin / questions
+** Hello again, and echo
+ + =hello.s= redux
+ + =echo.s= -- read syscall + write syscall; read returns byte count in rax
+** From jumps to proper functions
+ + =routine.s= -- jumping to a label and the problem of getting back
+ + =helloRet.s= -- call saves the return address, ret jumps back to it
+ + =fun1.s= -- a real function... that clobbers its argument register
+ + =fun2.s= -- same function, but it preserves %rdi via %r9
+   (the diff between fun1 and fun2 is the whole lesson: caller-owned
+   registers are NOT safe across a call)
+** The stack
+ + push / pop
+ + =funStack.s= -- saving registers across calls the right way
+ + make way for variables: the stack frame idea

@@ -1,0 +1,16 @@
+* Agenda
+** Admin / questions
+** Semaphores
+ + a counter you can wait on: sem_wait decrements (blocking at 0),
+   sem_post increments
+ + =semCounter.c= -- a semaphore with count 1 acts like a mutex
+ + =semBouncer.c= -- the OTHER use: "at most N threads in this room";
+   50 threads, only MAX_CONCURRENT working at once
+ + relation to last lecture: a semaphore is roughly
+   counter + mutex + condition variable, pre-packaged
+** The Dining Philosophers
+ + =philo1.c= -- everyone grabs their left fork: deadlock, by design
+ + the four conditions for deadlock; circular wait is the one we break
+ + =philo2.c= -- break the cycle: one philosopher grabs right-first
+ + =philo3.c= -- alternative fix: an N-1 bouncer semaphore at the table
+ + =philoWithId.c= -- watching who eats

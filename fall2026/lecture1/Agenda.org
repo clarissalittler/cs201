@@ -1,0 +1,19 @@
+* Agenda
+** Admin (fill in: syllabus, homework schedule, office hours)
+** What is this class?
+ + the layers under your programs: C -> assembly -> syscalls -> hardware
+ + what you need to do to pass, resources, the course repo
+** C: What's different?
+ + no classes, no garbage collection, no safety net
+ + everything "is a number" and can go in a conditional
+** Bitwise and bit manipulation operations
+ + & | ^ ~ << >>
+ + masking, setting, flipping, testing bits
+ + =bitmunger1.c= -- interactive bit-flipper
+** Peeking inside an integer
+ + two's complement: all ones is -2^(n-1) + 2^(n-1) - 1 = -1
+ + to negate: subtract 1 then invert (or invert then add 1)
+** Pointers warm-up
+ + =passPointy.c=, =arraything.c=
+** Preview of floats
+ + =floatmunger1.c= -- reading the bits of a float

@@ -1,0 +1,22 @@
+* Agenda
+** Admin / questions
+** Internet sockets!
+ + same four calls as domain sockets, but the address is IP + port
+ + network byte order vs. host byte order: htons/htonl/ntohs/ntohl
+ + we're only considering TCP here
+** The echo server, growing up
+ + =echoServerOnce.c= / =echoClient.c= -- one client, then exit
+ + =echoServerLoop.c= -- an accept loop
+ + =echoServerFork.c= -- fork per connection (SIGCHLD/SIG_IGN vs zombies)
+ + =echoServerThread.c= -- thread per connection (malloc the fd copy!)
+** A really simple web server
+ + =webServer.c= / =webClient.c= -- HTTP is just text over a socket
+ + this is the warm-up for the final project
+** Handling many clients in ONE thread
+ + =echoServerSelect.c= -- select: copy the master set each iteration,
+   maxfd+1, FD_CLR travels with close
+ + =echoServerPoll.c= -- poll: no fd ceiling, remember to clear
+   .revents when adding a client
+ + =webServerSelect.c= -- the web server, select-style
+ + (stretch) epoll: what the big servers actually use
+** Build with the Makefile in this directory

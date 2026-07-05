@@ -1,0 +1,17 @@
+* Agenda
+** Admin / questions
+** Reusing functions across files
+ + assembling multiple .s files and linking them together
+ + =readInt.s= / =writeInt.s= -- our I/O library for assignments
+   + note both save/restore %rbx (callee-saved!) and readInt uses
+     movzbl, not movb, when parsing digits
+   + writeInt handles LONG_MIN (-2^63), which can't be negated
+ + =readWriteTest.s= -- round-tripping a number
+** Recursion in assembly
+ + =fact.s= -- factorial; what the stack does for us
+** Summing an array with a function
+ + =sumLoopArray.s=
+** Discussion: posits
+ + read positTutorial.org in the course repo
+ + posits are a family of alternatives to IEEE 754: no inf/nan zoo,
+   just NaR; precision spread differently across the number line

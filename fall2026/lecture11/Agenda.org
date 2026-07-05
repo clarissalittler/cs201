@@ -1,0 +1,17 @@
+* Agenda
+** Admin / questions
+** Exceptions: the taxonomy
+ + interrupts, faults, traps, aborts -- the hardware's side of the story
+ + =segfault.c=, =divByZero.c= -- faults you've already met
+** Signals: the software side
+ + =sendSignal.c=, =justSitHere.c= -- kill(pid, SIG...) between processes
+ + =sigOldWay.c= vs =sigModernWay.c= -- signal() vs sigaction()
+ + =handleDiv.c=, =handleSegfault.c= -- catching the uncatchable-looking
+ + =cantStopMe.c= -- SIGKILL and SIGSTOP cannot be caught or blocked
+ + =blockSignals.c= -- signal masks
+** Signals + fork
+ + =forkSignal.c= -- parent and child signaling each other
+ + =signalFight.c= -- the duel; standard signals coalesce, they don't queue
+** Async-signal-safety
+ + inside a handler: write() yes, printf() no (it can deadlock
+   mid-buffer-flush); set a volatile sig_atomic_t flag and get out

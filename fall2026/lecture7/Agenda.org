@@ -1,0 +1,16 @@
+* Agenda
+** Admin / questions
+** What's a process? Processes vs. threads of execution
+ + tasks: how Linux represents both
+** fork and its weirdness
+ + =fork1.c= through =fork5.c= -- one call, two returns
+ + check the return value: 0 means you're the child, >0 is the child's
+   pid, -1 is an error
+ + wait() and why zombies happen (fork2.c says why we're skipping it
+   in the early demos)
+** For contrast: threads
+ + =thread1.c= through =thread4.c=
+ + shared address space: the danger and the point
+** A word on function pointers
+ + =funpoint1.c= -- pthread_create takes one, so let's understand them
+ + map a function over an array; "higher-order functions"

@@ -1,0 +1,17 @@
+* Agenda
+** Admin / questions
+** Hex and reading memory
+ + two hex digits = one byte; #RRGGBB color codes as a familiar example
+ + =sizes.c=, =readingPointers.c=, =pointerArith.c=
+** Byte order (endianness)
+ + =byteOrderTest.c= -- x86-64 is little-endian
+** Floats/IEEE 754 more formally
+ + 1 sign bit, 8 exponent bits (bias 127), 23 fraction bits
+ + (-1)^s * 2^(e - 127) * (1 + f) in the normal case
+ + worked example: 0 10000001 1010...0 = 6.5
+ + edge cases: exponent all 1s (inf/nan), all 0s (subnormals)
+ + =floatmunger1.c= -- read the bits of a float
+** The limitations of floating point
+ + =floatlimit.c= -- what happens after many additions
+ + why: the reals are uncountable, floats are 2^32 breadcrumbs
+ + rounding: round-to-even, so error doesn't bias one direction

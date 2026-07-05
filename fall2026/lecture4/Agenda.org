@@ -1,0 +1,16 @@
+* Agenda
+** Admin / questions
+** Registers and the calling convention
+ + the 16 general-purpose registers; caller- vs. callee-saved
+ + arguments: rdi, rsi, rdx, rcx, r8, r9; return in rax
+ + syscall arguments: rdi, rsi, rdx, *r10*, r8, r9 (r10, not rcx!)
+** Data sections and addressing modes
+ + =addGlobal.s=, =addGlobalBetter.s=, =addGlobalLea.s= -- rip-relative, lea as &
+ + default to =.quad= + scale 8; only use =.long= with l-suffixed ops
+ + =addArray1.s= through =addArray4.s= -- indexing, scale factors,
+   and what changes when the data is .long instead of .quad
+** Control flow
+ + =cmp1.s= -- cmp sets flags, jumps read them
+ + =sumLoop.s=, =sumLoopB.s= -- loops from compare-and-jump
+** Hello, world
+ + =hello.s= -- the write syscall: fd 1 is stdout (0 stdin, 2 stderr)

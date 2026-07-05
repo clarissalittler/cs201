@@ -1,0 +1,23 @@
+* Agenda
+** Admin / questions
+** Files and file IO, the syscall layer
+ + open(), read(), write(), close(); =openfile1.c=, =openfile2.c=
+   + note openfile2 opens the SAME file repeatedly on purpose: each
+     open() gets a fresh, increasing fd number
+ + modes and permissions: O_RDONLY / O_WRONLY / O_CREAT / O_TRUNC, 0666
+ + when you need loops to read and write; =readfile1.c=,
+   =writefile1.c=, =writefile2.c= (the write loop)
+ + moving around inside a file: lseek
+** File descriptors are just numbers
+ + 0, 1, 2 are already open when you start
+** stdio file IO: the buffered layer
+ + =openfileagain.c= -- fopen/fgets (fgets returns a pointer: compare
+   against NULL, not 0)
+ + buffering: why printf output can vanish when a program crashes
+ + =weirdcopy.c= -- copying with the FILE api
+** Directories and metadata
+ + =directory1.c= -- opendir/readdir
+ + =lstatTest.c= -- fstat/lstat
+** A tiny terrible line editor
+ + =lineEditor.c= -- everything above, in one gremlin of a program
+   (int c for getchar()! it returns int so EOF stays distinguishable)

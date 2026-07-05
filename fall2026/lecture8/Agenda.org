@@ -1,0 +1,19 @@
+* Agenda
+** Admin / questions
+** Passing arguments to threads
+ + =threadArgsBad.c= -- the &i loop-variable bug (every thread sees
+   whatever i is NOW, not what it was)
+ + =threadArgs.c= -- one malloc'd (or array) slot per thread
+** Returning values from threads
+ + =threadRetBad.c= -- returning a stack address (gcc even warns!)
+ + =threadRet.c= -- malloc the result, join collects it
+** The shared counter and the race
+ + =threadCounterBad.c= -- run it: the count comes up short
+ + counter++ is read/modify/write, three instructions, interleavable
+** Mutexes
+ + =threadCounterMutex.c=, =threadCounterMutex2.c=
+ + critical sections: hold the lock as briefly as possible
+ + the problem with overusing mutexes: you serialize everything
+** Bundling state
+ + =threadCounterStruct.c= -- passing a struct of (counter, mutex)
+** Teaser for next time: what if a thread needs to WAIT for something?

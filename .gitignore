@@ -167,3 +167,5 @@ rust-intro/bin/
 
 # local tooling state, never commit
 .codex/
+fall2026/lecture16/bin/
+fall2026/lecture17/bin/

@@ -1,0 +1,32 @@
+* Agenda
+** Admin / questions
+** Rust! Why does it exist?
+ + C's holes: malloc/free errors, buffer mismatches, wild casts
+ + higher-level languages fix these but pay with garbage collection
+ + Rust: a real type system, C-like feel, no GC -- via affine types
+   (the compiler tracks ownership and inserts the frees)
+** First programs
+ + =hello.rs= -- println! is a macro; format strings checked at build
+ + =echo.rs= -- let mut, read_line, .trim(), .expect()
+** Borrowing
+ + =badborrow.cpp= -- the dangling-reference bug, compiling happily in C++
+ + =badborrow.moveme= -- rename to .rs and watch the compiler refuse
+ + =fixborrow.rs= -- borrows end at last use; reorder and it's fine
+ + many readers OR one writer, never both
+** Iteration and functions
+ + =iteration1.rs= .. =iteration6.rs= -- loop/while/for; own vs &v vs &mut v
+ + =func1.rs= -- last expression is the return value
+ + =func2bad= (unbuildable on purpose) vs =func2.rs= -- move vs borrow
+** Vectors, Option, Result
+ + =vectors1.rs= .. =vectors3.rs= -- pop returns Option; unwrap vs match
+ + =res.rs= -- Result carries the why
+** Old friends
+ + =bitmunger.rs= -- lecture 1's bit-flipper; {:032b} for free
+ + =args.rs= -- arguments are an iterator, no argc/argv
+ + =fileLines.rs= -- File::open, BufReader, the ? operator, no fclose (RAII)
+ + =lineEditor.rs= -- lecture 13's editor as Vec<String>
+** Threads, one more time
+ + =thread1.rs= / =thread2.rs= -- the move keyword IS the &i fix
+ + =sharedCounter.rs= -- the racy version doesn't compile; Arc<Mutex<i32>>
+ + =channels.rs= -- pipes but typed; dropping all senders closes it
+** Build with the Makefile in this directory

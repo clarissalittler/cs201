@@ -1,0 +1,23 @@
+* Agenda
+** Admin / questions
+** "Everything is a file"
+ + =devnull.c=, =urandom.c= -- /dev/null and /dev/urandom
+ + =islong.c= -- a quick sizeof aside (%zu for size_t!)
+** Anonymous pipes
+ + =anonPipe.c=, =anonpipeloop.c=, =anonpipescanf.c=, =anonPipeLoopFix.c=
+ + close the ends you aren't using! read() only reports EOF when EVERY
+   copy of the write end is closed -- and fork duplicated the fds, so
+   the child forgetting its own write end means EOF never comes
+** Named pipes (FIFOs)
+ + =namedPipeReader.c= / =namedPipeWriter.c= -- pipes with a filename
+** Unix domain sockets
+ + =domainServer.c= / =domainClient.c= -- the socket/bind/listen/accept
+   dance, with a filesystem path as the address (preview of lecture 15)
+** Shared memory with mmap
+ + =mmapFile.c=, =screamFile.c= (with =toscream.txt=) -- mapping a file
+ + =mmapShared.c= -- MAP_SHARED | MAP_ANONYMOUS across a fork:
+   every concurrency hazard from threads, back again
+ + =mmapSem.c= -- fixing it with a process-shared semaphore (mutexes
+   without special attributes are process-local)
+** Signals reprise
+ + =signalDuel.c= -- parent and child duel with SIGUSR1/SIGUSR2

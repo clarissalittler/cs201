@@ -1,0 +1,11 @@
+* Agenda
+** Admin / questions / project time
+** Reading week: the memory hierarchy and virtual memory
+ + CS:APP chapter 6 -- the memory hierarchy
+   + registers -> L1/L2/L3 -> RAM -> disk; locality is why caches work
+   + what cache-friendly code looks like (row-major traversal!)
+ + CS:APP chapter 9 -- virtual memory
+   + every process gets its own address space; pages and page tables
+   + this is why fork can copy "all of memory" instantly (copy-on-write)
+   + and why a segfault is the MMU, not the kernel, catching you
+** Discussion prompts (fill in)

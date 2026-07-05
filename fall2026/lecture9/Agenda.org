@@ -1,0 +1,29 @@
+* Agenda
+** Admin / questions
+** The waiting problem
+ + mutexes protect state, but they don't let a thread SLEEP until
+   something becomes true
+ + =condBusyWait.c= -- the best a mutex alone can do: lock, peek,
+   unlock, repeat. run =top= next to it: one core pinned at 100%
+   doing nothing
+** Condition variables
+ + =condWait.c= -- same program, diff it against condBusyWait.c
+ + pthread_cond_wait(&cond, &mut) atomically releases the mutex and
+   sleeps; re-acquires the mutex on wakeup
+ + why atomically? the lost-wakeup problem
+ + ALWAYS while(!condition), never if:
+   + spurious wakeups are allowed by POSIX
+   + another thread may have consumed the condition first
+   + cond_wait returning means "MIGHT be true now", not "IS true"
+** signal vs. broadcast
+ + =condBroadcast.c= -- ten runners at a starting line
+ + signal wakes one waiter; broadcast wakes all of them
+ + rule of thumb: signal when any one waiter can consume the event,
+   broadcast when the world changed and everyone must re-check
+** Producer/consumer: the bounded buffer
+ + =prodcons.c= -- two condvars (notFull, notEmpty), one mutex
+ + this is the machinery inside pipes, work queues, thread pools
+ + backpressure: the fast producer blocks when the buffer fills
+** Where this is going
+ + next time: semaphores -- roughly a counter + mutex + condvar in
+   one package, and they work across processes too
