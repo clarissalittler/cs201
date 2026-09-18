@@ -1,129 +1,60 @@
-# Assembly Coding Assignment
+# Assignment 2: Object Code
 
-Since in this class we've been emphasizing writing whole programs in assembly, the goal of this project is to **write a whole program in assembly**.
+We've practiced following values through assembly instructions. Now let's put those instructions together into a small program of our own!
 
-You have some creative freedom to decide what this program does, but it must:
+Write an x86-64 assembly program for the Linux server, using the GNU assembler and the AT&T syntax from our examples. Your program should read numbers from the user, store them in an array, do something with that array, and print the result.
 
-- **Read in user input**
-- **Write out results** to standard out or a file
-- **Use an array** (it can be a global array)
-- **Encapsulate operations in procedures** that are called with, well, `call`
+## Pick an operation
 
-## Reference
+Choose one of these:
 
-Remember to check the assembly guide for help: <https://github.com/clarissalittler/cs201/blob/main/assemblyGuide.org>
+- Find and print the smallest and largest values.
+- Count how many values are strictly greater than a threshold that the user enters.
+- Reverse the array in memory, then print its new contents.
+- Search for a value entered by the user. Print the index of its first occurrence, starting at zero, or a message saying that it wasn't found.
 
-In particular, you'll want to link against the `readInt` and `writeInt` helpers from the guide rather than rewriting them from scratch.
+Each option is enough for full credit. You're welcome to propose another operation of similar scope; check with me so we agree on what it should do. You don't need to make a large program or invent a complicated application.
 
-One important caveat: the provided `readInt` is a small teaching helper, not a full parser. Use it as an **interactive** helper: call `readInt`, type **one non-negative decimal integer**, and press Enter. It strips the trailing newline, does **not** validate bad input, and does **not** handle negative numbers. If you want richer input behavior than that, you should extend it or write your own input routine. Also: test by typing numbers at the terminal, **not** by piping input (`printf '10\n20\n' | ./sum5`) — `readInt` assumes one line per `read()` call, so piped input arrives all at once and it will misparse or even crash.
+Download the [Assignment 2 starter ZIP](downloads/assignment2-starter.zip) for the example, both I/O helpers, a Makefile, and the debugging warmup.
 
----
+## Your program
 
-## A Minimal Example
+Use an array of five 64-bit integers. A global array is fine. For this assignment, you can assume that each input is a whole number from `0` through `1000`, entered one at a time. You don't need to write an input validator.
 
-Here's a tiny program that meets every requirement — nothing more, nothing less. It reads five integers from the user, sums them with a procedure, and prints the total. You can use this as a skeleton to start from, but your submission should do something more interesting than this.
+Your program should:
 
-```gas
-        ## sum5.s -- read 5 ints, sum them, print the result
-        ## build: as sum5.s -o sum5.o
-        ##        as assembly-examples/05-io/02-read-integer.s -o readInt.o
-        ##        as assembly-examples/05-io/03-write-integer.s -o writeInt.o
-        ##        ld -o sum5 sum5.o readInt.o writeInt.o
+- Read the five array values from the user, plus a threshold or search value if your chosen operation needs one.
+- Use a loop to access the array.
+- Put the array operation in a procedure that you call with `call` and that returns with `ret`. Keep input and output in separate procedures or in your main entry code.
+- Print enough information that someone can tell what the result means.
+- Preserve registers as required by the calling convention used in our examples, and keep the stack correctly aligned before calls.
 
-        .extern readInt
-        .extern writeInt
+Use the supplied `readInt` and `writeInt` helpers from the [assembly guide](https://github.com/clarissalittler/cs201/blob/main/assemblyGuide.org). You don't need to rewrite them. The accompanying [sum5.s example](assignment2-support/sum5.s) shows how to read into an array and call an operation on it. Replace or extend its sum operation with the operation you chose above.
 
-        .section .data
-nums:   .quad 0,0,0,0,0         # global array of 5 quadwords
+One thing to watch for: `readInt` is a small teaching helper. **Type one number and press Enter at each prompt.** Test interactively; don't pipe or paste a whole list of numbers into it. It assumes one input line per read and doesn't validate malformed input or handle negative input. Within this assignment's input limits, you can concentrate on your array operation.
 
-        .section .rodata
-prompt: .ascii "Enter a number: "
-prompt_len = . - prompt
-nl:     .ascii "\n"
+## Show that it works
 
-        .section .text
-        .global _start
+Include at least three runs, with the expected result and the result your program produced. Choose inputs that exercise different cases. For example:
 
-        ## read_five: prompt for and read 5 integers into the global 'nums' array.
-        ## We use %rbx as the loop counter because it's callee-saved, which means
-        ## readInt won't clobber it across the call. We push %rbx once on entry
-        ## both to preserve it for our caller AND to keep the stack 16-byte
-        ## aligned before we call readInt.
-read_five:
-        push %rbx
-        mov $0,%rbx             # i = 0
-.Lread_loop:
-        cmp $5,%rbx
-        jge .Lread_done
-        mov $1,%rax             # sys_write
-        mov $1,%rdi             # stdout
-        lea prompt(%rip),%rsi
-        mov $prompt_len,%rdx
-        syscall
-        call readInt            # result in %rax
-        lea nums(%rip),%rcx     # base of the array
-        mov %rax,(%rcx,%rbx,8)  # nums[i] = result
-        inc %rbx                # i++
-        jmp .Lread_loop
-.Lread_done:
-        pop %rbx
-        ret
+- For minimum and maximum, put the extremes in different positions and include an all-equal array.
+- For counting, include values below, equal to, and above the threshold, and try a case where none qualify.
+- For reversing, use distinct values so the order is easy to see, then try repeated values and zeros.
+- For searching, try a value at the first or last position, a repeated value, and a value that isn't present.
 
-        ## sum_array: add up all 5 elements of 'nums'. Returns total in %rax.
-        ## No callee-saved registers clobbered, no nested calls, so we don't
-        ## have to touch the stack at all.
-sum_array:
-        lea nums(%rip),%rdx     # base address
-        mov $0,%rcx             # i = 0
-        mov $0,%rax             # accumulator
-.Lsum_loop:
-        cmp $5,%rcx
-        jge .Lsum_done
-        add (%rdx,%rcx,8),%rax  # acc += nums[i]
-        inc %rcx
-        jmp .Lsum_loop
-.Lsum_done:
-        ret
+The short [Assembly debugging warmup](assignment2-support/README.md) that accompanies this assignment includes build instructions and a few debugger commands you can use when a register or loop isn't doing what you expected. We'll spend more time with debuggers later.
 
-_start:
-        call read_five          # fill nums[] from stdin
-        call sum_array          # %rax = sum of nums[]
+## Explain one piece
 
-        mov %rax,%rdi           # writeInt takes its arg in %rdi
-        call writeInt
+Pick one array access and one procedure call from your program. Include the relevant instructions and explain them in your own words:
 
-        ## print a trailing newline so the terminal prompt doesn't end up
-        ## stuck on the same line as our number
-        mov $1,%rax              # sys_write
-        mov $1,%rdi              # stdout
-        lea nl(%rip),%rsi
-        mov $1,%rdx
-        syscall
+- For the array access, what are the base address, index, and element size? Show how they identify one particular element.
+- For the call, what information goes into the procedure, and how does the result get back? Which values does the caller need afterward, and how do you keep them from being lost?
 
-        ## exit cleanly
-        xor %rdi,%rdi
-        mov $60,%rax
-        syscall
-```
+You can trace this by hand or use the debugger to help. A focused explanation of your own code is plenty.
 
-**Checking this against the rubric:**
+## What to submit
 
-- ✅ *Reads user input* — five `call readInt`s inside `read_five`.
-- ✅ *Writes output* — `call writeInt` plus a raw `sys_write` for the newline.
-- ✅ *Uses an array* — `nums` in `.data`, indexed with `(%rcx,%rbx,8)`-style addressing.
-- ✅ *Encapsulates operations in procedures* — `read_five` and `sum_array` are both called with `call`.
+Submit your assembly source files, exact build and run commands, the three test runs, and your explanation. Identify the supplied helper files you used so I can reproduce your build. You don't need to submit the generated executable.
 
-### Sample interactive run
-
-In this example, the user types one number and presses Enter after each one:
-
-```
-$ ./sum5
-Enter a number: 10
-Enter a number: 20
-Enter a number: 30
-Enter a number: 40
-Enter a number: 50
-150
-```
-
+If you'd like an extension, try accepting a user-selected array length within a fixed maximum capacity. This is optional; a correct five-element program earns full credit.

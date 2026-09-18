@@ -1,144 +1,121 @@
-/* httpd.c -- Tiny HTTP/1.0 server scaffold
- *
- * Build:  make
- * Run:    ./httpd
- * Test:   curl http://localhost:8080/
- *         or open http://localhost:8080/ in a browser
- *
- * The accept loop and thread spawning are written for you.
- * Your job is to fill in handleRequest() below.
- */
-
+/* Tiny HTTP server scaffold. Build: make. Run: ./httpd [port]
+ * Run from this directory; files are served from ./www.
+ * Fill in handleRequest. Request validation and I/O helpers are supplied
+ * in http_support.c. See function-guide.md for their contracts. */
+#define _POSIX_C_SOURCE 200809L
+#include "http_support.h"
+#include <arpa/inet.h>
+#include <errno.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <pthread.h>
-#include <signal.h>
-
-#define PORT     8080
-#define BUF_SIZE 4096
-#define DOCROOT  "./www"
-
-/* ============ Helpers (provided) ============ */
-
-/* Send an HTTP response header to the client.
- * Call once per response, before sending the body.
- * Example:  sendStatus(sock, 200, "OK", "text/html", 137);
- */
-static void sendStatus(int sock, int code, const char* reason,
-                       const char* contentType, long contentLength) {
-    char header[512];
-    int n = snprintf(header, sizeof(header),
-        "HTTP/1.0 %d %s\r\n"
-        "Content-Type: %s\r\n"
-        "Content-Length: %ld\r\n"
-        "Connection: close\r\n"
-        "\r\n",
-        code, reason, contentType, contentLength);
-    write(sock, header, n);
-}
-
-/* Look up a Content-Type based on a file path's extension.
- * Extend this if you want to support more types.
- */
-static const char* mimeFor(const char* path) {
-    const char* dot = strrchr(path, '.');
-    if (!dot) return "application/octet-stream";
-    if (!strcmp(dot, ".html") || !strcmp(dot, ".htm")) return "text/html";
-    if (!strcmp(dot, ".txt"))  return "text/plain";
-    if (!strcmp(dot, ".css"))  return "text/css";
-    if (!strcmp(dot, ".js"))   return "application/javascript";
-    if (!strcmp(dot, ".png"))  return "image/png";
-    if (!strcmp(dot, ".jpg") || !strcmp(dot, ".jpeg")) return "image/jpeg";
-    return "application/octet-stream";
-}
+#include <unistd.h>
 
 /* ============ The part you write ============ */
-
-/* Handle one request on the given socket, then return.
- * The caller will close the socket for you.
- *
- * Steps:
- *   1. Read up to BUF_SIZE-1 bytes from sock into a buffer. Null-terminate.
- *   2. Parse the request line. It looks like:  "GET /path HTTP/1.0"
- *      Hint: sscanf with a "%s %s" format reads method and path.
- *   3. Build the on-disk path:
- *        - If the URL path is "/", use DOCROOT "/index.html".
- *        - Otherwise, concatenate DOCROOT and the URL path
- *          (e.g. "/about.html" becomes "./www/about.html").
- *   4. Try to open the file with fopen(path, "rb")  -- "rb" = binary read.
- *        - On failure: call sendStatus(sock, 404, "Not Found", "text/html", bodyLen),
- *          then write a short HTML body to sock.
- *        - On success: get the file size (stat() or fseek+ftell),
- *          call sendStatus(sock, 200, "OK", mimeFor(path), size),
- *          then loop reading the file with fread() and writing to sock
- *          until fread returns 0.
- *
- * Remember: free anything you malloc, fclose anything you fopen.
- */
-static void handleRequest(int sock) {
-    (void)sock;
-    /* Fill this out!!
-     * (Until you use the helpers above, the compiler will warn that
-     * sendStatus and mimeFor are unused. That's expected -- the warnings
-     * go away once your implementation calls them.) */
+/* request->path is validated, but '/' still needs mapping to '/index.html'.
+ * The request lives until this function returns.
+ * 1. Start by sending a fixed response using sendText.
+ * 2. Build DOCROOT + the path. Map '/' to '/index.html'. Check snprintf.
+ * 3. Open the file in binary mode. Use fstat(fileno(file), &st) and
+ *    S_ISREG(st.st_mode) to check the opened object is a regular file.
+ *    If it cannot be served, close any opened file and send a 404 body.
+ * 4. Send headers with sendStatus and the file size, then use fread and
+ *    sendAll to transfer chunks. Stop on errors and always fclose the file.
+ * Use a controlled www directory without symlinks. Don't change files
+ * while serving them. The worker closes the socket; you do NOT. */
+static void handleRequest(int sock, const Request *request) {
+    (void)request;
+    /* TODO: replace this placeholder with your handler. */
+    (void)sendText(sock, 501, "Not Implemented",
+                   "<p>The request handler is not implemented yet.</p>\n");
 }
 
-static void* clientThread(void* arg) {
-    int sock = *(int*)arg;
+/* ============ Connection management (provided) ============ */
+static void *clientThread(void *arg) {
+    int sock = *(int *)arg;
     free(arg);
-    handleRequest(sock);
+    char header[HEADER_LIMIT + 1];
+    Request request;
+    ssize_t length = readHeader(sock, header);
+    if (length > 0) {
+        int status = parseRequest(header, &request);
+        if (status == 0) {
+            handleRequest(sock, &request);
+        } else if (status == 405) {
+            (void)sendText(sock, 405, "Method Not Allowed", "<p>Use GET.</p>\n");
+        } else if (status == 505) {
+            (void)sendText(sock, 505, "HTTP Version Not Supported",
+                           "<p>Use HTTP/1.0 or HTTP/1.1.</p>\n");
+        } else {
+            (void)sendText(sock, 400, "Bad Request", "<p>Unsupported request.</p>\n");
+        }
+    } else if (length == -2) {
+        (void)sendText(sock, 431, "Request Header Fields Too Large",
+                       "<p>Headers may use at most 4096 bytes.</p>\n");
+    } else if (length == -3 || length == 0) {
+        (void)sendText(sock, 400, "Bad Request", "<p>Incomplete or invalid request.</p>\n");
+    }
     close(sock);
     return NULL;
 }
 
-int main(void) {
-    /* If a client hangs up mid-response (browsers do this all the time),
-     * write() to the dead socket raises SIGPIPE, which kills the whole
-     * process by default. Ignoring it makes write() return -1 instead,
-     * so one rude client can't take down the server. */
-    signal(SIGPIPE, SIG_IGN);
-
+int main(int argc, char **argv) {
+    unsigned short port = 8080;
+    if (argc > 2 || (argc == 2 && parsePort(argv[1], &port) < 0)) {
+        fprintf(stderr, "Usage: %s [port: 1-65535]\n", argv[0]); return 1;
+    }
+    /* A disconnected client must not terminate the entire server. */
+    struct sigaction action;
+    memset(&action, 0, sizeof(action));
+    action.sa_handler = SIG_IGN;
+    sigemptyset(&action.sa_mask);
+    if (sigaction(SIGPIPE, &action, NULL) < 0) { perror("sigaction"); return 1; }
     int srv = socket(AF_INET, SOCK_STREAM, 0);
     if (srv < 0) { perror("socket"); return 1; }
-
     int opt = 1;
-    setsockopt(srv, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
+    if (setsockopt(srv, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt"); close(srv); return 1;
+    }
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port        = htons(PORT);
-
-    if (bind(srv, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind"); return 1;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(port);
+    if (bind(srv, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("bind (try another port)"); close(srv); return 1;
     }
-    if (listen(srv, 16) < 0) {
-        perror("listen"); return 1;
+    if (listen(srv, 32) < 0) { perror("listen"); close(srv); return 1; }
+    pthread_attr_t attributes;
+    int error = pthread_attr_init(&attributes);
+    if (error) { fprintf(stderr, "pthread_attr_init: %s\n", strerror(error)); close(srv); return 1; }
+    error = pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
+    if (error) {
+        fprintf(stderr, "pthread_attr_setdetachstate: %s\n", strerror(error));
+        pthread_attr_destroy(&attributes); close(srv); return 1;
     }
-    printf("httpd listening on http://localhost:%d/\n", PORT);
-
-    while(1) {
+    printf("httpd listening on http://localhost:%hu/ (Ctrl-C to stop)\n", port);
+    fflush(stdout);
+    for (;;) {
         int cli = accept(srv, NULL, NULL);
-        if (cli < 0) { perror("accept"); continue; }
-
-        int* arg = malloc(sizeof(int));
-        if (!arg) { close(cli); continue; }
-        *arg = cli;
-
-        pthread_t t;
-        if (pthread_create(&t, NULL, clientThread, arg) != 0) {
-            perror("pthread_create");
-            free(arg);
-            close(cli);
-            continue;
+        if (cli < 0) {
+            if (errno == EINTR) continue;
+            perror("accept"); break;
         }
-        pthread_detach(t);
+        int *arg = malloc(sizeof(*arg));
+        if (!arg) { perror("malloc"); close(cli); continue; }
+        *arg = cli;
+        pthread_t thread;
+        error = pthread_create(&thread, &attributes, clientThread, arg);
+        if (error) {
+            fprintf(stderr, "pthread_create: %s\n", strerror(error));
+            free(arg); close(cli);
+        }
     }
-    return 0;
+    pthread_attr_destroy(&attributes);
+    close(srv);
+    return 1;
 }

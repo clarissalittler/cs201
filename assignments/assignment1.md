@@ -1,93 +1,57 @@
-# Stack in C — Warm-Up Assignment
+# Assignment 1: The C language, a warmup
 
-This is a warm-up assignment meant to get you familiar with C, as opposed to C++.
+Okay folks, let's get comfortable writing C! For this assignment, you'll build a small stack and use it to practice working with pointers and memory that you allocate yourself.
 
-## Background: What is a Stack?
+A stack follows a **last in, first out** rule. Think of a stack of plates: you add a plate to the top, and the next plate you take is the one you just added. The two operations we'll need are `push`, which adds a value, and `pop`, which removes and returns the most recently added value.
 
-A **stack** is one of the most fundamental data structures in computer science. It stores a collection of items and follows a **LIFO** discipline — *Last In, First Out*. The classic analogy is a stack of plates: you add a new plate to the top, and when you need a plate, you take the top one off. You never reach into the middle.
+## Your program
 
-A stack supports two core operations:
+Write a stack that stores integers. I suggest starting with an array that has a fixed capacity, such as five elements. Allocate the array with `malloc`, and keep track of how many elements it currently contains. You don't need to make it grow. If you've learned linked lists and would rather use one, that's fine too; either implementation can receive full credit.
 
-- **`push(x)`** — place a new item `x` on top of the stack.
-- **`pop()`** — remove and return the item currently on top.
+Your program should:
 
-Some implementations also provide a **`peek`** (look at the top without removing it) and an **`isEmpty`** check.
+- Create the stack from `main`, either directly or by calling a function you wrote. Use `malloc` for its storage and check whether allocation succeeded before using that memory.
+- Put the push and pop operations in their own functions.
+- Handle an attempt to pop an empty stack without reading invalid memory. Make it possible for the caller to distinguish an empty stack from a successful pop. Remember that `0` and `-1` can be perfectly good values to store!
+- If you're using a fixed-capacity array, refuse a push when it is full, report what happened, and leave the existing elements intact.
+- Free all the memory your stack allocated before exiting, including any elements still in the stack when you're done.
 
-Stacks show up everywhere: function call frames, undo buffers in editors, expression evaluation, backtracking algorithms, and matching brackets in a parser. Understanding how to build one by hand — especially in C, where you manage memory yourself — is a great way to get comfortable with pointers, `malloc`/`free`, and thinking carefully about ownership.
+You can write the sequence of operations directly in `main`. An interactive menu is optional.
 
-## Task
+## Show that it works
 
-Implement a **stack in C**. You may use either:
+Print enough information to make the stack's behavior clear. Include these tests:
 
-- an **array-backed** stack, or
-- a **linked list** implementation, if you've learned how to write those.
+1. Push `10`, `20`, and `30`, then pop them. They should come back as `30`, `20`, and `10`.
+2. Mix pushes and pops: push `1`, push `2`, pop, push `3`, then pop twice. The popped values should be `2`, `3`, and `1`.
+3. Pop an empty stack, push `42`, pop it, and try another empty pop. An unsuccessful operation shouldn't stop the stack from working afterward.
+4. For an array implementation, fill the stack and try one more push. Then pop a value and show that a new push succeeds.
+5. Finish a test with some values still in the stack, then clean it up. This is especially useful for checking that a linked-list implementation frees all its nodes.
 
-Make sure your stack supports **`push`** and **`pop`** operations.
+For example, an empty-stack test might look like this:
 
-## Requirements
-
-- Your `main` function should create the stack using `malloc`.
-- Perform some operations on the stack and print output demonstrating that `push` and `pop` work correctly.
-- Appropriately `free` all `malloc`-ed memory before the program exits (no leaks).
-
----
-
-## Example Runs
-
-Here are a few sample runs showing the kind of output that would count as "proof that they work correctly." Your exact formatting doesn't have to match — the point is that the printed output should make it clear the stack is behaving in LIFO order.
-
-### Example Run 1 — basic push/pop
-
-```
-$ ./stack
-Pushing 10
-Pushing 20
-Pushing 30
-Stack (top -> bottom): 30 20 10
-Popped: 30
-Popped: 20
-Stack (top -> bottom): 10
-Popped: 10
-Stack is empty.
-```
-
-### Example Run 2 — interleaved operations
-
-```
-$ ./stack
-Pushing 1
-Pushing 2
-Popped: 2
-Pushing 3
-Pushing 4
-Popped: 4
-Popped: 3
-Popped: 1
-Stack is empty.
-```
-
-### Example Run 3 — pop on empty stack
-
-```
-$ ./stack
-Popped: (empty — nothing to pop)
-Pushing 42
+```text
+Pop failed: the stack is empty.
+Pushed: 42
 Popped: 42
-Popped: (empty — nothing to pop)
+Pop failed: the stack is empty.
 ```
 
-### Example Run 4 — running under Valgrind to show no leaks
+Your wording doesn't have to match mine. Include a test with `0` or a negative value, too, so we can see that your empty-stack reporting doesn't confuse a stored value with an error.
 
-```
-$ valgrind --leak-check=full ./stack
-Pushing 5
-Pushing 15
-Pushing 25
-Popped: 25
-Popped: 15
-Popped: 5
-==12345== All heap blocks were freed -- no leaks are possible
-==12345== ERROR SUMMARY: 0 errors from 0 contexts
+## Explain one piece
+
+Include a small diagram or a few sentences explaining where your stack's data lives. What did you allocate? Which pointer lets you reach it? Which part of your program is responsible for freeing it? If you use a linked list, explain what happens to a node when you pop it.
+
+## What to submit
+
+Submit your C source file or files, the commands needed to compile and run them, and the output from your tests. Include your memory explanation in a comment or a short accompanying document.
+
+For a single file named `stack.c`, you can build and run it with:
+
+```sh
+cc -std=c11 -Wall -Wextra -Wpedantic -g stack.c -o stack
+./stack
 ```
 
-Including a Valgrind-style run (or just mentioning it in a comment) is a nice way to make the "free all `malloc`-ed memory" requirement visible to the grader.
+If you'd like to go further, try adding `peek`, which looks at the top value without removing it. The basic stack described above is enough for full credit.

@@ -1,177 +1,96 @@
-# A Field Guide to the Functions You'll Need
+# A field guide to the server scaffold
 
-This is a tour of the C standard library functions (and a couple of socket calls) that you'll probably reach for while filling out `handleRequest()` in `httpd.c`. None of this is required reading — if you already know `fread` you can skip past it — but it should save you a trip to the man pages.
+Your job is to fill in `handleRequest` in `httpd.c`. The socket setup, thread creation, request validation, and routines for reading and writing a stream of bytes are already provided. You can read their code in `http_support.c`, but you don't have to rewrite it.
 
-You can pull up the full man page for any of these with `man 3 fread`, `man 2 read`, etc. The number is the section: section 2 is system calls, section 3 is library functions.
+## Getting started
 
-## Reading from and writing to the socket
+Download and unzip the Assignment 4 starter, then open a terminal in its directory. Build and run it with:
 
-A socket, once it's connected, behaves a lot like a file descriptor. You can `read()` and `write()` to it the same way you would a file you opened with `open()`.
-
-### `read`
-```c
-#include <unistd.h>
-ssize_t read(int fd, void* buf, size_t count);
-```
-Reads up to `count` bytes from `fd` into `buf`. Returns the number of bytes actually read, which may be **less than** what you asked for — that's normal, not an error. Returns 0 on end-of-file (the client closed the connection) and -1 on error.
-
-For this assignment you can get away with a single `read()` because we're assuming the request fits in a 4kb buffer. Don't forget to leave room for a null terminator if you want to treat the buffer like a C string:
-
-```c
-char buf[BUF_SIZE];
-ssize_t n = read(sock, buf, BUF_SIZE - 1);
-if (n <= 0) return;
-buf[n] = '\0';
+```sh
+make
+./httpd
 ```
 
-### `write`
+The unfinished handler returns `501 Not Implemented`. That's expected! Start by replacing it with a fixed response, then work through the assignment's file-serving steps.
+
+To use a different port, try `./httpd 18080`. In another terminal **on the same machine**, test it with `curl -i http://localhost:18080/`. If you're connected to the Linux server through SSH, that second terminal should be a second SSH session. Run `python3 test_server.py --port 18080` to check your finished handler. The default is port 8080.
+
+The server binds to loopback, so clients run on that same machine. This is a small teaching server for a controlled directory of files, not a server to expose to the public Internet. Stop it with Ctrl-C. Don't change a file while a test is downloading it.
+
+## What arrives in your handler
+
 ```c
-#include <unistd.h>
-ssize_t write(int fd, const void* buf, size_t count);
+static void handleRequest(int sock, const Request *request)
 ```
-Writes `count` bytes from `buf` to `fd`. Like `read`, it might write fewer bytes than you asked for — in a more robust server you'd loop until everything is written, but for this assignment a single call is usually fine.
+
+`sock` is the connected client's socket. `request->path` is the validated URL path, such as `/`, `/about.txt`, or `/_tests/pixel.png`. It is a C string and still starts with `/`. The request belongs to this worker and remains valid until your handler returns.
+
+The wrapper reads the complete header and validates it before calling you. It accepts `GET` with `HTTP/1.0` or `HTTP/1.1`. Headers can occupy at most 4096 bytes including the final `\r\n\r\n`; the wrapper allocates an extra byte for the string terminator. Paths have at most 255 characters and use slash-separated names containing ASCII letters, digits, underscores, hyphens, and periods. `/` is allowed; empty segments, trailing slashes on other paths, `.` and `..` segments, spaces, percent-encoding, backslashes, fragments, and query strings are rejected.
+
+The wrapper also rejects request bodies and transfer encoding. A single `Content-Length: 0` is accepted. Unsupported requests get a small error response without entering your handler. This intentionally limited parser does not implement every HTTP rule.
+
+## Mapping the path to a file
+
+Map `/` to `/index.html`. For another accepted path, join `DOCROOT` (`"./www"`) and `request->path`, so `/about.txt` becomes `./www/about.txt`.
+
+`snprintf` writes formatted text into a bounded buffer. It returns the number of characters it would have written, excluding the string terminator. Check for a negative result or a result greater than or equal to the buffer size; either means you cannot use the result as the intended complete path.
+
+Keep the document root free of symbolic links. The validator checks URL syntax, not the entire filesystem: a symlink could point somewhere else even when its name looks fine.
+
+## Opening and inspecting a file
+
+Use `fopen(path, "rb")` to open a file for binary reading, and check whether it returned `NULL`. Use `fclose` to close any file you successfully opened, even if a later step fails.
+
+`fstat(fileno(file), &st)` gives you information about the file you actually opened. Check the return value before using `st`. `S_ISREG(st.st_mode)` tells you whether it is a regular file, and `st.st_size` gives its size in bytes. For this assignment, respond with a 404 if the file cannot be opened or inspected, or is not a regular file. Check that its size is nonnegative before converting it to `uintmax_t` for the response header.
+
+The headers needed for those calls are already included in `httpd.c`.
+
+## Sending headers and bodies
 
 ```c
-write(sock, body, strlen(body));
+int sendStatus(int sock, int code, const char *reason,
+               const char *contentType, uintmax_t contentLength);
+int sendAll(int sock, const void *data, size_t length);
+int sendText(int sock, int code, const char *reason, const char *body);
+const char *mimeFor(const char *path);
 ```
 
-## Parsing the request line
+All three sending functions return `0` on success and `-1` on failure. If sending fails, stop trying to send that response and clean up your resources. Don't send a second status line after part of the first response has already gone out.
 
-The first line of an HTTP request looks like `GET /index.html HTTP/1.0\r\n`. You need the method (probably just to confirm it's `GET`) and the path.
+`sendStatus` sends the status line, `Content-Type`, `Content-Length`, `Connection: close`, and the blank line separating headers from the body. Call it once before sending file bytes. `mimeFor` returns the content type for a filename, falling back to `application/octet-stream` for unrecognized extensions.
 
-### `sscanf`
-```c
-#include <stdio.h>
-int sscanf(const char* str, const char* format, ...);
-```
-Pulls formatted values out of a string. The `%s` conversion stops at whitespace, which is exactly what you want here:
+For a short text or HTML response, `sendText` calculates the body length and sends both headers and body. For example:
 
 ```c
-char method[16], path[256];
-if (sscanf(buf, "%15s %255s", method, path) != 2) {
-    /* malformed request */
+if (sendText(sock, 200, "OK", "Hello from my server!\n") < 0) {
     return;
 }
 ```
-The `15` and `255` are field-width limits — they prevent `sscanf` from overflowing your buffers if someone sends a weirdly long method name or path. The number is one less than the buffer size to leave room for the null terminator. Returns the number of fields successfully filled in.
 
-### `strcmp`
-```c
-#include <string.h>
-int strcmp(const char* a, const char* b);
-```
-Returns 0 if the two strings are equal, nonzero otherwise. Use it to check the method:
+This sends a `text/html` response. It is useful for the first checkpoint and for a short 404 body. For a file, use `sendStatus` with the file's byte size, followed by calls to `sendAll`.
 
-```c
-if (strcmp(method, "GET") != 0) {
-    /* not a GET — you could send a 405 or just bail */
-}
-```
+`fread(buffer, 1, sizeof(buffer), file)` reads up to one buffer of bytes and returns how many it read. Send exactly that many bytes, then repeat until it returns zero or sending fails. Check `ferror(file)` to distinguish a read error from ordinary EOF. Don't use `strlen` on file contents: a PNG or JPEG can contain zero bytes that are part of the file.
 
-### `strrchr`
-```c
-#include <string.h>
-char* strrchr(const char* s, int c);
-```
-Finds the **last** occurrence of `c` in `s`. The provided `mimeFor()` uses this to find the file extension by searching for the last `.` in the path. You probably don't need to call it yourself — `mimeFor` does that for you — but it's handy to know about.
+## Why the I/O helpers loop
 
-## Building the file path
+TCP provides a stream of bytes. Even if the whole header fits in the buffer, it can arrive in several pieces. `readHeader` keeps reading until it sees the blank line or reaches the limit. It does not wait for the client to close the connection; the client is usually waiting for your response!
 
-You need to glue `DOCROOT` (`"./www"`) onto the URL path to get something like `./www/about.html`.
+A successful `write` can also send fewer bytes than requested. `sendAll` tracks what remains and retries interrupted writes. `sendStatus` and `sendText` use it too. The server ignores SIGPIPE so that a client disconnecting mid-response does not terminate the entire process. A failed write is still an error your handler needs to handle.
 
-### `snprintf`
-```c
-#include <stdio.h>
-int snprintf(char* str, size_t size, const char* format, ...);
-```
-Like `printf`, but writes into a buffer instead of stdout, and **never** writes more than `size` bytes (including the null terminator). Returns the number of bytes it *would have* written if there were room.
+## Who cleans up what?
 
-```c
-char fullpath[512];
-snprintf(fullpath, sizeof(fullpath), "%s%s", DOCROOT, path);
-```
+The worker wrapper frees its argument and closes the connected socket after your handler returns. **Don't close that socket a second time in your handler.** Your handler closes files it opens and frees memory it allocates. Plain local arrays are released when the function returns.
 
-This is the safer cousin of `sprintf` (which has no size limit and is a great way to get a buffer overflow). Use `snprintf` always.
+Each connection has a separate `Request`, header buffer, and call to the handler. Keep your file and transfer buffer local too. A global mutable request buffer would let clients overwrite each other's work.
 
-A worthy paranoid touch: you should probably refuse paths that contain `..` to prevent someone from asking for `/../../etc/passwd`. A quick `strstr(path, "..")` check works.
+## Checking your work
 
-## Reading the file
+With the server running, `make test` runs the Python client checks on port 8080. Use `make test PORT=18080` for another port. Python 3 is the only client dependency.
 
-### `fopen` / `fclose`
-```c
-#include <stdio.h>
-FILE* fopen(const char* path, const char* mode);
-int fclose(FILE* stream);
-```
-`fopen` returns a `FILE*` on success or `NULL` on failure (file doesn't exist, no permission, etc.). The mode `"rb"` means "read, binary" — the `b` matters on Windows but not Linux, but it's a good habit. If `fopen` returns `NULL`, send a 404.
+The tests check exact file bytes, headers, a missing file, a directory, fragmented requests, concurrent clients, and recovery after a client disconnects. The supplied `_tests` files are test inputs; don't edit them to make a failing check pass. You can edit `www/index.html` and add your own files.
 
-Always `fclose` what you open, including on the error path before you return.
+`make test-helpers` checks only the instructor-supplied support routines, including simulated short writes and interruptions. These tests should pass before you implement your handler. The full client tests intentionally fail on the initial 501 placeholder.
 
-### `stat` — getting the file size before reading
-```c
-#include <sys/stat.h>
-int stat(const char* path, struct stat* buf);
-```
-Fills in a `struct stat` with metadata about the file. Returns 0 on success, -1 on failure. The field you want is `st_size`:
+## References
 
-```c
-struct stat st;
-if (stat(fullpath, &st) < 0) {
-    /* couldn't stat — treat as 404 */
-}
-long size = st.st_size;
-```
-
-You need the size *before* sending the response header, because `Content-Length` is in the header.
-
-(Alternative: open the file, `fseek(f, 0, SEEK_END)`, then `ftell(f)` to get the size, then `fseek(f, 0, SEEK_SET)` to rewind. Either approach works.)
-
-### `fread`
-```c
-#include <stdio.h>
-size_t fread(void* ptr, size_t size, size_t nmemb, FILE* stream);
-```
-Reads up to `nmemb` items of `size` bytes each from `stream` into `ptr`. Returns the number of items actually read. For byte-by-byte reading just set `size` to 1:
-
-```c
-char chunk[4096];
-size_t n;
-while ((n = fread(chunk, 1, sizeof(chunk), f)) > 0) {
-    write(sock, chunk, n);
-}
-```
-
-This loop is the heart of serving the file: read a chunk, write it to the socket, repeat until `fread` returns 0.
-
-## Sending the response
-
-### `sendStatus` (provided)
-```c
-static void sendStatus(int sock, int code, const char* reason,
-                       const char* contentType, long contentLength);
-```
-Writes the entire HTTP response header (status line, `Content-Type`, `Content-Length`, `Connection: close`, and the blank line separator) in one shot. Call it **once per response**, *before* sending the body.
-
-```c
-sendStatus(sock, 200, "OK", mimeFor(fullpath), size);
-/* ... now write the body ... */
-```
-
-For a 404:
-```c
-const char* body = "<html><body><h1>404 Not Found</h1></body></html>";
-sendStatus(sock, 404, "Not Found", "text/html", strlen(body));
-write(sock, body, strlen(body));
-```
-
-### `mimeFor` (provided)
-```c
-static const char* mimeFor(const char* path);
-```
-Returns a content-type string based on the file extension. Falls back to `application/octet-stream` for unknown extensions. Just feed it the path you used to open the file. Extend the table inside `mimeFor` if you want to support more types for fun.
-
-## Memory bookkeeping
-
-You probably won't need to allocate much yourself — most of the buffers in `handleRequest()` can live on the stack as plain arrays. But if you do call `malloc`, every `malloc` needs a matching `free`, including on error paths. Same goes for `fopen` and `fclose`.
-
-The provided `clientThread` already takes care of `free`ing the int it gets passed and `close`ing the socket after `handleRequest` returns, so you don't need to worry about either of those inside `handleRequest`.
+You can read the [Linux read manual](https://man7.org/linux/man-pages/man2/read.2.html), [write manual](https://man7.org/linux/man-pages/man2/write.2.html), or [HTTP message framing specification](https://www.rfc-editor.org/rfc/rfc9112.html) if you'd like to explore why these details matter.
