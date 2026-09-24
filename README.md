@@ -8,12 +8,14 @@ This repository is organized by semester and topic. Here's a guide to help you n
 
 ### Semester-Based Materials
 
-#### `fall2026/` (next term — skeleton)
-A pre-built skeleton for the Fall 2026 run: audited examples organized
-lecture-by-lecture with outline agendas, including a new condition-variables
-lecture. See `fall2026/README.md` for the layout.
+#### `fall2026/` (upcoming term)
+A paced plan for twenty two-hour meetings, following the current course-site
+sequence with selected examples, student practice, and protected project time.
+Each numbered directory is one lecture in teaching order; use
+[`fall2026/LECTURE-PLAN.org`](fall2026/LECTURE-PLAN.org) for the term overview and
+[`fall2026/README.md`](fall2026/README.md) for links to each lecture’s agenda.
 
-#### `spring2026/` (current term)
+#### `spring2026/` (previous term)
 Spring 2026 lecture materials (lectures 1-17). Each lecture folder contains an
 `Agenda.org` outline plus the code written in class. The term also has
 compiled `lecture-notes.pdf` / `lecture-notes.tex` — narrative notes
@@ -157,8 +159,8 @@ Tutorial on posit number representation (alternative to floating-point)
 ## Getting Started
 
 ### For Beginners
-1. Start with `spring2026/lecture1` for basic C programming
-2. Work through the current term's materials in order
+1. Start with the meeting map in `fall2026/README.md`
+2. Follow `fall2026/LECTURE-PLAN.org`; each lecture directory contains its agenda and examples
 3. Reference `assemblyGuide.org` when starting assembly topics
 4. Use the tutorial collections for deeper dives into specific topics
 

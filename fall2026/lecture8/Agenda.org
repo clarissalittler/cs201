@@ -1,19 +1,39 @@
 * Agenda
-** Admin / questions
-** Passing arguments to threads
- + =threadArgsBad.c= -- the &i loop-variable bug (every thread sees
-   whatever i is NOW, not what it was)
- + =threadArgs.c= -- one malloc'd (or array) slot per thread
-** Returning values from threads
- + =threadRetBad.c= -- returning a stack address (gcc even warns!)
- + =threadRet.c= -- malloc the result, join collects it
-** The shared counter and the race
- + =threadCounterBad.c= -- run it: the count comes up short
- + counter++ is read/modify/write, three instructions, interleavable
-** Mutexes
- + =threadCounterMutex.c=, =threadCounterMutex2.c=
- + critical sections: hold the lock as briefly as possible
- + the problem with overusing mutexes: you serialize everything
-** Bundling state
- + =threadCounterStruct.c= -- passing a struct of (counter, mutex)
-** Teaser for next time: what if a thread needs to WAIT for something?
+** Back to C
+ + Questions about the assembly assignment?
+** What happens when normal control flow gets interrupted?
+ + Our syscall instruction already did this
+ + User mode and kernel mode
+ + Switching modes doesn't necessarily mean switching to another process
+ + Interrupts, traps, faults, aborts
+ + The taxonomy from the course site
+** What's a process?
+ + An executing program and the state it needs to keep going
+ + Registers, address space, open file descriptors
+ + The operating system keeps track of all this
+** Making another process
+ + =fork_lifecycle.c=
+ + One call, two paths continuing from it
+ + Check what fork returns:
+   + -1: something went wrong
+   + 0: we're the child
+   + Positive: we're the parent, and that's the child's pid
+ + =fork1.c= and =fork3.c= isolate the basic idea without the complete cleanup
+** What did the child actually copy?
+ + Child changes its value to 99
+ + Parent still has 10
+ + Draw the two copies
+ + Flush buffered output before forking so we're not also copying unwritten output
+** Running a different program
+ + =exec= replaces the program running in this process
+ + It doesn't make another process
+ + A successful exec doesn't return
+ + Try the example's deliberate exec-failure path
+** Waiting for the child
+ + =waitpid= and the exit status
+ + Check how the child ended before reading its exit code
+ + Reaping the child / why zombies happen
+** Let's draw the whole sequence
+ + fork, exec, wait
+ + Where could each operation fail?
+ + Threads can wait until we've finished processes and signals

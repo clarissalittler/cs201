@@ -1,29 +1,36 @@
 * Agenda
-** Admin / questions
-** The waiting problem
- + mutexes protect state, but they don't let a thread SLEEP until
-   something becomes true
- + =condBusyWait.c= -- the best a mutex alone can do: lock, peek,
-   unlock, repeat. run =top= next to it: one core pinned at 100%
-   doing nothing
-** Condition variables
- + =condWait.c= -- same program, diff it against condBusyWait.c
- + pthread_cond_wait(&cond, &mut) atomically releases the mutex and
-   sleeps; re-acquires the mutex on wakeup
- + why atomically? the lost-wakeup problem
- + ALWAYS while(!condition), never if:
-   + spurious wakeups are allowed by POSIX
-   + another thread may have consumed the condition first
-   + cond_wait returning means "MIGHT be true now", not "IS true"
-** signal vs. broadcast
- + =condBroadcast.c= -- ten runners at a starting line
- + signal wakes one waiter; broadcast wakes all of them
- + rule of thumb: signal when any one waiter can consume the event,
-   broadcast when the world changed and everyone must re-check
-** Producer/consumer: the bounded buffer
- + =prodcons.c= -- two condvars (notFull, notEmpty), one mutex
- + this is the machinery inside pipes, work queues, thread pools
- + backpressure: the fast producer blocks when the buffer fills
-** Where this is going
- + next time: semaphores -- roughly a counter + mutex + condvar in
-   one package, and they work across processes too
+** Processes, briefly revisited
+ + Each one has a pid and its own execution state
+ + We can ask the operating system to notify another process
+** Signals
+ + Sending a signal from the terminal
+ + Default actions, installed handlers, blocked signals
+ + A signal can be pending while it's blocked
+ + Standard signals can coalesce; they aren't a queue of messages
+** Receiving a signal
+ + =signal_wait.c=
+ + Run it in one terminal; send SIGUSR1 from another
+ + Look at how small the handler is
+   + Set a =volatile sig_atomic_t= flag
+   + Return
+   + Main does the printing
+ + =printf= doesn't belong in the handler
+** The annoying part: waiting
+ Suppose we check a flag and then call pause.
+
+ What if the signal arrives /between/ those two things?
+ + The handler runs and returns
+ + Then we go to sleep, waiting for something that already happened
+ + =sigModernWay.c= has this check-then-pause problem
+** Blocking and unblocking signals
+ + =blockSignals.c= as another look at masks
+ + In signal_wait, keep the signal blocked while checking the flag
+ + =sigsuspend= temporarily changes the mask and waits
+ + When it returns, check the flag again
+ + Trace the case where the signal arrives before the wait
+** Some things signals don't let us do
+ + SIGKILL and SIGSTOP can't be caught or blocked
+ + Returning from a handler doesn't magically repair the instruction that faulted
+ + We can leave the signal duels and fault-catching examples for later
+** Questions / assembly help
+ + Trace one delivery from the sender to the handler to main

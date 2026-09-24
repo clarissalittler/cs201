@@ -1,16 +1,39 @@
 * Agenda
-** Admin / questions
-** Registers and the calling convention
- + the 16 general-purpose registers; caller- vs. callee-saved
- + arguments: rdi, rsi, rdx, rcx, r8, r9; return in rax
- + syscall arguments: rdi, rsi, rdx, *r10*, r8, r9 (r10, not rcx!)
-** Data sections and addressing modes
- + =addGlobal.s=, =addGlobalBetter.s=, =addGlobalLea.s= -- rip-relative, lea as &
- + default to =.quad= + scale 8; only use =.long= with l-suffixed ops
- + =addArray1.s= through =addArray4.s= -- indexing, scale factors,
-   and what changes when the data is .long instead of .quad
-** Control flow
- + =cmp1.s= -- cmp sets flags, jumps read them
- + =sumLoop.s=, =sumLoopB.s= -- loops from compare-and-jump
+** Questions about C / the stack assignment?
+** What happens when we build a program?
+ + Source, assembly, object file, executable
+ + Compiler, assembler, linker
+ + Today we're going to write the assembly ourselves
+** A very small program
+ + =firstfixed.s=
+ + =.text= and =_start=
+ + Put the syscall number in =%rax=
+ + Put the exit status in =%rdi=
+ + =syscall= asks the kernel to do the work
+ + Assemble with =as=, link with =ld=
+ + Run it, then =echo $?=
+   + Why did -1 turn into 255?
+   + The shell only gets the low eight bits of the exit status
+** Registers and instructions
+ + =firstadd.s=
+ + Immediate values vs. registers
+ + =mov=, =add=, =sub=
+ + Let's step through it in GDB and watch the registers change
+ + Now compare with what =gcc -S= produces for a tiny C program
 ** Hello, world
- + =hello.s= -- the write syscall: fd 1 is stdout (0 stdin, 2 stderr)
+ + =hello.s=
+ + The bytes of the message have to live somewhere
+ + The write syscall wants a file descriptor, an address, and a byte count
+ + =mov= gets a value; =lea= calculates an address
+ + Notice that =.asciz= includes a terminating zero
+   + Our example counts that byte too!
+   + Use =.ascii= or subtract one from the length in a working copy
+** Change the message and check the length
+** A couple of things to keep straight
+ + =first.s= is incomplete: loading a syscall number doesn't make the call
+ + =_start= wasn't called by another function, so it has nowhere to =ret= to
+ + Keep the register/instruction reference handy; try one familiar bitwise operation
+ + We'll get to ordinary function calls in lecture 6
+** What's coming in the assembly assignment
+ + A whole program: input, an array, procedures, output
+ + For now, get comfortable building and inspecting little programs

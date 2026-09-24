@@ -1,16 +1,34 @@
 * Agenda
-** Admin / questions
-** Semaphores
- + a counter you can wait on: sem_wait decrements (blocking at 0),
-   sem_post increments
- + =semCounter.c= -- a semaphore with count 1 acts like a mutex
- + =semBouncer.c= -- the OTHER use: "at most N threads in this room";
-   50 threads, only MAX_CONCURRENT working at once
- + relation to last lecture: a semaphore is roughly
-   counter + mutex + condition variable, pre-packaged
-** The Dining Philosophers
- + =philo1.c= -- everyone grabs their left fork: deadlock, by design
- + the four conditions for deadlock; circular wait is the one we break
- + =philo2.c= -- break the cycle: one philosopher grabs right-first
- + =philo3.c= -- alternative fix: an N-1 bouncer semaphore at the table
- + =philoWithId.c= -- watching who eats
+** Processes vs. threads
+ + Last time each process had its own copy of our variable
+ + Threads in the same process share memory
+ + That's useful, and it's also where the problems start
+** How to make a thread
+ + =thread1.c=
+ + A quick word on function pointers: we pass in the function to run
+ + =pthread_create= and =pthread_join=
+ + The function takes a =void *= argument and returns a =void *=
+ + pthread functions return their error codes directly
+   + Use =strerror(rc)= to describe that code
+** Passing information to several threads
+ + =threadArgsBad.c=
+ + What does passing =&i= actually give each thread?
+ + =threadArgs.c=
+ + Give each thread its own slot
+ + Keep the array around until all the threads have joined
+** A shared counter
+ + =threadCounterBad.c=
+ + Work through two threads reading, changing, and storing the same value
+ + Run it, but don't assume the result must be wrong every time
+ + A data race is undefined behavior in C, even if a run looks fine
+** Mutexes
+ + =threadCounterMutex.c=
+ + Lock, do the whole update, unlock
+ + Which state needs protecting?
+ + What belongs inside the critical section?
+** Assignment 3, a preview
+ + A fixed set of workers processing an array
+ + Next time: how they claim work without doing /everything/ under a lock
+** (If needed) Another lifetime example
+ + =threadRetBad.c= vs. =threadRet.c=
+ + Returning a pointer doesn't keep a function's local variable alive

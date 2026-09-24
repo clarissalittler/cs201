@@ -1,17 +1,36 @@
 * Agenda
-** Admin / questions
-** Hex and reading memory
- + two hex digits = one byte; #RRGGBB color codes as a familiar example
- + =sizes.c=, =readingPointers.c=, =pointerArith.c=
-** Byte order (endianness)
- + =byteOrderTest.c= -- x86-64 is little-endian
-** Floats/IEEE 754 more formally
- + 1 sign bit, 8 exponent bits (bias 127), 23 fraction bits
- + (-1)^s * 2^(e - 127) * (1 + f) in the normal case
- + worked example: 0 10000001 1010...0 = 6.5
- + edge cases: exponent all 1s (inf/nan), all 0s (subnormals)
- + =floatmunger1.c= -- read the bits of a float
-** The limitations of floating point
- + =floatlimit.c= -- what happens after many additions
- + why: the reals are uncountable, floats are 2^32 breadcrumbs
- + rounding: round-to-even, so error doesn't bias one direction
+** Where we left off
+ + Hex, bytes, and the order those bytes live in memory
+ + What does =0xfd= look like in binary?
+** Bitwise operations
+ + =& | ^ ~ << >>=
+ + Bitwise and logical operations are different!
+   + =&= vs. =&&=
+   + =|= vs. =||=
+ + Set a bit, clear a bit, flip a bit, test a bit
+** Let's use some flags
+ + =integer_flags.c=
+ + Start with =0x05=
+ + What happens when we set bit 1? Clear it again?
+ + =bitmunger1Corrected.c= for trying changes interactively
+ + =bitmunger1.c= is the original little sketch
+   + Compare the shift and quit handling with the corrected version
+   + The original's bad shifts don't establish how C is supposed to behave
+** Two's complement
+ Let's make a four-bit number line together.
+ + Unsigned: 0 through 15
+ + Signed: -8 through 7
+ + The high bit gets a negative weight
+ + Encode -3, then read =1101= back
+ + Why isn't there a positive counterpart of -8 in four bits?
+** Same bits, different interpretation
+ + Eight-bit =11111101=: 253 unsigned, -3 signed
+ + Sign extension, zero extension, and truncation
+ + What happens when we convert -1 to =uint32_t=?
+** Arithmetic has limits
+ + Unsigned arithmetic wraps around
+ + Signed overflow is undefined behavior in C
+ + So we can't just assume the signed version follows the same rule
+** Assignment questions
+ + Show me your stack struct and which bits of memory it owns
+ + Before we leave: pick a mask and explain exactly which bits it changes

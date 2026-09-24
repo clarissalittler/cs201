@@ -1,23 +1,35 @@
 * Agenda
-** Admin / questions
-** "Everything is a file"
- + =devnull.c=, =urandom.c= -- /dev/null and /dev/urandom
- + =islong.c= -- a quick sizeof aside (%zu for size_t!)
-** Anonymous pipes
- + =anonPipe.c=, =anonpipeloop.c=, =anonpipescanf.c=, =anonPipeLoopFix.c=
- + close the ends you aren't using! read() only reports EOF when EVERY
-   copy of the write end is closed -- and fork duplicated the fds, so
-   the child forgetting its own write end means EOF never comes
-** Named pipes (FIFOs)
- + =namedPipeReader.c= / =namedPipeWriter.c= -- pipes with a filename
-** Unix domain sockets
- + =domainServer.c= / =domainClient.c= -- the socket/bind/listen/accept
-   dance, with a filesystem path as the address (preview of lecture 15)
-** Shared memory with mmap
- + =mmapFile.c=, =screamFile.c= (with =toscream.txt=) -- mapping a file
- + =mmapShared.c= -- MAP_SHARED | MAP_ANONYMOUS across a fork:
-   every concurrency hazard from threads, back again
- + =mmapSem.c= -- fixing it with a process-shared semaphore (mutexes
-   without special attributes are process-local)
-** Signals reprise
- + =signalDuel.c= -- parent and child duel with SIGUSR1/SIGUSR2
+** Internet sockets!
+ + Files gave us a descriptor we could read and write
+ + Now the bytes are going to another program
+ + We're using TCP
+** Addresses and ports
+ + Remember byte order from the start of the term?
+ + Host byte order vs. network byte order
+ + =htons=, =htonl=, =ntohs=, =ntohl=
+** A server that accepts one connection
+ + =echo_once.c=
+ + =socket=, =bind=, =listen=, =accept=
+ + There are /two/ descriptors to keep straight
+   + The listening socket
+   + The accepted connection
+ + Start it with port 0 to have the system choose a port
+ + Connect with =nc 127.0.0.1 PORT=
+ + Type something and get it back
+** TCP gives us a stream of bytes
+ + It doesn't preserve our application's message boundaries
+ + One send doesn't necessarily correspond to one recv
+ + Part of a line might arrive, then the rest
+ + We still need the short-transfer loop from last time
+** When the client goes away
+ + Read/recv returns zero at EOF
+ + A send can fail if the other end has closed
+ + =MSG_NOSIGNAL= keeps that failed send from terminating this Linux example with SIGPIPE
+ + This example listens on loopback and serves one connection, then exits
+** Accepting another connection
+ + Where would the outer loop go?
+ + =echoServerLoop.c= shows the basic change, with less error handling
+ + =echoClient.c= shows the other side of the conversation
+** Questions / get a connection working
+ + HTTP comes next time
+ + The select/poll examples are under optional if you'd like to look ahead

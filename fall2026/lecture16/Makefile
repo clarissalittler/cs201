@@ -1,24 +1,16 @@
-RUSTC ?= rustc
-BIN_DIR = bin
-SOURCES = $(wildcard *.rs)
-TARGETS = $(patsubst %.rs,$(BIN_DIR)/%,$(SOURCES))
+CC = gcc
+CFLAGS = -std=gnu17 -Wall -Wextra -g -O0
+PROGRAMS = locality
 
-.PHONY: all clean help
+all: $(PROGRAMS)
 
-all: $(TARGETS)
+%: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
 
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
-
-$(BIN_DIR)/%: %.rs | $(BIN_DIR)
-	$(RUSTC) $< -o $@
+locality-O2: locality.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -O2 $< $(LDFLAGS) $(LDLIBS) -o $@
 
 clean:
-	rm -rf $(BIN_DIR)
+	rm -f $(PROGRAMS) locality-O2
 
-help:
-	@echo "Lecture 16 Rust examples"
-	@echo "------------------------"
-	@echo "  all    - Compile all .rs files into bin/"
-	@echo "  clean  - Remove compiled binaries"
-	@echo "  help   - Show this message"
+.PHONY: all clean

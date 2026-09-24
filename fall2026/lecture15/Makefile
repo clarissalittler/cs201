@@ -1,13 +1,14 @@
-CC      = gcc
-CFLAGS  = -Wall -Wextra -g
-SOURCES = $(wildcard *.c)
-TARGETS = $(SOURCES:.c=)
+CC = gcc
+CFLAGS = -std=gnu17 -Wall -Wextra -g
+LDLIBS = -pthread
+PROGRAMS = echoServerThread webServer webClient
 
-.PHONY: all clean
-all: $(TARGETS)
+all: $(PROGRAMS)
 
 %: %.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
 
 clean:
-	rm -f $(TARGETS)
+	rm -f $(PROGRAMS)
+
+.PHONY: all clean

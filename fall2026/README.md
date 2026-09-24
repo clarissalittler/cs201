@@ -1,51 +1,43 @@
-# Fall 2026 — Term Skeleton
+# Fall 2026 lectures
 
-This is a pre-built skeleton for the Fall 2026 run of CS201, assembled from
-the audited Spring 2026 examples (all of which compile clean and passed the
-`AUDIT-NOTES.org` checklist). Each `lectureN/` has a skeletal `Agenda.org`
-— topic arc and file references filled in, admin/dates left as placeholders.
+Each numbered directory is one two-hour lecture, in teaching order. Open its
+`Agenda.org` for that class’s teaching outline and examples. Its `README.md`
+holds readings, build instructions, and preparation/pacing notes.
+Examples are stored with the lecture that uses them; a few are repeated where
+we revisit them later.
 
-## What's different from Spring 2026
-
-The concurrency block is restructured to fix the long-standing coverage gap
-(see the topic table in `AUDIT-NOTES.org`): **condition variables** now get
-their own lecture instead of being skipped.
-
-| Lecture | Topic | Source |
+| Lecture | Topic | Agenda |
 |---|---|---|
-| 1 | Intro, C, bits, two's complement | spring2026/lecture1 |
-| 2 | Hex, endianness, IEEE 754 | spring2026/lecture2 |
-| 3 | malloc, first assembly | spring2026/lecture3 |
-| 4 | Registers, addressing, control flow, hello | spring2026/lecture4 |
-| 5 | echo, call/ret, the stack | spring2026/lecture5 |
-| 6 | Multi-file asm, recursion, readInt/writeInt | spring2026/lecture6 |
-| 7 | Processes, fork, threads intro | spring2026/lecture7 |
-| 8 | Thread args/returns, mutexes, critical sections | spring2026/lecture8 |
-| **9** | **Condition variables, producer/consumer** | **new for fall2026** |
-| 10 | Semaphores, dining philosophers | split from spring2026/lecture9 |
-| 11 | Exceptions and signals | split from spring2026/lecture9 |
-| 12 | Memory hierarchy + virtual memory (reading week) | CS:APP ch. 6 & 9 |
-| 13 | File IO, both layers | spring2026/lecture13 |
-| 14 | Everything is a file, IPC, shared memory | spring2026/lecture14 |
-| 15 | Internet sockets, select/poll | spring2026/lecture15 |
-| 16 | Rust I: ownership, borrowing, threads | spring2026/lecture16 |
-| 17 | Rust II: structs, enums, ADTs, lists | spring2026/lecture17 |
+| 1 | C objects, addresses, and bytes | [lecture1/Agenda.org](lecture1/Agenda.org) |
+| 2 | Masks, signed integers, and conversions | [lecture2/Agenda.org](lecture2/Agenda.org) |
+| 3 | Floating-point representation and its limits | [lecture3/Agenda.org](lecture3/Agenda.org) |
+| 4 | Build a program that talks to the machine | [lecture4/Agenda.org](lecture4/Agenda.org) |
+| 5 | Branches, loops, and array addresses | [lecture5/Agenda.org](lecture5/Agenda.org) |
+| 6 | Calls, return addresses, and local storage | [lecture6/Agenda.org](lecture6/Agenda.org) |
+| 7 | Assembly integration and project workshop | [lecture7/Agenda.org](lecture7/Agenda.org) |
+| 8 | Exceptions and process lifecycles | [lecture8/Agenda.org](lecture8/Agenda.org) |
+| 9 | Signals and waiting for an event | [lecture9/Agenda.org](lecture9/Agenda.org) |
+| 10 | Thread lifetimes, arguments, and a shared counter | [lecture10/Agenda.org](lecture10/Agenda.org) |
+| 11 | Lock scope, then condition variables | [lecture11/Agenda.org](lecture11/Agenda.org) |
+| 12 | Bounded buffers and deadlock | [lecture12/Agenda.org](lecture12/Agenda.org) |
+| 13 | File descriptors, bytes, and buffered I/O | [lecture13/Agenda.org](lecture13/Agenda.org) |
+| 14 | TCP: one conversation at a time | [lecture14/Agenda.org](lecture14/Agenda.org) |
+| 15 | From echo to the web-server project | [lecture15/Agenda.org](lecture15/Agenda.org) |
+| 16 | Locality, caches, and measured performance | [lecture16/Agenda.org](lecture16/Agenda.org) |
+| 17 | Virtual addresses and linking | [lecture17/Agenda.org](lecture17/Agenda.org) |
+| 18 | Heap ownership and a memory-debugging clinic | [lecture18/Agenda.org](lecture18/Agenda.org) |
+| 19 | Kernel organization: follow one request through the system | [lecture19/Agenda.org](lecture19/Agenda.org) |
+| 20 | Protected project workshop and course synthesis | [lecture20/Agenda.org](lecture20/Agenda.org) |
 
-The new lecture 9 files:
+[LECTURE-PLAN.org](LECTURE-PLAN.org) contains the overall schedule and proposed
+assignment windows. Two two-hour classes per week is confirmed; actual dates
+and holidays still need mapping to the section calendar.
 
-- `condBusyWait.c` — what waiting looks like with only a mutex (spins a core)
-- `condWait.c` — the same program with `pthread_cond_wait` (diff them!)
-- `condBroadcast.c` — signal vs. broadcast, as a footrace starting line
-- `prodcons.c` — the bounded buffer with two condvars; the machinery inside
-  pipes and work queues
+[Optional material](optional/README.md) contains the unscheduled IPC, networking,
+and Rust extensions. The [example guide](EXAMPLE-GUIDE.md) documents demonstration
+roles and limitations. [PACING-REVIEW.md](PACING-REVIEW.md) records the historical
+and course-site basis; [VALIDATION.md](VALIDATION.md) records checks.
 
-Project/catch-up days aren't numbered here — slot them in wherever the term
-calendar needs them. Deliberately-broken teaching files keep their
-non-compiling extensions (`badborrow.moveme`, `func2bad`) so `make` and
-students' editors don't trip on them.
-
-## Before the term starts
-
-Run through the "New Term Checklist" at the bottom of `AUDIT-NOTES.org`,
-and re-read the assignments (`assignments/`) for dates and any drift from
-these examples.
+Earlier terms are unchanged. Within Fall 2026, examples have been relocated
+without changing their source contents. The original and corrected bit/float
+mungers remain available in lectures 2–3.

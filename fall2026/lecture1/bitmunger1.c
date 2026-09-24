@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// 11001011 >> 3 = 11001 & 1 = 00001 = 1 
 void printBits(int num1){
   printf("%d in bits is: ",num1);
   for(int i=31; i>=0;i--){
@@ -14,12 +15,12 @@ void toggleBit(int* num,int place){
 }
 
 void twosComplement(int* num){
-    *num = ~((*num) - 1);
+    *num = ~(*num) + 1;
 }
 
 int main(){
 
-  int num1 = 4;
+  int num1 = -1;
   int choice;
 
   do {

@@ -1,25 +1,37 @@
 * Agenda
-** Admin / questions
-** One thing I didn't mention: why Rust matters
- + first language besides C to make real headway into the Linux kernel
-** Structs
- + =structs1.rs= -- impl blocks, &self vs &mut self, derive, Display
-** Enums
- + =enums1.rs= -- looks like a C enum (but there's no integer under it)
- + =enums2.rs= -- untrusted u32 -> Option<CSClasses> via from_number
- + =enums3.rs= -- the same as a TryFrom impl; map_err + and_then chain
-** The reveal: enums have fields (algebraic datatypes)
- + =adts1.rs= -- variants with payloads; match binds the fields
- + =adts.hs= / (lecture16's) =Tree.hs= -- Option and Result are just enums
-** Lists without tears
- + =BadList.c= -- a struct containing itself has infinite size
-   (struct BadNode next; -> "field has incomplete type")
- + =lists1.rs= -- Cons(T, Box<List<T>>) | Nil; Box is the typed,
-   self-freeing malloc
- + =lists2.rs= -- Option<Box<Node<T>>>, .take(), while let Some(x) = pop()
-** Writing ? ourselves
- + =fileLines.rs= vs =fileLines2.rs= -- the match that ? expands to
-** Coda
- + kernel-architectures reading list lives in
-   spring2026/lecture17/OldAgenda.org for the curious
-** Build with the Makefile in this directory
+** Two kinds of memory trouble
+ + A cache miss isn't the same thing as an invalid memory access
+ + Remember the parent and child with separate copies of a variable?
+** Virtual addresses
+ + The address in your program isn't directly a location in physical RAM
+ + Pages, page tables, and offsets
+ + The TLB caches translations
+** Follow one address
+ + Use 256-byte pages for this example
+ + Virtual address =0x1234=
+   + Page number =0x12=
+   + Offset =0x34=
+ + Map virtual page 0x12 to physical page 0xAB
+ + The physical address is =0xAB34=
+ + Now change whether the page is present, or whether we're allowed to write it
+** Page faults
+ + Sometimes the kernel can bring in the page and let us continue
+ + Sometimes the access isn't valid, and the kernel delivers SIGSEGV
+ + The MMU detects the translation/protection problem; the kernel handles it
+** Copy-on-write
+ + =fork_lifecycle.c= as a reminder of the observable behavior
+ + Parent and child can initially share backing pages
+ + A write can require a separate copy
+ + That saves eager copying; it doesn't make fork free or instantaneous
+** Linking, revisited
+ + =readWriteTest.s=, =readInt.s=, =writeInt.s=
+ + Try leaving writeInt.o out of a scratch link
+ + What does the error actually say?
+ + =nm= shows which symbols we define and which we still need
+ + Compile error, link error, runtime error: different places to look
+** Static and dynamic linking
+ + Which code is included in the executable, and which is loaded from a shared library?
+ + Leave the detailed PLT/GOT machinery for the reading
+** Project check-in
+ + Fixed response, path mapping, missing-file response
+ + Bring up the thing that's stuck while we still have time to work on it

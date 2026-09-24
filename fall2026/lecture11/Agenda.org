@@ -1,17 +1,36 @@
 * Agenda
-** Admin / questions
-** Exceptions: the taxonomy
- + interrupts, faults, traps, aborts -- the hardware's side of the story
- + =segfault.c=, =divByZero.c= -- faults you've already met
-** Signals: the software side
- + =sendSignal.c=, =justSitHere.c= -- kill(pid, SIG...) between processes
- + =sigOldWay.c= vs =sigModernWay.c= -- signal() vs sigaction()
- + =handleDiv.c=, =handleSegfault.c= -- catching the uncatchable-looking
- + =cantStopMe.c= -- SIGKILL and SIGSTOP cannot be caught or blocked
- + =blockSignals.c= -- signal masks
-** Signals + fork
- + =forkSignal.c= -- parent and child signaling each other
- + =signalFight.c= -- the duel; standard signals coalesce, they don't queue
-** Async-signal-safety
- + inside a handler: write() yes, printf() no (it can deadlock
-   mid-buffer-flush); set a volatile sig_atomic_t flag and get out
+** Mutexes, again
+ + Remind me what went wrong with the shared counter
+ + What did the mutex actually protect?
+** The problem with locking too much
+ + =threadCounterMutex2.c=
+ + =threadCounterStruct.c=: put the mutex and its state in one struct
+ + But notice that it holds the lock through all the simulated work
+ + We've made the other threads wait through almost everything!
+** How this connects to Assignment 3
+ + Each worker claims the next chunk under the lock
+ + Then it releases the lock and works on that chunk
+ + The chunks don't overlap, so that work can happen independently
+ + Let's draw two workers claiming their next pieces
+** What if we need to wait for something?
+ + =condBusyWait.c=
+ + Lock, look, unlock, repeat
+ + The state is protected, but we're spending CPU time checking it over and over
+** Condition variables
+ + =condWait.c=
+ + Diff it against the busy-wait version
+ + Same state, different way of waiting
+ + =pthread_cond_wait= releases the mutex and waits atomically
+ + It reacquires the mutex before returning
+** Why does that need to be atomic?
+ + Remember the gap between checking a signal flag and going to sleep?
+ + We don't want to miss the change while we're getting ready to wait
+** Why while, not if?
+ + Waking up means we should check again
+ + There can be spurious wakeups
+ + Another thread might have gotten the resource first
+ + The condition is in our shared state, not stored in the condition variable
+** Try moving the producer earlier
+ + Does the worker still do the right thing if ready is set before it starts waiting?
+ + Next time: a buffer that fills up and empties out
+ + Assignment 3 itself only needs mutexes, not condition variables

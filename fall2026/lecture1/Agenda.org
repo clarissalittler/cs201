@@ -1,19 +1,86 @@
 * Agenda
-** Admin (fill in: syllabus, homework schedule, office hours)
-** What is this class?
- + the layers under your programs: C -> assembly -> syscalls -> hardware
- + what you need to do to pass, resources, the course repo
-** C: What's different?
- + no classes, no garbage collection, no safety net
- + everything "is a number" and can go in a conditional
-** Bitwise and bit manipulation operations
- + & | ^ ~ << >>
- + masking, setting, flipping, testing bits
- + =bitmunger1.c= -- interactive bit-flipper
-** Peeking inside an integer
- + two's complement: all ones is -2^(n-1) + 2^(n-1) - 1 = -1
- + to negate: subtract 1 then invert (or invert then add 1)
-** Pointers warm-up
- + =passPointy.c=, =arraything.c=
-** Preview of floats
- + =floatmunger1.c= -- reading the bits of a float
+** Linux Server
+ cslinux.pcc.edu
+ normal user name
+ G#...
+ is your default password
+ (if something is funky with your password, I can reset just email me)
+ On Windows you can PuTTy (or maybe there's native ssh now???)
+ on MacOS or Linux you can just use ssh in a terminal
+** What are we doing in this class?
+ + 4 programming assignments
+ + 9 discussions
+   + like a third of them use CyLab
+** How do you get a good grade?
+** Where do you find things?
+** C, a primer
+ - cout
+ - cin
+ - printf
+ - scanf
+ - technically no bool type by default (although some compilers automatically include stdbool)
+   - older C code will just use 1 and 0
+ - new/delete
+ - malloc/free (return/free pointers directly)
+ - pass by reference
+   - you have to pass pointers
+ - no classes
+   - just structs
+ - no nullptr
+   - NULL
+   - but both are really just fancy 0s
+** Bytes, hex, and byteorder
+** Bitwise operations
+ - && ( 1 && 1 = 1// 1 && 0 = 0 && 1 = 0 && 0 = 0)
+ - || ( 1 || 1 = 1 || 0 = 0 || 1 = 1 //0 || 0 = 0)
+ - & bitwise and
+ - | bitwise or
+
+  1101
+& 0111
+= 0101
+
+  1101
+| 0010
+= 1111
+
+1 ^ 1 = 0
+0 ^ 1 = 1
+1 ^ 0 = 1
+0 ^ 0 = 0
+
+<< shifts left
+>> shifts right
+
+101 << 3 ===> 101000
+
+101 >> 1 ===> 10
+101 >> 2 ===> 1
+
+
+two's complement (8 bit edition)
+
+0000 0000
+(flip and add 1)
+ 1111 1111
++0000 0001
+=0000 0000
+
+0000 0001
+(flip and add 1)
+ 1111 1110
++0000 0001
+= 1111 1111
+so -1 is the bit pattern 1111 1111
+
+calculate: -(-1) 
+1111 1111 (-1)
+(flip and add 1)
+   0000 0000
++  0000 0001
+=  0000 0001
+so -(-1) = 1
+
+
+
+

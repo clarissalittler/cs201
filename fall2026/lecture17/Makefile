@@ -1,24 +1,20 @@
-RUSTC ?= rustc
-BIN_DIR = bin
-SOURCES = $(wildcard *.rs)
-TARGETS = $(patsubst %.rs,$(BIN_DIR)/%,$(SOURCES))
+AS = as
+ASFLAGS = -g
+LD = ld
+PROGRAMS = readWriteTest
 
-.PHONY: all clean help
+all: $(PROGRAMS)
 
-all: $(TARGETS)
+%.o: %.s
+	$(AS) $(ASFLAGS) $< -o $@
 
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+readWriteTest: readWriteTest.o readInt.o writeInt.o
+	$(LD) $(LDFLAGS) $^ -o $@
 
-$(BIN_DIR)/%: %.rs | $(BIN_DIR)
-	$(RUSTC) $< -o $@
+fork_lifecycle: fork_lifecycle.c
+	$(CC) -std=c17 -Wall -Wextra -g $< -o $@
 
 clean:
-	rm -rf $(BIN_DIR)
+	rm -f $(PROGRAMS) *.o fork_lifecycle
 
-help:
-	@echo "Lecture 17 Rust examples"
-	@echo "------------------------"
-	@echo "  all    - Compile all .rs files into bin/"
-	@echo "  clean  - Remove compiled binaries"
-	@echo "  help   - Show this message"
+.PHONY: all clean

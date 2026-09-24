@@ -1,11 +1,37 @@
 * Agenda
-** Admin / questions / project time
-** Reading week: the memory hierarchy and virtual memory
- + CS:APP chapter 6 -- the memory hierarchy
-   + registers -> L1/L2/L3 -> RAM -> disk; locality is why caches work
-   + what cache-friendly code looks like (row-major traversal!)
- + CS:APP chapter 9 -- virtual memory
-   + every process gets its own address space; pages and page tables
-   + this is why fork can copy "all of memory" instantly (copy-on-write)
-   + and why a segfault is the MMU, not the kernel, catching you
-** Discussion prompts (fill in)
+** Last time
+ + A mutex protects state
+ + A condition variable lets us wait for that state to change
+ + Why did we need a while loop?
+** Producer and consumer
+ + =prodcons.c=
+ + One thread puts things in a buffer; another takes them out
+ + Draw a three-slot version on the board
+ + =count=, =in=, =out=
+ + What does each operation do to those three numbers?
+** Two reasons to wait
+ + The producer needs room
+ + The consumer needs something to consume
+ + =notFull= and =notEmpty=, with one mutex protecting the buffer
+ + Follow one item all the way through
+** What happens if one side is faster?
+ + Change the delays in a copy of the program
+ + Watch the buffer fill and the producer wait
+ + This is backpressure
+ + Check that every item gets consumed
+** Deadlock
+ + Two threads, two locks, opposite acquisition orders
+ + Draw who has what and what they're waiting for
+ + How do we break the cycle?
+** The dining philosophers
+ + =philo1.c= and =philo2.c=
+ + Everybody takes the left fork first
+ + Then change one philosopher's order
+ + We can see the possible deadlock in the code without needing every run to freeze
+** (If there's time) Semaphores
+ + =semBouncer.c=
+ + A count of available places rather than just a lock owner
+ + =sem_wait= and =sem_post=
+ + Related to mutexes, but not interchangeable in every respect
+** Assignment questions
+ + Check that each chunk gets claimed once and processed outside the claim lock

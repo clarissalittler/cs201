@@ -1,32 +1,33 @@
 * Agenda
-** Admin / questions
-** Rust! Why does it exist?
- + C's holes: malloc/free errors, buffer mismatches, wild casts
- + higher-level languages fix these but pay with garbage collection
- + Rust: a real type system, C-like feel, no GC -- via affine types
-   (the compiler tracks ownership and inserts the frees)
-** First programs
- + =hello.rs= -- println! is a macro; format strings checked at build
- + =echo.rs= -- let mut, read_line, .trim(), .expect()
-** Borrowing
- + =badborrow.cpp= -- the dangling-reference bug, compiling happily in C++
- + =badborrow.moveme= -- rename to .rs and watch the compiler refuse
- + =fixborrow.rs= -- borrows end at last use; reorder and it's fine
- + many readers OR one writer, never both
-** Iteration and functions
- + =iteration1.rs= .. =iteration6.rs= -- loop/while/for; own vs &v vs &mut v
- + =func1.rs= -- last expression is the return value
- + =func2bad= (unbuildable on purpose) vs =func2.rs= -- move vs borrow
-** Vectors, Option, Result
- + =vectors1.rs= .. =vectors3.rs= -- pop returns Option; unwrap vs match
- + =res.rs= -- Result carries the why
-** Old friends
- + =bitmunger.rs= -- lecture 1's bit-flipper; {:032b} for free
- + =args.rs= -- arguments are an iterator, no argc/argv
- + =fileLines.rs= -- File::open, BufReader, the ? operator, no fclose (RAII)
- + =lineEditor.rs= -- lecture 13's editor as Vec<String>
-** Threads, one more time
- + =thread1.rs= / =thread2.rs= -- the move keyword IS the &i fix
- + =sharedCounter.rs= -- the racy version doesn't compile; Arc<Mutex<i32>>
- + =channels.rs= -- pipes but typed; dropping all senders closes it
-** Build with the Makefile in this directory
+** Remember array addresses?
+ + Which elements are next to each other in memory?
+ + How far do we move when we go to the next row instead of the next column?
+** The memory hierarchy
+ + Registers, caches, RAM
+ + Fast storage is limited
+ + Temporal locality: we'll use this again soon
+ + Spatial locality: we'll use something nearby soon
+** Let's draw a tiny cache
+ + Two sets, two integers per cache line
+ + These are array indices: =0, 1, 4, 0, 1=
+ + Start with an empty cache
+ + Work through which accesses hit and which miss
+ + Offset, set, and tag: names for the parts of the address we're using
+** Does the order of a loop matter?
+ + =locality.c=
+ + Same array, same sum, different traversal order
+ + Predict the memory accesses before timing anything
+ + Check the checksums agree!
+** Let's measure
+ + Run several trials
+ + Then =make locality-O2= and try the optimized build
+ + The program alternates which traversal runs first
+ + Change one thing at a time
+** What did we actually measure?
+ + Elapsed time vs. CPU time
+ + Compiler changes, cache size, and other things running on the machine
+ + We aren't guaranteed the same speedup on every computer
+ + Correct result first; then find out where the time goes
+** Questions / another cache trace
+ + Explain why one access has locality instead of just saying which loop was faster
+ + Project questions welcome

@@ -1,22 +1,36 @@
 * Agenda
-** Admin / questions
-** Internet sockets!
- + same four calls as domain sockets, but the address is IP + port
- + network byte order vs. host byte order: htons/htonl/ntohs/ntohl
- + we're only considering TCP here
-** The echo server, growing up
- + =echoServerOnce.c= / =echoClient.c= -- one client, then exit
- + =echoServerLoop.c= -- an accept loop
- + =echoServerFork.c= -- fork per connection (SIGCHLD/SIG_IGN vs zombies)
- + =echoServerThread.c= -- thread per connection (malloc the fd copy!)
-** A really simple web server
- + =webServer.c= / =webClient.c= -- HTTP is just text over a socket
- + this is the warm-up for the final project
-** Handling many clients in ONE thread
- + =echoServerSelect.c= -- select: copy the master set each iteration,
-   maxfd+1, FD_CLR travels with close
- + =echoServerPoll.c= -- poll: no fd ceiling, remember to clear
-   .revents when adding a client
- + =webServerSelect.c= -- the web server, select-style
- + (stretch) epoll: what the big servers actually use
-** Build with the Makefile in this directory
+** Where we left off
+ + A TCP connection gives us a stream of bytes
+ + Now let's give those bytes a meaning
+** One thread per client
+ + [[file:../../assignments/assignment4-scaffold/httpd.c][The final-project scaffold]]
+ + Follow the accepted descriptor into the worker
+ + Remember the thread-argument problem with passing the address of a changing variable?
+ + Each client gets its own allocated slot
+ + Who frees that slot? Who closes the socket?
+ + =echoServerThread.c= is another look at the handoff, with some rough edges
+** A very small HTTP response
+ + Status line
+ + Headers
+ + A blank line
+ + The body
+ + =Content-Length= counts /bytes/
+ + Start with fixed text and look at it with =curl -v=
+** From a response to a file server
+ + Read the request line
+ + Map / to /index.html
+ + Look for the file inside www
+ + Send the right content type and length
+ + =webServer.c= and =webClient.c= are reference examples
+ + The scaffold leaves the request handling for you to implement
+** What if the file isn't there?
+ + A 404 response is still a response
+ + Binary files aren't strings
+ + Keep the parsing bounded and keep track of actual byte counts
+ + The client can disconnect partway through
+ + Even a request that fits our buffer may take more than one read
+** Work time
+ + Get a fixed response working before adding file handling
+ + Then try one file and one missing path
+ + Tell me what's working and the next thing that's failing
+ + [[file:../../assignments/assignment4-scaffold/function-guide.md][Function guide]] if you need help finding the relevant part of the scaffold

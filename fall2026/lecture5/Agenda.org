@@ -1,16 +1,30 @@
 * Agenda
-** Admin / questions
-** Hello again, and echo
- + =hello.s= redux
- + =echo.s= -- read syscall + write syscall; read returns byte count in rax
-** From jumps to proper functions
- + =routine.s= -- jumping to a label and the problem of getting back
- + =helloRet.s= -- call saves the return address, ret jumps back to it
- + =fun1.s= -- a real function... that clobbers its argument register
- + =fun2.s= -- same function, but it preserves %rdi via %r9
-   (the diff between fun1 and fun2 is the whole lesson: caller-owned
-   registers are NOT safe across a call)
-** The stack
- + push / pop
- + =funStack.s= -- saving registers across calls the right way
- + make way for variables: the stack frame idea
+** Review of the end of last time
+ + A value vs. the address of that value
+ + What's in a register, and what's in memory?
+** Compare, jump, and labels
+ + =cmp1.s=
+ + =cmp source,destination= sets flags as though we'd done destination - source
+ + The jump reads those flags
+ + Signed and unsigned comparisons use different jumps
+ + Let's translate one if statement
+** Making a loop
+ + =sumLoop.s=
+ + Add the numbers from 1 through 10
+ + Where do we initialize the counter?
+ + Where does the body end, and when do we test the condition?
+ + Walk through the first iteration and the last one before running it
+** Arrays, assembly style
+ + =addArray3.s=
+ + A label for the start of the array
+ + =.quad= elements are eight bytes each
+ + Base + index * scale
+   + =(%rbx,%rcx,8)=
+ + The address calculation is the same thing C does for indexing
+** Let's sketch an array-summing loop
+ + Keep the base address, index, and accumulator separate
+ + What should happen with an empty range? One element?
+ + Inspect an element in GDB
+** Assignment ideas / work time
+ + Choose a small program and the array it will use
+ + Switch tables and the .long/scale-4 version are there to read afterward

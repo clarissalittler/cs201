@@ -1,16 +1,34 @@
 * Agenda
-** Admin / questions
-** What's a process? Processes vs. threads of execution
- + tasks: how Linux represents both
-** fork and its weirdness
- + =fork1.c= through =fork5.c= -- one call, two returns
- + check the return value: 0 means you're the child, >0 is the child's
-   pid, -1 is an error
- + wait() and why zombies happen (fork2.c says why we're skipping it
-   in the early demos)
-** For contrast: threads
- + =thread1.c= through =thread4.c=
- + shared address space: the danger and the point
-** A word on function pointers
- + =funpoint1.c= -- pthread_create takes one, so let's understand them
- + map a function over an array; "higher-order functions"
+** Assembly questions
+ + What's still unclear about calls or the stack?
+ + Keep the calling-convention reference open
+** Using functions from another file
+ + =readInt.s= and =writeInt.s=
+ + Assemble each file, then link the object files together
+ + =readWriteTest.s=
+ + Read a number, put the result in the argument register, write it back out
+ + We're using these helpers, not rewriting their parsers
+** A reminder about readInt
+ + Type one non-negative decimal integer, then press Enter
+ + One nonempty line per call
+ + This little helper doesn't validate arbitrary input or handle negative numbers
+ + Don't pipe several lines into it and expect them to be read one at a time
+** Turning a loop into a procedure
+ + =sumLoopArray.s=
+ + At the moment the sum is calculated in =_start=; only writeInt gets called
+ + Let's sketch moving the sum into its own procedure
+ + What are its inputs? Where does the result go?
+** A couple of memory-layout details
+ + Struct fields have offsets, just like array elements do
+ + Padding and alignment
+ + What happens if a write goes beyond the end of its buffer?
+ + Use the module 4 diagrams to connect this back to addresses
+** Work on the assembly assignment
+ + Get one input-to-output path working first
+ + Then add the interesting part of your program
+ + If a call breaks things, show me what was in the registers before and after
+** (If there's time) Recursion
+ + =fact.s= with input 3
+ + Each call gets its own saved value and return address
+ + Follow the calls down, then the results back up
+ + Keep inputs small; 0 through 20 fits the signed 64-bit result

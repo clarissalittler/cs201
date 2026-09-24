@@ -1,15 +1,38 @@
 * Agenda
-** Admin / questions
-** malloc
- + =malloc.c=, =malloc2.c=
- + the heap vs. the stack; who frees what
- + valgrind demo -- run everything under valgrind this term
-** Conceptual step-back: what even is a program?
- + memory layout: text / data / heap / stack
-** Your first real assembly
- + =first.s= -- the smallest program that exits
- + exit codes and =echo $?= (they're 8 bits! =firstfixed.s= exits -1 -> 255)
- + =firstadd.s=, =firstsub.s= -- doing arithmetic in registers
- + =test.c= / =test.s= -- what gcc generates for a tiny C file
-** How to build
- + as file.s -o file.o && ld file.o -o file
+** Before we return to floats
+ + Binary fractions: =1/2 + 1/8 = 5/8=
+ + Bits don't tell us their own interpretation
+** IEEE 754, the 32-bit version
+ + 1 sign bit
+ + 8 exponent bits, with a bias of 127
+ + 23 stored fraction bits
+ + In the normal case:
+   + =(-1)^s * 2^(e - 127) * (1 + f)=
+ + That extra 1 isn't stored in the fraction field
+** An example all the way through
+ + =6.5 = 1.101 * 2^2=
+ + =0 10000001 1010...0=
+ + Now try -0.75
+ + Check with =floatmunger1Corrected.c=
+   + Change the initial float in a working copy to check another value
+   + =memcpy= lets us inspect its representation
+ + =floatmunger1.c= is the earlier pointer-casting version
+   + Useful comparison, but that pointer-punning violates C's aliasing rules
+   + =floatmungerPreview.c= is the other early sketch
+** Why doesn't adding a little bit over and over give the answer we expect?
+ + =floatlimit.c=
+ + Predict, run, print more digits
+ + Try double instead of float
+ + There are only finitely many representable values
+ + The gaps get larger as the magnitude gets larger
+** Rounding
+ + Find the two representable values on either side
+ + What if we're exactly halfway between them?
+ + Round to nearest, ties to even
+** The special cases
+ + Exponent all zeroes: zero or subnormal
+ + Exponent all ones: infinity or NaN
+ + Let's classify a few bit patterns
+** Questions / another example if we need it
+ + Posits can wait until the follow-up reading
+ + Bring up any stack-assignment problems before we move into assembly
