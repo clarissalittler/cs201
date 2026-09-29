@@ -1,0 +1,114 @@
+## Lecture 1
+- Introduce C and some of the differences between C and C++
+	- sizeof types
+	- booleans really *are* just 1 and 0
+		- unless you include `stdbool`
+	- no pass by reference
+		- you better use `*` and `&`
+	- `malloc` and `free` vs. `new` and `delete`
+	- `NULL` not `nullptr` (although they're both fancy 0s)
+- Bitwise operations
+	- `<<` `>>` 
+	- `&`
+	- `|`
+	- `^`
+	- one time pad!
+- Bit munger
+	- Experiment with flipping bits
+	- Talk about how integers are represented in binary
+	- "two's complement"
+-  Hex
+- Byte order
+## Lecture 2
+- Review of bit-twiddling operations
+	- Flags qua bit-twiddling
+- 2's complement math, by hand
+- How does casting the sizes of integers play with 2s complement?
+	- going from smaller to larger
+	- going from larger to smaller
+- Overflow
+	- from addition
+	- from *multiplication*
+		- How many bits are needed to store the multiplication of an m bit and n bit number?
+- Put together program that *might* segfault when accessing free'd pointer
+- Starting floating point
+	- Why is it called floating point?
+	- Look at an approximation issue in floating point
+	- Is this a design flaw?
+	- Cardinality 
+## Lecture 3
+### IEEE 754, done by hand
+- Let's talk about the format
+	- 32 bit version => 1 sign bit, 8 exponent bits, 23 significand bits
+	- 64 bit version => 1 sign bit, 11 exponent bits, 52 significand bits
+	- we're mostly just doing the 32 bit version in class for simplicity
+- What the bit fields mean
+	- the sign bit is the leftmost bit in the string (i.e. most significant)
+	- the next 8 bits are the exponent, these determine the large scale power of $\Large 2^i$ where $i$ can be positive *or* negative
+	- the remaining bits are the significand (sometimes called the mantissa, but they shouldn't be) and these determine the "fine-grained" structure of the number
+- Preface: fractional binary numbers
+	- For the rest of this subsection we'll be restricting to 8-bits
+	- Normal binary $1101\;1010$ => $1*2^7 + 1*2^6 + 0*2^5 + 1*2^4 + 1*2^3 + 0*2^2 + 1*2^1 + 0*2^0 = 220?$ 
+	- *Fractional binary* $1101\; 1010$ => $\large 1*\frac{1}{2^1} + 1*\frac{1}{2^2} + 0*\frac{1}{2^3} + 1*\frac{1}{2^4} + 1*\frac{1}{2^5} + 0*\frac{1}{2^6} + 1*\frac{1}{2^7} + 0*\frac{1}{2^8} = \frac{109}{128}?$ 
+	- The same way that the max value of a normal binary number of $i$ bits is $\Large 2^i - 1$, the max value of a fractional binary number is $\Large 1 - \frac{1}{2^i}$  
+- Normal cases
+	- For a binary number of bits $\Large s\; e_0\ldots e_7\; b_1 \ldots b_{23}$ 
+	- $\Large (-1)^s * 2^{|e| - 127} * (1 + \sum_{i=1}^{23} b_i * \frac{1}{2^i})$ 
+	- The bias means the exponent ranges from $2^{-126}$ through $2^{127}$ 
+- Abnormal cases
+	- exponent all 1s, significand == 0 => inf
+	- exponent all 1s, significand != 0 => NaN
+		- Quiet NaN vs. Signaling NaN
+	- exponent all 0s, significand == 0 => 0
+	- There is a $+0$ and a $-0$ 
+	- exponent all 0s, significand non-zero => $\large (-1)^s * 2^{-126} * ( \sum_{i=1}^{23} b_i * \frac{1}{2^i})$ 
+		- What is *up* with this???
+		- If we didn't do this there would be a weird "gap" before 0
+		- This is meant to make it easier to represent numbers that are *extremely* close to 0
+- Behavior as numbers:
+	- total ordering
+	- comparable on equality
+		- the standard says +0 and -0 should be treated as equal
+- Rounding behavior:
+	- Breadcrumbs, redux
+		- Round towards $\infty$ 
+		- Round towards from $-\infty$
+		- Round towards $0$
+		- Round to nearest, ties to even
+		- Round to nearest, ties *away* from $0$
+	- Guard/Round/Sticky (...) bits
+		- First bit after fractional field
+		- Second bit
+		- Logical $\lor$ of all the rest of the bits
+- Examples: 
+	- $0\; 10000000\; 100000000000000000000000$ i.e. $0\; 10000000\; 10\ldots$ 
+		- How do we break this down?
+		- The sign bit is...$0$ so it's positive!
+		- The exponent is $10000000$ which as a binary number is...
+			- $2^7 = 128$ 
+			- So the exponent contribute is $2^{128 - 127}$ which is just $2$
+		- The significand is...$1 + \frac{1}{2}$ 
+		- Putting all that together we have $1 * 2 * 1.5 = 3$ 
+	-  $0\; 10000000\; 110000000000000000000000$
+		- The sign bit is still 0
+		- The exponent contribution is still $2$
+		- The significand is now $1.75$
+		- So this is $3.5$
+	- $1\; 10000001\; 01\ldots$ 
+		- This is going to be negative
+		- The exponent is now $129 - 127 = 2$ so the exponent contribution is $2^2$ 
+		- The significand is $1 + 0.25 = 1.25$
+		- The total number is...-5
+	- $0 \; 00000000\; 011\ldots$ 
+		- Positive number
+		- Exponent is locked at $2^{-126}$ 
+		- Significand is $\frac{1}{4} + \frac{1}{8}$ *with no extra $1+$*
+		- $2^{-126} * \frac{3}{8} = 3*2^{-129} \sim 10^{-39}$ 
+	- $0\; 11111111\; 0\ldots$ => $\infty$ 
+		- If *any* bit in the significand is non-zero it becomes NaN instead
+
+
+## Lecture 4
+- Posits
+	- Variable-length encoding
+- The start of 
