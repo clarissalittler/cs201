@@ -1,3 +1,7 @@
+---
+tags:
+  - pcc
+---
 ## Lecture 1
 - Introduce C and some of the differences between C and C++
 	- sizeof types
@@ -109,6 +113,271 @@
 
 
 ## Lecture 4
-- Posits
-	- Variable-length encoding
-- The start of 
+### Posits
+#### What problem is it trying to solve?
+Floating point is kinda cool, but has some weird traits: 
+- The distribution of floating point values doesn't always make sense
+- Do you *really* need the same level of to-the-right-of-the-decimal precision at really huge numbers as really small ones?
+	- Could we be more efficient with our packing?
+- Do we *really* want left and right zero? 
+- Or left/right $\infty$?
+#### Posit spec
+- Only 12 pages
+	- Not really implemented anywhere
+- Relatively simple 
+- Although still weird!
+- Variable length encoding rather than fixed
+	- Sign - should this be interpreted as positive or negative
+	- Regime - a super-exponent of factors of $\Huge 2^{2^{\pm es}}$ 
+		- $es$ is the maximum number of exponent bits
+	- Exponent - normal powers of 2
+	- Fractional
+- Posits have two "variables" in the description
+	- Total length
+	- Maximum length of the exponent filed
+- For our case study we'll deal with a length of 8 and an es of 3
+- Semantics from older papers:
+	- $s$ is the sign bit, so either $1$ or $0$ 
+	- $r$ is the regime value (we'll talk about how to calculate in a sec)
+	- $e$ is the exponent value, read as up to $es$ bits but any bits that can't be read because you run off the edge of the number are assume to be $0$. This has the funky consequence that *if* you can read only one bit of the exponent, the rest of the $en -1$ bits are assumed to be *trailing* 0s (not leading), i.e. if en is 3 and I read a single 1 then the value of $e$ becomes $100 = 4$
+	- $\Large (1 - 2*s)*2^{2^{en}*r}*2^e*(1+f)$
+- From the 2022 paper: $\Large (1 - 3s + f)* 2^{(1-2s)*(2^{es}*r + e + s)}$ 
+	- For the purpose of this class let's do the slightly more intuitive formula, because I'm not convinced this one doesn't have a typo
+	- Oh, huh, I think this might be trying to *not* have taken into account the two's complement trick for understanding posits (I'll check later)
+	- Apparently it's equivalent even if it doesn't look like it??
+- How do we calculate the regime number $r$?
+	- (bear with me)
+	- So we read in the bits *after* the sign bit until either we run out of bits *or* we see something *other* than the value of the first bit we read in
+	- So if we have the number $01110101$ 
+		- The sign bit is 0
+		- The next bit is 1, therefore we're reading 1s for the regime
+		- We read three 1s in total until we hit a 0, so the regime bitstring is $1110$ , this means r has the value of 2 (in other words it's the number of 1s - 1)
+		- $s = 0$, $r = 2$, e is given by `101` and thus the value of $e$ is 5
+		- There are *no bits left* to read for $f$, so the fractional is just $1+0 = 1$
+		- $2^{8*2} * 2^5 * 1 = 2^{21}$
+	- If we have the number 00000010
+		- The sign bit is 0
+		- The next bit is 0, therefore we're reading 0s for the regime
+		- We read in a total of 5 0s, this means the $r$ has the value of $-5$
+		- $2^{-5 * 8}*1 = 2^{-40}$ 
+	- What about negative numbers?
+		- If you see a sign bit of 1, *you take the two's complement* and then interpret the number
+		- This means that the negation of 0 is still 0, because it would have to be the two's complement of 0 which would be 11111111 + 1 = 00000000
+		- This lets us eliminate +/- 0
+		- This *also* lets us re-used equality and comparison machinery from two's complement integers
+	- Only one exception NaR which is 10000000
+	- There is "overflow" in posits
+	- Okay but why tho
+		- Papers since the 2010s have been arguing things like GPUs, which frequently have to operate on "low precision" data (these days that means model weights) can be made vastly faster and smaller by switching to something like posits
+
+### Your first assembly
+#### What *is* assembly?
+- What does a processor do in the first place?
+- Takes bit sequences and executes instructions based on their decoding
+- Assembly is less a language and more like a family of related languages for each processor architecture
+- In this class we're doing x86-64 assembly (...but GNU Assembler Version)
+- Let's write the tiniest possible program
+```gas
+	.section .text
+	.global _start
+
+_start:
+	mov $60,%rax
+```
+- `syscall` takes a number in `%rax` and uses that to look up what *system call* (pre-compiled piece of code provided by the operating system) to run
+- then *that selected code* fires, it looks up its arguments in the normal calling convention order i.e. starts with `%rdi`
+## Lecture 5
+### What are registers?
+
+| 64-bit | 32-bit  | 16-bit  | 8-bit   | Typical use   |
+| ------ | ------- | ------- | ------- | ------------- |
+| `%rax` | `%eax`  | `%ax`   | `%al`   | Return value  |
+| `%rbx` | `%ebx`  | `%bx`   | `%bl`   | Callee-saved  |
+| `%rcx` | `%ecx`  | `%cx`   | `%cl`   | 4th argument  |
+| `%rdx` | `%edx`  | `%dx`   | `%dl`   | 3rd argument  |
+| `%rsi` | `%esi`  | `%si`   | `%sil`  | 2nd argument  |
+| `%rdi` | `%edi`  | `%di`   | `%dil`  | 1st argument  |
+| `%rbp` | `%ebp`  | `%bp`   | `%bpl`  | Base pointer  |
+| `%rsp` | `%esp`  | `%sp`   | `%spl`  | Stack pointer |
+| `%r8`  | `%r8d`  | `%r8w`  | `%r8b`  | 5th argument  |
+| `%r9`  | `%r9d`  | `%r9w`  | `%r9b`  | 6th argument  |
+| `%r10` | `%r10d` | `%r10w` | `%r10b` | Caller-saved  |
+| `%r11` | `%r11d` | `%r11w` | `%r11b` | Caller-saved  |
+| `%r12` | `%r12d` | `%r12w` | `%r12b` | Callee-saved  |
+| `%r13` | `%r13d` | `%r13w` | `%r13b` | Callee-saved  |
+| `%r14` | `%r14d` | `%r14w` | `%r14b` | Callee-saved  |
+| `%r15` | `%r15d` | `%r15w` | `%r15b` | Callee-saved  |
+- 16 registers total
+- Really only 14 you should be touching
+	- Don't mess around with `%rbp` and `%rsp` until you know what you're doing
+- There's also a Secret Pseudo-Register called `%rip`
+	- It's the "instruction pointer"
+	- Looks like a normal register in assembly syntax but it's a weird li'l guy
+	- We'll talk about it we go on
+- Review of a simple assembly program
+```
+```gas
+	.section .text
+	.global _start
+
+_start:
+	mov $10,%rbx
+	mov $20,%rcx
+	add %rbx,%rcx # %rcx = %rbx + %rcx
+	mov %rcx,%rdi
+	mov $60,%rax # this makes the syscall find the exit function
+	syscall
+```
+- How do we add and use a variable?
+```gas
+   .section .data
+num: .quad
+   
+   .section .text
+   .global _start
+   
+_start:
+   mov $10, num
+   add $10, num
+   mov num, %rdi
+   mov $60, %rax
+   syscall
+```
+- Is this *really* the right way to do it? Wellllll
+- %rip relative addressing
+```asm
+	.section .data
+num:	.quad 200
+	
+	.section .text
+	.global _start
+
+	# rip-relative addressing
+	# this is a way of calculating
+	# the position of the memory you're accessing by where it will be with respect to
+	# the instruction pointer
+	
+_start:
+	lea num(%rip),%rbx # lea is the equivalent of the & operator
+	# this means I've just loaded the pointer
+	# into %rbx instead of just the value
+	addq $10,(%rbx) # parentheses dereference
+	mov num(%rip),%rdi
+	mov $60,%rax
+	syscall
+
+	# int num 200
+	# int* nump = &num
+	# *nump = *nump + 10
+```
+- arrays:
+```asm
+	.section .data
+num:	.quad 200,300,400,500
+	
+	.section .text
+	.global _start
+
+	# rip-relative addressing
+	# this is a way of calculating
+	# the position of the memory you're accessing by where it will be with respect to
+	# the instruction pointer
+	
+_start:
+	lea num(%rip),%rbx # lea is the equivalent of the & operator
+	# this means I've just loaded the pointer
+	# into %rbx instead of just the value
+	addq $10,(%rbx) # parentheses dereference
+	mov num(%rip),%rdi
+	mov $60,%rax
+	syscall
+```
+
+
+```asm
+	.section .data
+num:	.quad 100,200,300,400
+	
+	.section .text
+	.global _start
+
+	# rip-relative addressing
+	# this is a way of calculating
+	# the position of the memory you're accessing by where it will be with respect to
+	# the instruction pointer
+	
+_start:
+	lea num(%rip),%rbx # lea is the equivalent of the & operator
+	# this means I've just loaded the pointer
+	# into %rbx instead of just the value
+	addq $8,%rbx
+	addq $10,(%rbx) # parentheses dereference
+	movq (%rbx),%rdi
+	mov $60,%rax
+	syscall
+```
+
+```asm
+	.section .data
+num:	.quad 200,300,400,500
+	
+	.section .text
+	.global _start
+
+	# rip-relative addressing
+	# this is a way of calculating
+	# the position of the memory you're accessing by where it will be with respect to
+	# the instruction pointer
+	
+_start:
+	lea num(%rip),%rbx # lea is the equivalent of the & operator
+	# this means I've just loaded the pointer
+	# into %rbx instead of just the value
+	mov $1,%rcx
+	addq $10,(%rbx,%rcx,8) # parentheses dereference
+	movq (%rbx,%rcx,8),%rdi
+	mov $60,%rax
+	syscall
+```
+- `cmp`, jumping, and labels
+```asm
+	.section .text
+	.global _start
+	# cmp
+	# jmp and friends
+_start:
+	mov $10,%rbx
+	mov $20,%rcx
+	mov $-1,%rdi
+	cmp %rbx,%rcx # cmp S,D --> D - S
+	jge greater
+	mov $1,%rdi
+greater:
+	mov $60,%rax
+	syscall
+```
+- loops
+```asm
+	.section .text
+	.global _start
+
+_start:
+	# use %rbx as accumulator
+	# use %rcx as our counter
+	mov $0,%rbx
+	mov $1,%rcx
+loopStart:
+	add %rcx,%rbx
+	add $1,%rcx
+	cmp $10,%rcx
+	jle loopStart
+
+	mov %rbx,%rdi
+	mov $60,%rax
+	syscall
+
+```
+- Can we put it all together?
+## Lecture 6
+No lecture
+## Lecture 7
