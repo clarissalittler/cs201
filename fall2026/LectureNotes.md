@@ -186,8 +186,14 @@ _start:
 ```
 - `syscall` takes a number in `%rax` and uses that to look up what *system call* (pre-compiled piece of code provided by the operating system) to run
 - then *that selected code* fires, it looks up its arguments in the normal calling convention order i.e. starts with `%rdi`
-## Lecture 5
+## Lecture 5: Assembly Part Two
 ### What are registers?
+- This is the *most* efficient memory of any core
+	- Note I say *core* not *processor*
+	- Any multi-core CPU will have registers for each *core*
+	- Generally the same size as the architecture size
+	- So x86-64 that means 64 bits wide
+	- 16 of them, so that meeeeans 8*16 bytes = 128 bytes
 
 | 64-bit | 32-bit  | 16-bit  | 8-bit   | Typical use   |
 | ------ | ------- | ------- | ------- | ------------- |
@@ -380,4 +386,290 @@ loopStart:
 - Can we put it all together?
 ## Lecture 6
 No lecture
-## Lecture 7
+## Lecture 7: Hello world and functions
+- Now it's time for more programs in assembly!
+- strings in assembly
+	- sequences of bytes (but no ending 0, we need the explicit length here)
+- the read and write system calls
+- *finally* "hello, world"
+```asm
+	.section .data           # Data section
+msg:    .ascii "Hello world!\n"   # Define a null-terminated string
+hellolen = . - msg         # Calculate length of the string by subtracting start address from current address
+
+        .section .text     # Code section begins
+        .global _start      # Make _start symbol globally visible for linker
+
+_start:
+          ## call the write syscall
+          ## and exit appropriately
+          mov $1,%rax        # Set %rax to 1 (syscall number for write)
+          mov $1,%rdi        # File descriptor: 1 is stdout 2 is stderr 0 is stdin
+          lea msg(%rip),%rsi # Load effective address of message relative to instruction pointer
+          mov $hellolen,%rdx # Move message length into %rdx (third argument for write)
+
+          syscall            # Invoke system call to print message
+
+          xor %rdi,%rdi      # Zero out %rdi (sets exit status to 0)
+          mov $60,%rax       # Set %rax to 60 (syscall number for exit)
+          syscall            # Invoke system call to exit program
+
+```
+- echo program
+```asm
+# This is a simple program that reads input from stdin and then writes it back out
+
+        .section .bss           # Uninitialized data section
+buff:   .skip 128       # Allocate 128 bytes of buffer space for reading input
+
+        .section .text  # Code section
+        .global _start   # Makes the entry point visible to the linker
+
+_start:
+        ## Reading input from stdin
+        mov $0,%rax             # System call number for read (0)
+        mov $0,%rdi             # File descriptor for stdin (standard input)
+        lea buff(%rip),%rsi     # Load effective address of buffer into source index
+        mov $128,%rdx           # Maximum number of bytes to read (buffer size)
+        syscall                 # Invoke the system call to read input
+
+        ## Writing the input back out
+        ## Note: %rax now contains the number of bytes actually read
+        mov %rax,%rdx           # Move the byte count to the length parameter
+        mov $1,%rax             # System call number for write (1)
+        lea buff(%rip),%rsi     # Point to the same buffer we read into
+        mov $1,%rdi             # File descriptor for stdout (standard output)
+        syscall                 # Invoke the system call to write output
+
+        ## Exit the program cleanly
+        xor %rdi,%rdi           # Zero out exit code (0 means successful exit)
+        mov $60,%rax            # System call number for exit
+        syscall                 # Terminate the program
+
+```
+- Sub-routines (not yet functions)
+```asm
+	.section .text
+	.global _start	
+	# we're going to jump to a label
+	# that's a subroutine that
+	# doubles the value in %rdi
+	# and passes it back in %rax
+
+rdadder:
+	add %rdi,%rdi
+	mov %rdi,%rax
+	jmp rdret
+
+_start:
+	mov $20,%rdi
+	jmp rdadder
+rdret:
+	mov %rax,%rdi
+	# setup our exit
+	mov $60,%rax
+	syscall
+
+```
+- A function
+```asm
+	.section .text
+	.global _start
+	# now we've upgraded rdadder to a very very simple function
+	# note: rdadder *destroys* its argument register %rdi as it works
+	# (compare with fun2.s, which stashes %rdi in %r9 to preserve it)
+rdadder:
+	add %rdi,%rdi
+	mov %rdi,%rax
+	ret # jumps back to the saved instruction pointer
+
+_start:
+	mov $20,%rdi # 20 is in rdi
+	call rdadder # saves the instruction pointer for where to return # rdadder clobbered %rdi: both %rdi and %rax are 40 now
+	mov %rax,%rdi # copy the result into %rdi for the next call
+	call rdadder
+	mov %rax,%rdi # both are 80 now; %rdi becomes our exit status (echo $? shows 80)
+	# setup our exit
+	mov $60,%rax
+	syscall
+```
+- We can call functions repeatedly!
+```asm
+	.section .text
+	.global _start
+
+	# now we've upgraded rdadder to a very very simple function
+rdadder:
+	mov %rdi,%r9
+	add %r9,%r9
+	mov %r9,%rax
+	ret # jumps back to the saved instruction pointer
+
+_start:
+	mov $20,%rdi # 20 is in rdi
+	call rdadder # saves the instruction pointer for where to return # now 20 is in %rdi but 40 is in %rax
+	call rdadder
+	mov %rax,%rdi 
+	# setup our exit
+	mov $60,%rax
+	syscall
+```
+- Our first taste of the stack
+```asm
+	.section .text
+	.global _start
+
+	# f(x) = a + 2*x
+	# a is going to be a local variable with value 20
+	# we're going to store the computation 2*x in
+	# another local variable
+	
+fun:
+	# the idiom for creating a stack frame
+	# save the old base pointer with a push
+	push %rbp
+	# now the bottom of our new frame should be the TOP
+	# of the current stack i.e. %rsp
+	mov %rsp,%rbp
+	# now we make a new frame with room for two variables
+	# let's assume these are two longs
+	# so that's 16 bytes
+	sub $16,%rsp
+	mov %rdi,-8(%rbp)
+	add %rdi,-8(%rbp)
+	movq $20,-16(%rbp)
+	movq -16(%rbp),%rax
+	add -8(%rbp),%rax
+	mov %rbp,%rsp
+	pop %rbp
+	ret
+
+	
+_start:
+	mov $10,%rdi #set up argument to function
+	call fun
+
+	mov %rax,%rdi
+	mov $60,%rax
+	syscall
+```
+# Lecture 8
+- More on the calling convention and stack
+	- It's a *convention* in the sense that nothing *enforces it* but it is expected by everyone else
+	- The calling convention is different between not just architectures but *operating systems*
+	- Argument order
+		- `%rdi`, `%rsi`, `%rdx`, `%rcx`, `%r8`, `%r9`
+		- Anything else has to be passed on the stack
+	- The return value of a function is always in `%rax`
+	- 16 byte alignment on the stack is part of the calling convention
+		- the idea is that before you make another call the stack should be a multiple of 16 bytes
+		- If all you do is make a stack frame but don't allocate variables
+		- It'll stay 16 byte aligned
+		- ...because when you use `call`, `%rip` is pushed onto the stack (8-bytes), then when you make a stack frame you `push %rbp` to save the old base pointer that's another 8-bytes
+		- You also need to worry about the stack alignment when you allocate local variables or when you save registers on the stack
+- Caller saved vs. callee saved
+	- This is about whose responsibility it is to preserve the values of registers
+	- Again! The process has only one set of registers no matter how many functions are called
+
+| 64-bit | Typical use   |
+| ------ | ------------- |
+| `%rax` | Return value  |
+| `%rbx` | Callee-saved  |
+| `%rcx` | 4th argument  |
+| `%rdx` | 3rd argument  |
+| `%rsi` | 2nd argument  |
+| `%rdi` | 1st argument  |
+| `%rbp` | Base pointer  |
+| `%rsp` | Stack pointer |
+| `%r8`  | 5th argument  |
+| `%r9`  | 6th argument  |
+| `%r10` | Caller-saved  |
+| `%r11` | Caller-saved  |
+| `%r12` | Callee-saved  |
+| `%r13` | Callee-saved  |
+| `%r14` | Callee-saved  |
+| `%r15` | Callee-saved  |
+- Let's do some small examples of what is/isn't allowed when writing functions
+- Linking in other functions: `readInt`, `writeInt`
+- making symbols visible
+- extern
+- `imul`/`idiv` is for signed
+- `mul`/`div` is for unsigned
+- `mul` is a weird one because it takes one argument and implicitly multiplies it against `%rax` and then stores the result in `%rdx:%rax` so `%rax` will contain the low 64 bits
+- `imul` can take the same thing *but* it can also take two arguments like below and then it just throws away the high 64 bits and allows it to overflow
+- `div` implicitly divides `%rdx:%rax` by the argument you give and stores the result as
+	- `%rax` is the quotient
+	- `%rdx` is the remainder
+- Let's write some programs to test all of this 
+- factorial
+
+```asm
+	.section .rodata
+message: .ascii "Enter a number: "
+		
+	.section .text
+	.global _start
+	.extern readInt
+	.extern writeInt
+
+	# factorial gets an argument in rdi
+	# if that argument is <=1, we return 1
+	# otherwise we call fact recursively
+	# and we use imul to multiply
+	# the result of the recursive call
+	# by our %rdi
+	#
+fact:
+	push %rbp # stack is NOT 16 aligned until after we save the base pointer
+	mov %rsp,%rbp
+	# make local variables
+	# we're going to set aside more
+	# space than we need
+	# for alignment purposes
+	sub $16,%rsp
+
+	cmp $1,%rdi
+	jle basecase
+
+	# in the non-base-case
+	# we need to save our %rdi into
+	# our local storage -8(%rbp)
+	# then subtract 1 from %rdi
+	# then call fact again
+	# after the call we multiply
+	# %rax with -8(%rbp)
+	# then jump to leave
+	mov %rdi,-8(%rbp)
+	dec %rdi
+	call fact
+	# at this point the result in is %rax
+	mov -8(%rbp),%rdi
+	imul %rdi,%rax
+	jmp leavefact
+basecase:
+	mov $1,%rax
+leavefact:	
+        # mov %rbp,%rsp
+        # pop %rbp
+	leave
+	ret
+	
+_start:
+	# print prompt
+	mov $1,%rax
+	mov $1,%rdi
+	lea message(%rip),%rsi
+	mov $16,%rdx
+	syscall
+
+	call readInt
+	mov %rax,%rdi
+	call fact
+	mov %rax,%rdi
+	call writeInt
+	
+	mov $60,%rax
+	xor %rdi,%rdi
+	syscall
+
+```
