@@ -56,10 +56,10 @@ _start:
 	mov $16,%rdx
 	syscall
 
-	call readInt
-	mov %rax,%rdi
-	call fact
-	mov %rax,%rdi
+	call readInt # this puts the value parsed into %rax
+	mov %rax,%rdi # we need this in %rdi because that's the first argument
+	call fact # this puts the calculated factorial into %rax
+	mov %rax,%rdi # we need to put that into the first argument of writeInt
 	call writeInt
 	
 	mov $60,%rax
