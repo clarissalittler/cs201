@@ -39,6 +39,12 @@ void onHit(int sig){
   if(hp > 0){
     int dmg = rand() % 5 + 1;
     char buf[80];
+    //sprintf :
+    // takes in a buffer to copy the text to
+    // a format string
+    // the arguments to format
+    // it copies the final string to the buffer
+    // AND returns the length of the final string
     int n = sprintf(buf, "I, mr %d, took %d damage!\n", getpid(), dmg);
     write(STDOUT, buf, n);
     hp -= dmg;
@@ -60,13 +66,28 @@ void fightLoop(int enemy){
     int n = sprintf(buf, "I, mr %d, have %d hp left\n", getpid(), hp);
     write(STDOUT, buf, n);
     kill(enemy, SIGUSR1);
-    sleep(rand()%4 + 1);
+    // to make things properly sleep
+    // we need to keep track of how much
+    // of the goal amount of sleep it failed to do
+    // which is what the return value of sleep means
+    // if it returns 0 then we slept the whole time
+    // otherwise we can call sleep again with the
+    // time remaining left
+    int p = sleep(rand()%4 + 1);
+    while(p>0){
+      p = sleep(p);
+    }
   }
   // opponent should know we're done
   kill(enemy, SIGUSR2);
   if(!won){
     char buf[80];
     int n = sprintf(buf, "I, mr %d, just died!\n", getpid());
+    write(STDOUT, buf, n);
+  }
+  else{
+    char buf[80];
+    int n = sprintf(buf,"Haha I, mr %d, am victorious!\n",getpid());
     write(STDOUT, buf, n);
   }
 }
