@@ -1,0 +1,55 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+
+pthread_mutex_t m;
+
+void* threadFun(void* p){
+  int* arg = (int*)p;
+  pthread_mutex_lock(&m); // the first person to hit this will run this function successfully and move on
+  // everyone else waits on this line of code
+  // UNTIL an unlock has occurred
+  int temp = *arg;
+  // the pattern of a lot of threading work
+  // is that you take some data, then you operate on it
+  // for awhile
+  // then you put it back
+  // the problem is that someone else may have put back
+  // their work while you were doing yours
+  for(int i=0; i<100; i++){
+    temp++;
+    //usleep(100);
+  }
+  
+  // now we've done our work and we need to store
+  // it back into memory
+  *arg = temp;
+  pthread_mutex_unlock(&m);
+  return NULL;
+}
+
+int main(){
+
+  pthread_mutex_init(&m, NULL);
+  
+  int counter = 0;
+  
+  // first we make the structure to hold
+  // the thread's information
+  pthread_t thread[100];
+  // next, we need to launch the thread by passing this structure (by reference) to pthread_create
+  for(int i=0; i<100; i++){
+    pthread_create(&thread[i],NULL,threadFun,&counter);
+  }
+
+  for(int i=0; i<100; i++){
+    pthread_join(thread[i],NULL);
+  }
+  
+  printf("Counter is: %d\n",counter);
+
+  pthread_mutex_destroy(&m);
+  
+  return 0;
+}
