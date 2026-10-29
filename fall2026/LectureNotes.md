@@ -673,3 +673,125 @@ _start:
 	syscall
 
 ```
+# Lecture 9: Forking
+- Let's see a fork in action first
+- Parent/child
+- How do you tell who is who?
+	- `pid`
+	- How to see the `pid`?
+	- `echo $$`
+	- `getpid`
+	- `getppid`
+	- fork returns the pid of the *child* or it returns `0`
+	- data sharing
+- What is a process?
+	- ~~A miserable pile of secrets~~
+	- `task_struct`
+		- the pid
+		- whether it's running
+		- the stack and state of the registers
+		- parents, children
+		- memory assigned to it
+		- file handles
+		- information about signals and signal handling
+- Signals!
+	- `sigint` - the `ctrl-c` signal
+	- `sigfpe` - the divide by 0 exception
+	- `sigkill` - the murder signal, can't be intercepted
+	- `sigsegv` - segmentation fault!
+	- `sigalrm` - this is used for timers with `alarm()`
+	- `sigchld` - hey just so you know one of your children died
+	- `sigcont` - continue the stopped process
+	- `sigstop` - pausing a process, can't be intercepted
+	- `sigtstp` - ctrl-z, can be intercepted
+- killing in the ~~name of~~ terminal
+- installing really simple signal handlers
+# Lecture 10: Signals, Threading, and Mutexing
+- Arguments on the command line
+- Killing from within a program
+- More on function pointers
+-  pointers
+- Signal fight program
+- A better explanation of exceptions in linux
+	- Interrupt descriptor table (256 entries in x86-64)
+	- Holds the entry point information for each handler
+	- Interrupts are usually hardware interrupts
+		- network traffic
+		- keyboards and other peripherals
+		- basically anything that involves communicating with the world
+	- Faults are things where you'd want to return back to the instruction *if* you can handle the problem (that doesn't inherently mean it makes *sense*)
+	- Traps are for things like breakpoints, where you want to continue from *after* where it was tripped
+	- Aborts are for things like double-fault situations, where while trying to handle a fault you hit a *second* fault (meaning that the kernel code handling the fault also hit a problem) and now it's not obvious what "recovery" even means anymore
+		- https://en.wikipedia.org/wiki/Double_fault
+		- https://en.wikipedia.org/wiki/Triple_fault
+	- So signal handling: 
+		- A fault happens
+		- The kernel interrupts the process
+		- The kernel sets up a "signal frame", like a function call frame, that saves rip and other context for running the signal handler and returning back to the original code
+		- The kernel points rip at the signal handler code
+		- This code runs
+		- Then the frame is popped and rip is restored
+	- To be clear some faults are perfectly normal and good!
+	- Page faults are the primary ones that happen all the time
+- Your first threading programs
+- Threads clobber each other all the time
+- Mutexes are how we stop that
+# Lecture 11
+- I'm a goofus: `-Wall` doesn't trigger `-Wunused-parameter`
+	- `-Wextra` is what you need for that
+	- or is it??
+	- I'm confounded
+- Review mutexes and making counters
+	- Packing the counter and mutex into a struct
+- Talking about assignment 3
+	- How would you do an operation on a giaaant array?
+- Semaphores for threads
+- The dining philosophers problem
+	- Deadlock!
+		- This requires a circular dependence on locked resources
+		- In other words you have situations like where resource A is locked by process 1 and it needs resource B to finish its work and unlock *BUT* process 2 has a lock on resource B and needs to lock resource A in order to finish *its* work
+	- The first version
+	- The version that mixes up how philosophers grab utensils
+	- The version that uses a semaphore
+# Lecture 12
+- Oh my freaking god:
+	- `-Wall -Wextra` is bigger than the sum of the individual flags
+	- This behavior goes back to the 90s and I just never knew!
+	- This is what you get for using makefiles like incantations
+- What happens when a thread needs to *wait*
+	- I don't mean contention, I mean when it needs to actively wait for some work to be done before it can go
+	- We could just keep checking if it's time!
+	- This is really inefficient
+	- We can use a condition variable to wake up specifically when it's time
+	- We can signal to a single thread (`pthread_cond_signal`) or a whole bunch of them (`pthread_cond_broadcast`)
+- mmap
+	- Just your basic anonymous page
+		- Hey, how big is a page? Can we check programmatically?
+	- A lot of options here!
+	- This is a very low level operation
+	- `munmap` is like `free` but you need to specify length
+	- Why? Because `malloc` actually keeps track of the segments and their length.
+		- We'll see this during the lecture where we write a simple allocator together
+		- I need to practice this live-coding performance because it's big enough I can't top-of-the-head it
+	- `argc` and `argv`
+		- Review to some but not everyone has done this!
+	- File backed `mmap`
+		- We haven't technically seen how to load files but we need to
+		- in order to get the file descriptor
+		- Basic version: we can read bytes from a file!
+		- Can we write to a file?
+		- ...did it work?
+		- private vs. shared!
+	- shared memory between forked processes 
+- semaphores for forked processes, the culmination of all that jazz
+# Lecture 13
+- The physical structure of RAM
+	- SRAM vs. DRAM
+	- On the nature of the transistor
+	- supercells
+	- activation time
+- Caching designs
+	- Fully associative
+	- Direct mapping
+	- Set associative
+- 
