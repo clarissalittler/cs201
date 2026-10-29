@@ -1,5 +1,5 @@
 // Change one byte in a file through either a private or shared mapping.
-// Usage: ./mmapFile private | shared
+// Usage: ./mmapFile
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,7 +12,7 @@ int main() {
   int fd = open("hallo.txt", O_RDWR | O_CREAT | O_TRUNC, 0644);
   write(fd, "hallo\n", 6);
   
-  char *p = mmap(NULL, 6, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+  char *p = mmap(NULL, 6, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   printf("Before store: mapping[0] = %c\n", p[0]);
   p[0] = 'H'; // you can just set things!
   printf("After store:  mapping[0] = %c\n", p[0]);

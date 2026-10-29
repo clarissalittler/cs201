@@ -11,7 +11,7 @@ struct shared_state {
 };
 
 void increment(struct shared_state* state) {
-    for (int i = 0; i < ITERATIONS; ++i) {
+    for (int i = 0; i < 100000; ++i) {
         sem_wait(&state->lock);
         state->counter++;
         sem_post(&state->lock);
@@ -19,9 +19,10 @@ void increment(struct shared_state* state) {
 }
 
 int main(void) {
-    struct shared_state* state = mmap(NULL, sizeof(struct shared_state),
-                                      PROT_READ | PROT_WRITE,
-                                      MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    struct shared_state* state = mmap(NULL,
+			     sizeof(struct shared_state),
+                             PROT_READ | PROT_WRITE,
+			     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     state->counter = 0;
     // pshared=1: shared between processes. Initial value=1: one at a time.
     sem_init(&state->lock, 1, 1);
@@ -35,7 +36,8 @@ int main(void) {
     increment(state);
     wait(NULL);
 
-    printf("counter = %d; expected %d\n", state->counter, 2 * 10000);
+    printf("counter = %d; expected %d\n",
+	   state->counter, 2 * 100000);
     sem_destroy(&state->lock);
     munmap(state, sizeof(struct shared_state));
     return 0;

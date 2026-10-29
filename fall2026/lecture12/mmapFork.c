@@ -9,7 +9,8 @@ int main() {
                               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     int* shared_value = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE,
                              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    printf("Initially zero: private=%d shared=%d\n", *private_value, *shared_value);
+    printf("Initially zero: private=%d shared=%d\n",
+	   *private_value, *shared_value);
     *private_value = 10;
     *shared_value = 10;
     printf("Parent addresses: private=%p shared=%p\n",
