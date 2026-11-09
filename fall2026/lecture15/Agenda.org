@@ -34,3 +34,8 @@
  + Then try one file and one missing path
  + Tell me what's working and the next thing that's failing
  + [[file:../../assignments/assignment4-scaffold/function-guide.md][Function guide]] if you need help finding the relevant part of the scaffold
+** Everything is a file / the FILE API
+ + [[file:FileExamples.org][FileExamples.org]] walks through small examples
+ + Descriptors: =fdStandard=, =fdCat=, =fdDevices=, =fdTable=, =fdPipe=, =fdRedirect=
+ + stdio: =stdioOpen=, =stdioLines=, =stdioChars=, =stdioFormatted=, =stdioBinary=, =stdioSeek=, =stdioBuffering=, =stdioFileno=
+ + Tie-in to the project: =fdopenServer.c= wraps the accepted socket in a =FILE*=
