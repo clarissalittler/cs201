@@ -1,8 +1,8 @@
 // Everything is a file, part 4: the descriptor table
 //
 // A file descriptor is just an index into this process's table of
-// open things. Regular files, pipes, and sockets all live in the same
-// table and get numbers the same way: the lowest free slot.
+// open things. Regular files, pipes, terminals, and devices all live in
+// the same table and get numbers the same way: the lowest free slot.
 //
 // Linux lets us *look* at our own table: /proc/self/fd is a directory
 // with one entry per open descriptor.
@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
-#include <sys/socket.h>
 
 int main(void){
   int fileFd = open("sample.txt", O_RDONLY);
@@ -23,11 +22,11 @@ int main(void){
   int pipeFds[2];
   pipe(pipeFds);                              // two descriptors: [0] read end, [1] write end
 
-  int sockFd = socket(AF_INET, SOCK_STREAM, 0);   // same kind of socket as our web server
+  int nullFd = open("/dev/null", O_WRONLY);   // a device
 
   printf("file   -> fd %d\n", fileFd);
   printf("pipe   -> fds %d and %d\n", pipeFds[0], pipeFds[1]);
-  printf("socket -> fd %d\n", sockFd);
+  printf("device -> fd %d\n", nullFd);
   printf("\nwhat /proc/self/fd says is open:\n");
 
   // opendir itself needs a descriptor, so it will show up in the list too!
@@ -51,7 +50,7 @@ int main(void){
   close(fileFd);
   close(pipeFds[0]);
   close(pipeFds[1]);
-  close(sockFd);
+  close(nullFd);
 
   // question: if we open another file right now, what number will it get?
   return 0;

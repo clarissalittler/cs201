@@ -4,7 +4,7 @@ LDLIBS = -pthread
 SERVER_PROGRAMS = echoServerThread webServer webClient
 FD_PROGRAMS = fdStandard fdCat fdDevices fdTable fdPipe fdRedirect
 STDIO_PROGRAMS = stdioOpen stdioLines stdioChars stdioFormatted stdioBinary \
-                 stdioSeek stdioBuffering stdioFileno procSelf fdopenServer
+                 stdioSeek stdioBuffering stdioFileno procSelf
 PROGRAMS = $(SERVER_PROGRAMS) $(FD_PROGRAMS) $(STDIO_PROGRAMS)
 
 # files the examples create when you run them

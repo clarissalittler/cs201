@@ -12,7 +12,7 @@ lot of very different things sit behind it.
 | =fdStandard.c= | 0, 1, 2 are already open; the shell decides what they are    | =./fdStandard > out.txt=                 |
 | =fdCat.c=      | one copy loop works on files, =/proc=, =/dev=, pipes         | =./fdCat /proc/self/status=               |
 | =fdDevices.c=  | =/dev/urandom=, =/dev/zero=, =/dev/null= are drivers, not data | =./fdDevices=                           |
-| =fdTable.c=    | files, pipes, and sockets share one descriptor table         | =./fdTable < sample.txt > out.txt=        |
+| =fdTable.c=    | files, pipes, and devices share one descriptor table         | =./fdTable < sample.txt > out.txt=        |
 | =fdPipe.c=     | a pipe is a file with no name; EOF when all writers close    | =./fdPipe=                                |
 | =fdRedirect.c= | =dup2= + =exec= is how the shell does =>=                    | =./fdRedirect; cat listing.txt=           |
 
@@ -39,11 +39,6 @@ line reading, and formatting.
 ** Putting it together
  + =procSelf.c= -- read =/proc/self/status= with =fopen= / =fgets=: the kernel
    describing our own process as a text file.
- + =fdopenServer.c= -- a socket from =accept= is a file descriptor, so wrap it
-   with =fdopen= and use =fgets= on the request and =fprintf= for the response.
-   Compare with =webServer.c=. Try =curl -v http://localhost:8080/hello=.
-   (It reads the request a line at a time, so the "request arrives in pieces"
-   problem from last time is handled by the =FILE*= buffer.)
 
 =make clean= removes the programs and the files they create
 (=out.txt=, =scores.txt=, =points.bin=, ...).

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]){
 
   // jump to the end: our position there is the size of the file
   if(fseek(f, 0, SEEK_END) != 0){
-    perror("fseek");     // not every "file" has positions -- pipes and sockets don't
+    perror("fseek");     // not every "file" has positions -- pipes don't
     fclose(f);
     return 1;
   }

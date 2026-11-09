@@ -38,4 +38,4 @@
  + [[file:FileExamples.org][FileExamples.org]] walks through small examples
  + Descriptors: =fdStandard=, =fdCat=, =fdDevices=, =fdTable=, =fdPipe=, =fdRedirect=
  + stdio: =stdioOpen=, =stdioLines=, =stdioChars=, =stdioFormatted=, =stdioBinary=, =stdioSeek=, =stdioBuffering=, =stdioFileno=
- + Tie-in to the project: =fdopenServer.c= wraps the accepted socket in a =FILE*=
+ + Putting it together: =procSelf= reads the kernel's description of our process as a text file
