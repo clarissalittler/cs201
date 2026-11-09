@@ -1,0 +1,21 @@
+* The FILE API (stdio)
+Small, standalone examples. Build them all with =make=. Each source file has
+a =try:= block at the top with commands to run.
+
+=FILE*= is the C library's layer on top of a descriptor: it adds a buffer,
+line reading, and formatting.
+
+| Example            | Idea                                                  | Try                                |
+|--------------------+-------------------------------------------------------+------------------------------------|
+| =stdioOpen.c=      | =fopen= modes, checking for =NULL=, =perror=          | =./stdioOpen nope.txt=             |
+| =stdioLines.c=     | =fgets= reads a line /or/ as much as fits             | change =LINE_SIZE= to 16           |
+| =stdioChars.c=     | =fgetc= and why =c= is an =int=; =stdin= is a =FILE*= | =./stdioChars < sample.txt=        |
+| =stdioFormatted.c= | =fprintf= / =fscanf= with a text file                 | =./stdioFormatted; cat scores.txt= |
+| =stdioBinary.c=    | =fwrite= / =fread= copy raw bytes                     | =./stdioBinary; xxd points.bin=    |
+| =stdioSeek.c=      | =fseek=, =ftell=, =rewind=; pipes can't seek          | pipe into =./stdioSeek /dev/stdin= |
+| =stdioBuffering.c= | when =printf='s bytes actually get written            | pipe it into =cat=                 |
+| =stdioFileno.c=    | =fileno= and =fdopen=: a =FILE*= wraps an =int=       | =./stdioFileno=                    |
+| =procSelf.c=       | =/proc/self/status= read with =fgets=                 | =./procSelf=                       |
+
+=make clean= removes the programs and the files they create
+(=scores.txt=, =points.bin=, =wrapped.txt=).

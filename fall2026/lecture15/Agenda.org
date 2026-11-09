@@ -7,7 +7,7 @@
  + =fdStandard.c=: run it with =>=, =2>=, and a pipe -- who decided what 0, 1, and 2 are?
 ** Let's copy a file
  + =fdCat.c=
- + =argc= and =argv= for the filename
+ + =argc= and =argv= for the filename (=argv.c= if we need a refresher)
  + =open=, =read=, =write=, =close=
  + Run it first, then walk through it
  + (=openfile1.c=, =readfile1.c=, =writefile1.c= are smaller steps toward it)
@@ -31,32 +31,14 @@
  + =fdDevices.c=: =/dev/urandom=, =/dev/zero=, =/dev/null= are drivers, not data
  + =fdTable.c=: files, pipes, and devices in one descriptor table
    + =/proc/self/fd= lets us look at our own table
-   + Which number does the next =open= get?
+   + Which number does the next =open= get? (=openfile2.c= opens the same file over and over)
  + Always redirect to a /new/ output file; redirecting onto the input would erase it first
 ** Pipes and redirection are just descriptor tricks
  + =fdPipe.c=: a pipe is a file with no name
    + EOF only when /every/ write end is closed -- what happens if we forget one?
  + =fdRedirect.c=: =dup2= then =exec= is how the shell does =ls -l > listing.txt=
-** The FILE interface
- + A =FILE*= is a descriptor plus a buffer plus some conveniences
- + =stdioOpen.c=: =fopen= modes, checking for =NULL=, =perror=
- + =stdioLines.c=: =fgets= reads a line /or/ as much as fits
-   + Change =LINE_SIZE= to 16 and count the calls
-   + =openfileagain.c= copies a file line by line with =fgets= / =fputs=
- + =stdioChars.c=: =fgetc= and why =c= has to be an =int=
- + =stdioFormatted.c=: =fprintf= and =fscanf= with a text file
- + =stdioBinary.c=: =fwrite= and =fread= copy raw bytes -- look at them with =xxd=
- + =stdioSeek.c=: =fseek=, =ftell=, =rewind=, and why a pipe can't seek
-** Buffering: when do our bytes actually leave the program?
- + =stdioBuffering.c=: run it to the terminal, then pipe it into =cat=
- + Line buffered, fully buffered, unbuffered
- + =fflush=, and what happens to the buffer if the program crashes
- + =stdioFileno.c=: =fileno= and =fdopen= connect the two layers
 ** (If there's time) Directories and metadata
  + =directory1.c=
  + What do we get from readdir? What do we still need stat for? (=lstatTest.c=)
- + =procSelf.c=: the kernel describes our process as a text file
- + The line editor is there if you want a larger example
-** A look ahead at the final project
- + We'll send files over a socket
- + You can start putting things in your www directory now
+** Next time
+ + The FILE interface: the C library's layer on top of all of this

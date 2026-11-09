@@ -22,8 +22,8 @@ we revisit them later.
 | 12 | Bounded buffers and deadlock | [lecture12/Agenda.org](lecture12/Agenda.org) |
 | 13 | Locality, caches, and measured performance | [lecture13/Agenda.org](lecture13/Agenda.org) |
 | 14 | Virtual addresses and linking | [lecture14/Agenda.org](lecture14/Agenda.org) |
-| 15 | File descriptors, everything is a file, and the FILE API | [lecture15/Agenda.org](lecture15/Agenda.org) |
-| 16 | (open) | |
+| 15 | File descriptors: everything is a file | [lecture15/Agenda.org](lecture15/Agenda.org) |
+| 16 | The FILE API and buffering | [lecture16/Agenda.org](lecture16/Agenda.org) |
 | 17 | TCP and the web-server project | [lecture17/Agenda.org](lecture17/Agenda.org) |
 | 18 | Heap ownership and a memory-debugging clinic | [lecture18/Agenda.org](lecture18/Agenda.org) |
 | 19 | Kernel organization: follow one request through the system | [lecture19/Agenda.org](lecture19/Agenda.org) |

@@ -1,0 +1,31 @@
+* Agenda
+[[file:FileExamples.org][FileExamples.org]] lists the examples with commands to try.
+** Where we left off
+ + =open=, =read=, =write=, =close= work on files, devices, pipes, =/proc=...
+ + But we had to count bytes, loop on short writes, and turn numbers into text ourselves
+** The FILE interface
+ + A =FILE*= is a descriptor plus a buffer plus some conveniences
+ + =openfileagain.c= for the shape: =fopen=, =fgets=, =fclose=
+ + =stdioOpen.c=: =fopen= modes, checking for =NULL=, =perror=
+ + =stdioLines.c=: =fgets= reads a line /or/ as much as fits
+   + Change =LINE_SIZE= to 16 and count the calls
+ + =weirdcopy.c=: copy a file line by line with =fgets= / =fputs=
+   + What's missing compared to =fdCat.c=? (hint: what if =argv[1]= doesn't exist?)
+** Characters, formatting, and binary data
+ + =stdioChars.c=: =fgetc= and why =c= has to be an =int=
+ + =stdioFormatted.c=: =fprintf= and =fscanf= with a text file
+ + =stdioBinary.c=: =fwrite= and =fread= copy raw bytes -- look at them with =xxd=
+** Moving around in a file
+ + =stdioSeek.c=: =fseek=, =ftell=, =rewind=
+ + Why can't a pipe seek?
+** Buffering: when do our bytes actually leave the program?
+ + =stdioBuffering.c=: run it to the terminal, then pipe it into =cat=
+ + Line buffered, fully buffered, unbuffered
+ + =fflush=, and what happens to the buffer if the program crashes
+** Two layers, one file
+ + =stdioFileno.c=: =fileno= and =fdopen= connect the FILE layer to descriptors
+ + =procSelf.c=: the kernel describes our process as a text file, and we read it with =fgets=
+ + The line editor (=lineEditor.c=) is there if you want a larger example
+** A look ahead at the final project
+ + We'll send files over a socket
+ + You can start putting things in your www directory now

@@ -1,0 +1,5 @@
+Everything is a file.
+Well, everything is a file *descriptor*.
+Regular files, terminals, pipes, devices:
+you open them, you read them, you write them, you close them.
+The kernel decides what "read" actually means for each one.

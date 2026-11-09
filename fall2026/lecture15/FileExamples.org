@@ -1,43 +1,22 @@
-* "Everything is a file" and the FILE API
+* "Everything is a file"
 Small, standalone examples. Build them all with =make=. Each source file has
 a =try:= block at the top with commands to run.
 
-** Everything is a file (descriptor)
 The kernel gives us one interface -- =open=, =read=, =write=, =close= -- and a
 lot of very different things sit behind it.
 
-| Example        | Idea                                                         | Try                                       |
-|----------------+--------------------------------------------------------------+-------------------------------------------|
-| =fdStandard.c= | 0, 1, 2 are already open; the shell decides what they are    | =./fdStandard > out.txt=                 |
-| =fdCat.c=      | one copy loop works on files, =/proc=, =/dev=, pipes         | =./fdCat /proc/self/status=               |
-| =fdDevices.c=  | =/dev/urandom=, =/dev/zero=, =/dev/null= are drivers, not data | =./fdDevices=                           |
-| =fdTable.c=    | files, pipes, and devices share one descriptor table         | =./fdTable < sample.txt > out.txt=        |
-| =fdPipe.c=     | a pipe is a file with no name; EOF when all writers close    | =./fdPipe=                                |
-| =fdRedirect.c= | =dup2= + =exec= is how the shell does =>=                    | =./fdRedirect; cat listing.txt=           |
+| Example        | Idea                                                           | Try                                |
+|----------------+----------------------------------------------------------------+------------------------------------|
+| =fdStandard.c= | 0, 1, 2 are already open; the shell decides what they are      | =./fdStandard > out.txt=           |
+| =fdCat.c=      | one copy loop works on files, =/proc=, =/dev=, pipes           | =./fdCat /proc/self/status=        |
+| =fdDevices.c=  | =/dev/urandom=, =/dev/zero=, =/dev/null= are drivers, not data | =./fdDevices=                      |
+| =fdTable.c=    | files, pipes, and devices share one descriptor table           | =./fdTable < sample.txt > out.txt= |
+| =fdPipe.c=     | a pipe is a file with no name; EOF when all writers close      | =./fdPipe=                         |
+| =fdRedirect.c= | =dup2= + =exec= is how the shell does =>=                      | =./fdRedirect; cat listing.txt=    |
 
 Questions to ask along the way:
  + What does =read= return for a directory? For =/dev/null=?
  + In =fdTable=, which number would the /next/ =open= get?
  + In =fdPipe=, why does forgetting one =close= make the reader hang forever?
 
-** The FILE API (stdio)
-=FILE*= is the C library's layer on top of a descriptor: it adds a buffer,
-line reading, and formatting.
-
-| Example            | Idea                                                  | Try                                   |
-|--------------------+-------------------------------------------------------+---------------------------------------|
-| =stdioOpen.c=      | =fopen= modes, checking for =NULL=, =perror=          | =./stdioOpen nope.txt=                |
-| =stdioLines.c=     | =fgets= reads a line /or/ as much as fits             | change =LINE_SIZE= to 16              |
-| =stdioChars.c=     | =fgetc= and why =c= is an =int=; =stdin= is a =FILE*= | =./stdioChars < sample.txt=           |
-| =stdioFormatted.c= | =fprintf= / =fscanf= with a text file                 | =./stdioFormatted; cat scores.txt=    |
-| =stdioBinary.c=    | =fwrite= / =fread= copy raw bytes                     | =./stdioBinary; xxd points.bin=       |
-| =stdioSeek.c=      | =fseek=, =ftell=, =rewind=; pipes can't seek          | pipe into =./stdioSeek /dev/stdin=    |
-| =stdioBuffering.c= | when =printf='s bytes actually get written            | pipe it into =cat=                    |
-| =stdioFileno.c=    | =fileno= and =fdopen=: a =FILE*= wraps an =int=       | =./stdioFileno=                       |
-
-** Putting it together
- + =procSelf.c= -- read =/proc/self/status= with =fopen= / =fgets=: the kernel
-   describing our own process as a text file.
-
-=make clean= removes the programs and the files they create
-(=out.txt=, =scores.txt=, =points.bin=, ...).
+=make clean= removes the programs and the files they create.
