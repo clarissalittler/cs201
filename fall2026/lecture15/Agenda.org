@@ -1,36 +1,62 @@
 * Agenda
-** Two kinds of memory trouble
- + A cache miss isn't the same thing as an invalid memory access
- + Remember the parent and child with separate copies of a variable?
-** Virtual addresses
- + The address in your program isn't directly a location in physical RAM
- + Pages, page tables, and offsets
- + The TLB caches translations
-** Follow one address
- + Use 256-byte pages for this example
- + Virtual address =0x1234=
-   + Page number =0x12=
-   + Offset =0x34=
- + Map virtual page 0x12 to physical page 0xAB
- + The physical address is =0xAB34=
- + Now change whether the page is present, or whether we're allowed to write it
-** Page faults
- + Sometimes the kernel can bring in the page and let us continue
- + Sometimes the access isn't valid, and the kernel delivers SIGSEGV
- + The MMU detects the translation/protection problem; the kernel handles it
-** Copy-on-write
- + =fork_lifecycle.c= as a reminder of the observable behavior
- + Parent and child can initially share backing pages
- + A write can require a separate copy
- + That saves eager copying; it doesn't make fork free or instantaneous
-** Linking, revisited
- + =readWriteTest.s=, =readInt.s=, =writeInt.s=
- + Try leaving writeInt.o out of a scratch link
- + What does the error actually say?
- + =nm= shows which symbols we define and which we still need
- + Compile error, link error, runtime error: different places to look
-** Static and dynamic linking
- + Which code is included in the executable, and which is loaded from a shared library?
- + Leave the detailed PLT/GOT machinery for the reading
-** Project check-in
- + Bring up the thing that's stuck while we still have time to work on it
+[[file:FileExamples.org][FileExamples.org]] lists the new examples with commands to try.
+** Files and file I/O
+ + We've already used read and write from assembly
+ + 0 is stdin, 1 is stdout, 2 is stderr
+ + A file descriptor is a number referring to an entry in a process's descriptor table
+ + =fdStandard.c=: run it with =>=, =2>=, and a pipe -- who decided what 0, 1, and 2 are?
+** Let's copy a file
+ + =fdCat.c=
+ + =argc= and =argv= for the filename
+ + =open=, =read=, =write=, =close=
+ + Run it first, then walk through it
+ + (=openfile1.c=, =readfile1.c=, =writefile1.c= are smaller steps toward it)
+** What does read return?
+ + Positive: this many bytes
+ + Zero: end of file
+ + -1: an error
+ + This is a byte count, not a string length
+ + The buffer doesn't have to contain text or a terminating zero
+** Why are there two loops?
+ + Read until EOF
+ + Write until we've sent all the bytes from that read (=writeAll= in =fdCat.c=)
+ + Suppose write only writes three bytes
+   + Where should the next write start?
+   + How many bytes remain?
+ + Interrupted calls and real errors
+** Everything is a file (descriptor)
+ + The same copy loop on very different things:
+   + =./fdCat /proc/cpuinfo=, =./fdCat /dev/null=, =echo hi | ./fdCat /dev/stdin=
+   + =./fdCat /etc= (a directory) and =./fdCat nope.txt=
+ + =fdDevices.c=: =/dev/urandom=, =/dev/zero=, =/dev/null= are drivers, not data
+ + =fdTable.c=: files, pipes, and devices in one descriptor table
+   + =/proc/self/fd= lets us look at our own table
+   + Which number does the next =open= get?
+ + Always redirect to a /new/ output file; redirecting onto the input would erase it first
+** Pipes and redirection are just descriptor tricks
+ + =fdPipe.c=: a pipe is a file with no name
+   + EOF only when /every/ write end is closed -- what happens if we forget one?
+ + =fdRedirect.c=: =dup2= then =exec= is how the shell does =ls -l > listing.txt=
+** The FILE interface
+ + A =FILE*= is a descriptor plus a buffer plus some conveniences
+ + =stdioOpen.c=: =fopen= modes, checking for =NULL=, =perror=
+ + =stdioLines.c=: =fgets= reads a line /or/ as much as fits
+   + Change =LINE_SIZE= to 16 and count the calls
+   + =openfileagain.c= copies a file line by line with =fgets= / =fputs=
+ + =stdioChars.c=: =fgetc= and why =c= has to be an =int=
+ + =stdioFormatted.c=: =fprintf= and =fscanf= with a text file
+ + =stdioBinary.c=: =fwrite= and =fread= copy raw bytes -- look at them with =xxd=
+ + =stdioSeek.c=: =fseek=, =ftell=, =rewind=, and why a pipe can't seek
+** Buffering: when do our bytes actually leave the program?
+ + =stdioBuffering.c=: run it to the terminal, then pipe it into =cat=
+ + Line buffered, fully buffered, unbuffered
+ + =fflush=, and what happens to the buffer if the program crashes
+ + =stdioFileno.c=: =fileno= and =fdopen= connect the two layers
+** (If there's time) Directories and metadata
+ + =directory1.c=
+ + What do we get from readdir? What do we still need stat for? (=lstatTest.c=)
+ + =procSelf.c=: the kernel describes our process as a text file
+ + The line editor is there if you want a larger example
+** A look ahead at the final project
+ + We'll send files over a socket
+ + You can start putting things in your www directory now

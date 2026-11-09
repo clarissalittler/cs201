@@ -1,33 +1,36 @@
 * Agenda
-** Remember array addresses?
- + Which elements are next to each other in memory?
- + How far do we move when we go to the next row instead of the next column?
-** The memory hierarchy
- + Registers, caches, RAM
- + Fast storage is limited
- + Temporal locality: we'll use this again soon
- + Spatial locality: we'll use something nearby soon
-** Let's draw a tiny cache
- + Two sets, two integers per cache line
- + These are array indices: =0, 1, 4, 0, 1=
- + Start with an empty cache
- + Work through which accesses hit and which miss
- + Offset, set, and tag: names for the parts of the address we're using
-** Does the order of a loop matter?
- + =locality.c=
- + Same array, same sum, different traversal order
- + Predict the memory accesses before timing anything
- + Check the checksums agree!
-** Let's measure
- + Run several trials
- + Then =make locality-O2= and try the optimized build
- + The program alternates which traversal runs first
- + Change one thing at a time
-** What did we actually measure?
- + Elapsed time vs. CPU time
- + Compiler changes, cache size, and other things running on the machine
- + We aren't guaranteed the same speedup on every computer
- + Correct result first; then find out where the time goes
-** Questions / another cache trace
- + Explain why one access has locality instead of just saying which loop was faster
- + Project questions welcome
+** Two kinds of memory trouble
+ + A cache miss isn't the same thing as an invalid memory access
+ + Remember the parent and child with separate copies of a variable?
+** Virtual addresses
+ + The address in your program isn't directly a location in physical RAM
+ + Pages, page tables, and offsets
+ + The TLB caches translations
+** Follow one address
+ + Use 256-byte pages for this example
+ + Virtual address =0x1234=
+   + Page number =0x12=
+   + Offset =0x34=
+ + Map virtual page 0x12 to physical page 0xAB
+ + The physical address is =0xAB34=
+ + Now change whether the page is present, or whether we're allowed to write it
+** Page faults
+ + Sometimes the kernel can bring in the page and let us continue
+ + Sometimes the access isn't valid, and the kernel delivers SIGSEGV
+ + The MMU detects the translation/protection problem; the kernel handles it
+** Copy-on-write
+ + =fork_lifecycle.c= as a reminder of the observable behavior
+ + Parent and child can initially share backing pages
+ + A write can require a separate copy
+ + That saves eager copying; it doesn't make fork free or instantaneous
+** Linking, revisited
+ + =readWriteTest.s=, =readInt.s=, =writeInt.s=
+ + Try leaving writeInt.o out of a scratch link
+ + What does the error actually say?
+ + =nm= shows which symbols we define and which we still need
+ + Compile error, link error, runtime error: different places to look
+** Static and dynamic linking
+ + Which code is included in the executable, and which is loaded from a shared library?
+ + Leave the detailed PLT/GOT machinery for the reading
+** Project check-in
+ + Bring up the thing that's stuck while we still have time to work on it

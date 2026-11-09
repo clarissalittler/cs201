@@ -1,16 +1,20 @@
-CC = gcc
-CFLAGS = -std=gnu17 -Wall -Wextra -g -O0
-PROGRAMS = locality
+AS = as
+ASFLAGS = -g
+LD = ld
+PROGRAMS = readWriteTest
 
 all: $(PROGRAMS)
 
-%: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
+%.o: %.s
+	$(AS) $(ASFLAGS) $< -o $@
 
-locality-O2: locality.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -O2 $< $(LDFLAGS) $(LDLIBS) -o $@
+readWriteTest: readWriteTest.o readInt.o writeInt.o
+	$(LD) $(LDFLAGS) $^ -o $@
+
+fork_lifecycle: fork_lifecycle.c
+	$(CC) -std=c17 -Wall -Wextra -g $< -o $@
 
 clean:
-	rm -f $(PROGRAMS) locality-O2
+	rm -f $(PROGRAMS) *.o fork_lifecycle
 
 .PHONY: all clean
