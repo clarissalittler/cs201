@@ -1,20 +1,14 @@
-AS = as
-ASFLAGS = -g
-LD = ld
-PROGRAMS = readWriteTest
+CC = gcc
+CFLAGS = -std=gnu17 -Wall -Wextra -g
+LDLIBS = -pthread
+PROGRAMS = echoServerThread webServer webClient
 
 all: $(PROGRAMS)
 
-%.o: %.s
-	$(AS) $(ASFLAGS) $< -o $@
-
-readWriteTest: readWriteTest.o readInt.o writeInt.o
-	$(LD) $(LDFLAGS) $^ -o $@
-
-fork_lifecycle: fork_lifecycle.c
-	$(CC) -std=c17 -Wall -Wextra -g $< -o $@
+%: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
 
 clean:
-	rm -f $(PROGRAMS) *.o fork_lifecycle
+	rm -f $(PROGRAMS)
 
 .PHONY: all clean

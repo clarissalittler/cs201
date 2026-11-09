@@ -1,16 +1,18 @@
 CC = gcc
-CFLAGS = -std=gnu17 -Wall -Wextra -g -O0
-PROGRAMS = locality
+CFLAGS = -std=gnu17 -Wall -Wextra -g
+PROGRAMS = fdStandard fdCat fdDevices fdTable fdPipe fdRedirect \
+           stdioOpen stdioLines stdioChars stdioFormatted stdioBinary \
+           stdioSeek stdioBuffering stdioFileno procSelf
+
+# files the examples create when you run them
+OUTPUTS = out.txt err.txt listing.txt scores.txt points.bin wrapped.txt
 
 all: $(PROGRAMS)
 
 %: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
 
-locality-O2: locality.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -O2 $< $(LDFLAGS) $(LDLIBS) -o $@
-
 clean:
-	rm -f $(PROGRAMS) locality-O2
+	rm -f $(PROGRAMS) $(OUTPUTS)
 
 .PHONY: all clean

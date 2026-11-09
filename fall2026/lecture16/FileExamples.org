@@ -1,7 +1,6 @@
 * "Everything is a file" and the FILE API
-Small, standalone examples. Build them all with =make files= (or =make= for
-everything in this lecture). Each source file has a =try:= block at the top
-with commands to run.
+Small, standalone examples. Build them all with =make=. Each source file has
+a =try:= block at the top with commands to run.
 
 ** Everything is a file (descriptor)
 The kernel gives us one interface -- =open=, =read=, =write=, =close= -- and a

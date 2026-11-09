@@ -1,33 +1,35 @@
 * Agenda
-** Remember array addresses?
- + Which elements are next to each other in memory?
- + How far do we move when we go to the next row instead of the next column?
-** The memory hierarchy
- + Registers, caches, RAM
- + Fast storage is limited
- + Temporal locality: we'll use this again soon
- + Spatial locality: we'll use something nearby soon
-** Let's draw a tiny cache
- + Two sets, two integers per cache line
- + These are array indices: =0, 1, 4, 0, 1=
- + Start with an empty cache
- + Work through which accesses hit and which miss
- + Offset, set, and tag: names for the parts of the address we're using
-** Does the order of a loop matter?
- + =locality.c=
- + Same array, same sum, different traversal order
- + Predict the memory accesses before timing anything
- + Check the checksums agree!
-** Let's measure
- + Run several trials
- + Then =make locality-O2= and try the optimized build
- + The program alternates which traversal runs first
- + Change one thing at a time
-** What did we actually measure?
- + Elapsed time vs. CPU time
- + Compiler changes, cache size, and other things running on the machine
- + We aren't guaranteed the same speedup on every computer
- + Correct result first; then find out where the time goes
-** Questions / another cache trace
- + Explain why one access has locality instead of just saying which loop was faster
- + Project questions welcome
+** Where we left off
+ + Last time with files: =open=, =read=, =write=, =close=, and a first look at =FILE*=
+ + Today: why that one interface works on so many things, then the FILE API properly
+ + [[file:FileExamples.org][FileExamples.org]] has every example with commands to try
+** Everything is a file (descriptor)
+ + =fdStandard.c=: 0, 1, and 2 are already open -- who decided what they are?
+   + Run it with =>=, =2>=, and a pipe
+ + =fdCat.c=: the same copy loop on =sample.txt=, =/proc/cpuinfo=, =/dev/null=, =/dev/stdin=
+   + What does read do on a directory?
+ + =fdDevices.c=: =/dev/urandom=, =/dev/zero=, =/dev/null= are drivers, not data
+ + =fdTable.c=: files, pipes, and devices in one descriptor table
+   + =/proc/self/fd= lets us look at our own table
+   + Which number does the next =open= get?
+** Pipes and redirection are just descriptor tricks
+ + =fdPipe.c=: a pipe is a file with no name
+   + EOF only when /every/ write end is closed -- what happens if we forget one?
+ + =fdRedirect.c=: =dup2= then =exec= is how the shell does =ls -l > listing.txt=
+** The FILE API
+ + A =FILE*= is a descriptor plus a buffer plus some conveniences
+ + =stdioOpen.c=: modes, checking for =NULL=, =perror=
+ + =stdioLines.c=: =fgets= reads a line /or/ as much as fits
+   + Change =LINE_SIZE= to 16 and count the calls
+ + =stdioChars.c=: =fgetc= and why =c= has to be an =int=
+ + =stdioFormatted.c=: =fprintf= and =fscanf= with a text file
+ + =stdioBinary.c=: =fwrite= and =fread= copy raw bytes -- look at them with =xxd=
+ + =stdioSeek.c=: =fseek=, =ftell=, =rewind=, and why a pipe can't seek
+** Buffering: when do our bytes actually leave the program?
+ + =stdioBuffering.c=: run it to the terminal, then pipe it into =cat=
+ + Line buffered, fully buffered, unbuffered
+ + =fflush=, and what happens to the buffer if the program crashes
+ + =stdioFileno.c=: =fileno= and =fdopen= connect the two layers
+** Putting it together
+ + =procSelf.c=: the kernel describes our process as a text file, and we read it with =fgets=
+ + Next time the "file" will be a network connection
