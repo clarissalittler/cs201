@@ -37,6 +37,13 @@
  + =fdPipe.c=: a pipe is a file with no name
    + EOF only when /every/ write end is closed -- what happens if we forget one?
  + =fdRedirect.c=: =dup2= then =exec= is how the shell does =ls -l > listing.txt=
+** Named semaphores live in the filesystem too
+ + Remember the semaphores we shared between forked processes?
+ + =namedSem.c=: =sem_open= creates =/dev/shm/sem.cs201sem=
+   + =create=, then =ls -l /dev/shm=
+   + =post= a couple of times and =peek= at the file's bytes with plain =read= (or =xxd=)
+   + =wait= in one terminal, =post= in another: two unrelated programs, one semaphore
+   + =remove= is =sem_unlink= -- just like deleting a file
 ** (If there's time) Directories and metadata
  + =directory1.c=
  + What do we get from readdir? What do we still need stat for? (=lstatTest.c=)

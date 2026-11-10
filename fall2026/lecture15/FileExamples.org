@@ -13,6 +13,7 @@ lot of very different things sit behind it.
 | =fdTable.c=    | files, pipes, and devices share one descriptor table           | =./fdTable < sample.txt > out.txt= |
 | =fdPipe.c=     | a pipe is a file with no name; EOF when all writers close      | =./fdPipe=                         |
 | =fdRedirect.c= | =dup2= + =exec= is how the shell does =>=                      | =./fdRedirect; cat listing.txt=    |
+| =namedSem.c=   | a named semaphore is a file in =/dev/shm=; peek at its count  | =./namedSem create; ls -l /dev/shm= |
 
 Questions to ask along the way:
  + What does =read= return for a directory? For =/dev/null=?

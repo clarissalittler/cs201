@@ -1,6 +1,7 @@
 CC = gcc
 CFLAGS = -std=gnu17 -Wall -Wextra -g
-PROGRAMS = fdStandard fdCat fdDevices fdTable fdPipe fdRedirect pipe \
+LDLIBS = -pthread
+PROGRAMS = fdStandard fdCat fdDevices fdTable fdPipe fdRedirect pipe namedSem \
            argv openfile1 openfile2 readfile1 writefile1 writefile2 \
            directory1 lstatTest
 
