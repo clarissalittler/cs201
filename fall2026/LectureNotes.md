@@ -784,14 +784,394 @@ _start:
 		- private vs. shared!
 	- shared memory between forked processes 
 - semaphores for forked processes, the culmination of all that jazz
-# Lecture 13
+# Lecture 13: Physical RAM, memory hierarchy, caching
 - The physical structure of RAM
 	- SRAM vs. DRAM
+		- SRAM -> static RAM
+		- DRAM -> dynamic RAM
+		- "static" means "once the bit is set, it doesn't change as long as the circuit still has power"
+		- "dynamic" means once the bit is set, it needs periodic refreshing
+		- SRAM ->
+			- Fast
+			- Stable
+			- Expensive!
+			- SRAM requires ~6 transistors to make one bit of static ram
+			- Can be read non-destructively
+		- DRAM ->
+			- Slower
+			- Requires refreshes
+			- Cheap!!
+			- 1 transistor and 1 capacitor
+	- One point to emphasize: this is all about electrical signals!
+	- Electrical signals are physical things that take time to propagate
+		- Across a pcb, electrical signals move at roughly ~0.5c
+		- ~6 inches per nanosecond
+		- For a 4GHz processor that means an electrical signal can go roughly 1.5 inches per clock cycle
+	- In general a signal is conveyed via a distinction between high and low voltage
+	- Voltage approximately meaning "stored electrical potential"
+		- Potential energy => energy that can be converted into some kind of work
+			- e.g. lifting something up off the ground gives it potential energy from the fact that it can be dropped!
 	- On the nature of the transistor
-	- supercells
-	- activation time
-- Caching designs
-	- Fully associative
+		- What does it *do* exactly
+		- A switch
+		- It allows current flow through it *if* the switch is powered
+		- It blocks current flow if the switch is *not* powered
+		- This makes them the building block for a *bit*, i.e. on and off
+	- Capacitors
+		- Well what's that??
+		- It's a mechanism for storing electrical potential
+			- It's the equivalent of picking something off the ground and putting it on a shelf
+			- You've *stored* the potential energy in the system
+			- ...in a *hopefully* stable way
+		- -|  |- <--- it looks like this!
+			- Two plates with wires connected to them
+			- You apply a voltage difference (by attaching to a battery, or something like that)
+			- electrons accumulate on one plate and are pulled away on the other plate
+			- -----|-  +|------ <--- after voltage difference is applied
+			- disconnect the wires
+			- one plate has more electrons than normal
+			- the other plate has fewer electrons than normal
+			- You can "discharge" the potential by just connecting it again
+			- It "gives back" the potential energy, but this *destructive*
+		- A little E & [M](https://youtu.be/8GyVx28R9-s?si=stBfPpL-7UCr74af&t=110)
+		- On a small scale the rules of capacitors get complicated
+			- Electrons can "leak" from one "side" of the capacitor to the other
+			- Which means that the capacitor has a finite lifetime for holding the voltage
+			- Hence the refresh!
+	- Why DRAM is slower
+		- You need refreshes
+		- You need to get around the fact that reads are destructive
+	- "Supercell" in the book is their own description
+		- It's not really how DRAM is organized
+	- Rows and columns
+		- DRAM is generally organized into big grid structures
+		- Modern DRAM has row sizes of sometimes even a 1kB (so 8096 columns)
+		- Many rows!
+		- We copy an entire row at a time to a row buffer
+		- The row buffer is the thing that's destructively read
+		- We generally read ~64 bytes from a row (double check)
+	- [Rowhammer](https://istc-cc.cmu.edu/publications/papers/2014/kim-isca14_abs.shtml)
+		- wiki link: https://en.wikipedia.org/wiki/Row_hammer
+		- This one was new to me
+		- And is terrifying
+		- If you have bits you don't have permission to modify
+		- but you *do* have read access to the rows physically surrounding it (above and below)
+		- if you repeatedly, rapidly, alternate reading from the neighbor rows you can, through the magic of imperfectly isolated electromagnetic effects, *change the bits of the row you want to modify*
+- So what does this all add up to?
+	- ~2-300 clock cycles delay on reading RAM
+	- we mitigate this somewhat because of out-of-order instruction execution
+	- out-of-order instruction execution is when instructions that delay on I/O, memory access, &c. are put on the back burner as those delays are resolved and instructions that *can* keep going do
+		- e.g. a `mov` instruction requests data from RAM, but the register that will hold the data isn't used until 40 instructions later, you can do the intervening instructions until the RAM request is fulfilled
+- What does this already tell us 
+	- RAM is pretty slow
+	- At least in comparison to an `add`,`sub`, or `mov` that uses registers
+		- Because registers take 0 cycle delay
+- Caching: why do we need it?
+	- We need to cache data that we're repeatedly using
+	- Because! The way code tends to work if you access something once, it probably gets accessed *many* times in the program.
+	- So we save it in some kind of smaller but really fast memory
+- How many caches do we got?
+	- ~ L1, L2, L3
+	- access time ordering: L1 < L2 < L3
+	- size ordering: L1 < L2 < L3
+	- L1 is typically implemented with SRAM
+	- L2 *frequently is*
+	- L3 *rarely* is
+	- L1 can be 2-3 clock cycles
+	- L3 can be dozens of clock cycles
+	- L1 is typically split: 
+		- L1D --> data
+		- L1I --> instructions
+	- In a multi-core system
+		- L1 is per core
+		- L2 *may* be per core or shared
+		- L3 *is* per processor
+- Caching designs: basic ideas
+	- We can only hold *a little bit* of memory in our caches
+	- Because of *locality*, the idea that data used nearby in time/space continues being used together, it behooves us to try and minimize our RAM access by grabbing *chunks* at a time, these *chunks* are the *cache lines*
+		- Cache line size we'll call C
+		- How many bits do we need to index into a cache line size of C?
+			- $log_2(C)$ 
+			- if the line size is 64 bytes
+			- then we need *6* bits to describe which byte we want in the cache line
+		- If we have multiple cache lines, though, how do we decide which physical RAM addresses correspond to which *line*?
+	- Three different kinds of mapping schema for how to map physical RAM addresses into cache lines
+		- These are generally called the associativity of the cache
 	- Direct mapping
-	- Set associative
-- 
+		- Our cache is 64 bytes so we need the rightmost 6 bits for the index into a cache line i.e. if an address ends in `001011` then we want the 9th byte in the cache line
+		- Take however many cache lines there are $L$, for this assume 16 cache lines, which means we need $log_2(L)$ (4 bits) to select which cache line
+			- These 4 bits come to the *left* of the index into the cache line
+			- so for an address of `101011 0101 001011` then the 0101 is the index selecting which line, in this case we're selecting cache line 5 
+		- An address is mapped to the cache line numbered by its tag
+		- For sake of argument: let's assume we're dealing with 16 bit addresses
+		- In other words, direct mapping partitions out the entire address space into L distinct disjoint sets, each of which maps onto *one* cache line
+		- So what happens when I read an address?
+		- `101011 0101 001011` <- 16 bit address
+		- We look at the those middle 4 bits, `0101`, now we look at the the 5th cache line
+		- The 5th cache line has the 64 bytes stored in it *and* the 6 bits that correspond to the *tag*, the tag is the leftmost 6 bits
+		- The tag is the disambiguator for the addresses, i.e. which address chunk do I already have in the cache
+
+| #   | Tag    | 64 Bytes                     |
+| --- | ------ | ---------------------------- |
+| 0   |        |                              |
+| 1   |        |                              |
+| 2   |        |                              |
+| 3   |        |                              |
+| 4   |        |                              |
+| 5   | 101011 | 1010110101 (000000 - 111111) |
+| 6   |        |                              |
+| 7   |        |                              |
+| 8   |        |                              |
+| 9   |        |                              |
+| 10  |        |                              |
+| 11  |        |                              |
+| 12  |        |                              |
+| 13  |        |                              |
+| 14  |        |                              |
+| 15  |        |                              |
+Let's say I now read 111001 1111 000111
+
+| #   | Tag    | 64 Bytes                     |
+| --- | ------ | ---------------------------- |
+| 0   |        |                              |
+| 1   |        |                              |
+| 2   |        |                              |
+| 3   |        |                              |
+| 4   |        |                              |
+| 5   | 101011 | 1010110101 (000000 - 111111) |
+| 6   |        |                              |
+| 7   |        |                              |
+| 8   |        |                              |
+| 9   |        |                              |
+| 10  |        |                              |
+| 11  |        |                              |
+| 12  |        |                              |
+| 13  |        |                              |
+| 14  |        |                              |
+| 15  | 111001 | 1110011111(000000 - 111111)  |
+- Pros and cons of direct associative mapping!
+	- Pros
+		- It's very fast!
+		- It's very simple!
+	- Cons
+		- Can cause a lot of collisions e.g. two really huge arrays in linear algebra operations, we keep using the same middle-bit-mapped cache lines at the same time but for very different tags in other words we're contending for the same lines
+- Fully associative
+	- There is *one* cache set i.e. all addresses can go to any of the cache lines, they're not mapped to just some of them
+	- So we don't use any middle bits to map addresses to cache lines, instead we fill up the next available cache line
+		- or have a policy that lets us evict the least recently used line
+	- Again, assume 16 cache lines but now all addresses can go anywhere in them
+
+| #   | Tag        | 64 Bytes                     |
+| --- | ---------- | ---------------------------- |
+| 0   | ...        |                              |
+| 1   | ...        |                              |
+| 2   | ...        |                              |
+| 3   | ...        |                              |
+| 4   | ...        |                              |
+| 5   | 1010110101 | 1010110101 (000000 - 111111) |
+| 6   | 1110110101 | ...                          |
+| 7   | ...        |                              |
+| 8   | ...        |                              |
+| 9   | ...        |                              |
+| 10  | ...        |                              |
+| 11  | ...        |                              |
+| 12  | ...        |                              |
+| 13  | ...        |                              |
+| 14  | ...        |                              |
+| 15  | 1110011111 | 1110011111(000000 - 111111)  |
+The tag is now bigger (it's everything that isn't the index into the line)
+- what if we read in the address `1110110101 000111`
+- Pros and cons of fully associative
+	- Pro: It's possible for any address to go anywhere in the cache, which means that you have less contention
+	- Con: it's slower and more complicated
+- Set associative/N-way associative
+	- The middle ground
+	- You keep multiple "sets" keyed to middle bits of the address, but within each set it acts as fully associative
+	- If we had the same 16 cache lines but 4 way set associative i.e. that there are 4 slots per set, then this means we just need two bits to select the set
+	- So the two bits to the left of the cache line index becomes the set selector
+- Why T/S/B
+	- Assume an array of 1024 ints
+	- So it takes up 4096 bytes
+	- Assume a cache line size of 64 bytes
+	- And assume we have a direct mapped cache with 64 entries
+	- If we let the middle 6 bits be what selects the direct mapped slot *then* we can smoothly use the whole cache for our array
+	- If we used the leftmost 6 bits then those will be the *same* for the entire array which means the whole array contends for the same *one* cache line
+- Example time!
+	- For simplicity assume 16-bit addresses
+	- Direct mapping with 1024 B size cache
+	- 8-way set associative
+	- Fully associative
+- What do we do with writes?
+	- This is going to be really simplified!!
+	- Single core
+		- Write through/write back
+		- write through means you *immediately* change RAM
+		- Write back means you don't change RAM until the changed value is evicted from the cache
+			- A variant of this means it has to be evicted from the top layer of cache and you practice write back semantics between layers of cache
+			- i.e. you don't change the L2 cache entry of the data until the L1 cache entry is evicted
+	- Multi-core case [MESI](https://en.wikipedia.org/wiki/MESI_protocol)
+		- Simplified write through/write back doesn't work for multi-core
+		- Cache coherence protocols
+- Locality and you
+	- Array accesses
+	- Assume `int a[1024][1024]`
+	- Then under the hood the gap between `a[0][0]` and `a[1][0]` is 4096 addresses, but `a[0][0]` to `a[0][1]` is just 4
+# Lecture 14: Virtual memory
+- [Classic paper](https://ansafe.xust.edu.cn/DownLoad/1970Classicial.pdf)
+- Virtual memory as an idea is *old*
+	- 50s-60s
+- Big idea: every process sees an "abstracted" address space that is unique to it
+- Why have an abstraction in the first place?
+	- Let's play an imagination game where all you have is physical addresses
+	- How do you load software into memory?
+	- There can't be a simple loading process that relies on fixed, predictable, addressing
+		- Every process will have to include corrections for where things ended up in memory
+		- Some of that could mitigated by %rip relative addressing
+		- But some of it is still adding needless complexity for finding where software goes
+		- In particular, what happens when you have to *unload* a running piece of software from memory and then *re* load it?
+- So the core idea is *multiplexing* but you also get a number of other things for free
+	- Permissions
+		- R/W <-- 1 bit, i.e. no write only that you can't read
+		- U/S <-- userspace vs. supervisor
+		- NX
+		- This is what you set with mmap btw!
+	- Sharing libraries
+	- Consistent layout
+- Virtual memory and swap space are related but not identical ideas
+	- You don't *have* to have swap space to have virtual memory
+	- But what swap space *buys you* is that you get to pretend that each process has way more accessible memory than it really does
+- On a system with disk backing of the virtual memory, the virtual memory system operates like a caching system
+	- The idea is that is that the physical RAM is like the L1 cache relative to the disk
+	- The virtual memory system makes virtual addresses either point to a physical location in memory (in the page table entries) or to a place on disk where the data is stored
+	- Instead of 64 byte cache lines, you have much much larger *page* sizes
+		- typical linux distro uses 4kb pages $log_2(4096) =\; 12$ 
+		- virtual memory operates at the page size loaded into physical RAM
+	- What kind of cache?
+	- Direct mapped?
+		- Fast to find if something is cached, bad contention
+	- Fully associative?
+		- Slow to find if something is cached, good contention
+	- Set associative?
+		- The baby bear's porridge was just right
+	- Is it going to be write through or write back?
+		- Reminder:
+			- write through means you write all the way to the base storage every time
+			- write back means you write to the base storage *only* when the data is evicted from the cache
+- VM is an *operating system* abstraction
+	- But there are hardware assists! e.g. *TLB*, *MMU*
+	- Memory Management Unit
+	- Translation Lookaside Buffer
+- Page table entries 
+	- Physical frame i.e base address for hosting or disk location 
+	- Permissions 
+	- Loaded or not
+	- Has it been accessed
+- So how does this all work?
+	- On x86-64 Linux system the virtual addresses are actually only 48 bits
+	- If we recall a page size of 4kb (12 bits indexing) then that means there are $2^{36}$ entries for pages
+	- You definitely don't have the RAM for storing $2^{36}$ page table entries
+	- So what do we do about that?
+	- 36 / 4 = 9
+	- Modern linices (linuxen) split this into a hierarchical page table
+	- Each layer has 9 bits of indexing
+	- You don't even allocate for other tables until you've filled what you have
+	- So the top level table starts with $2^9$ entries (512)
+	- Each entry in the top level table, if instantiated has 512 entries
+	- The same goes for all the following tables
+	- So when you read an address what happens?
+	- Let's assume it's in RAM
+	- Well the address needs to be translated from a virtual address to a physical one
+	- The thing that actually searches through the page tables is the memory mapping unit
+	- Searching through the page tables while not *that* slow is definitely slower than you'd like
+	- The translation lookaside buffer is a *cache* for mapping virtual addresses to physical locations
+	- What if it's not in RAM? That's a page fault!
+		- Read from disk
+		- store in RAM
+		- update the page table
+- Mary, Mary, quite contrary, how does your heap grow?
+	- `sbrk`
+	- `mmap`
+	- We can watch these in action with `strace -e brk,mmap,munmap`
+		- We also see a bunch of other stuff too!
+# Lecture 15: When all you have is a filesystem, everything looks like a file
+- Check in on Discussion 7
+	- Use the webshell link in the upper-right hand corner after starting the activity
+	- `>_` <-- click this thing
+		- Not in this markdown document obviously
+		- ...you get it
+- Warning: for the rest of this lecture there is going to be a lot of weird asymmetry where sometimes primitive syscalls have an `f` prefix and sometimes the `f` prefix means it deals with `FILE*` not `int fd`
+- Remember how we used file descriptors to do input and output in assembly? We had `write` and `read` syscalls that took numbers as file descriptors and explicit sizes of bytes &c.
+- What is a file descriptor and why is it an `int`?
+	- An `fd` is an *index* into a kernel datastructure that holds information on files
+	- That's why it's just an integer and why the syscalls are fundamentally built around this interface!
+	- File descriptors exist on a per process basis
+		- Every process starts counting up from 0 independently
+		- *But* every process is (generally) set up with three file descriptors to start with
+		- These are
+			- 0 : stdin
+			- 1 : stdout
+			- 2 : stderr
+- Well let's review some of that from the `C` side this time!
+- Basic calls that deal with file-descriptor-qua-`int`
+	- `open` : how you ask for a file descriptor
+		- This can involve both opening existing files *and* creating files
+		- `O_CREAT` <-- the flag to create a file
+		- `O_RDONLY`
+		- `O_WRONLY`
+		- `O_RDWR`
+	- `close` : how you give up a file descriptor
+	- `read` : how you read bytes from a file descriptor
+		- returns the number of bytes read
+		- returns 0 when there's nothing more to read
+		- returns -1 when there's an error
+		- a lot of my example code doesn't worry about when there's errors!
+			- That's because I'm a bad person
+		- `read` does not put null bytes into the buffer
+			- That's a higher level decision you have to make
+			- If you want to have null termination you need to call it like this
+			- ```C
+			  int n = read(fd,buff,sizeof(buff)-1);
+			  buff[n] = '\0';
+			  ```
+		-  
+	- 
+	- `write` : how you write bytes to a file descriptor
+	- `fstat` : how do you get information from a file descriptor
+		- We need to talk about what's actually in the `struct stat`
+		- The [wiki page](https://en.wikipedia.org/wiki/Stat_(system_call)) is shockingly useful here!
+	- `lseek` : which moves you around inside a file
+	- `fsync` : makes sure the file is written back
+- Basic patterns:
+	- Looping the read or write until there are no bytes left to get
+- (Sorta) unbuffered inputs
+- What counts as a file?
+	- Let's open a pipe between two files 
+	- `pipe()`
+	- while the programs are waiting we can check what file handles they have open!
+- What is the kernel doing?
+	- Virtual File System mediates the many different objects that get treated as files
+	- Presents a common interface
+	- `struct super_block`
+		- The description of a *filesystem*
+		- This is not what I thought it was when I first read the name
+		- Contains a bunch of metadata about the blocksize, the device id, the root, &c.
+	- `struct inode`
+		- This is the thing that actually contains all the metadata for accessing the real location of your data
+		- This is the common interface that points to anything from locations on disk to the actual bytes of information
+	- `struct dentry`
+		- This is related to `inode` like a domain name is related to an ip address
+		- Connects the names in a directory to the actual inode entries
+	- `struct file`
+		- This is the thing that holds information about the file, its current offset and position, &c.
+- A taste of `FILE*`
+	- `fopen`
+	- `fgets`
+	- `fputs`
+	- `fclose`
+
+# Lecture 16: More on the file API and writing a line editor
+# Lecture 17: Sockets and networking code
+# Lecture 18: Linker details
+# Lecture 19: Malloc and friends
+# Lecture 20: The kernel design space
+# Remaining lectures: Rust!
