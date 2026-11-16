@@ -1,0 +1,4 @@
+*.o
+/readWriteTest
+/fork_lifecycle
+/scratch

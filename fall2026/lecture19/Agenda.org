@@ -1,0 +1,34 @@
+* Agenda
+** malloc, again
+ + =c_objects.c= from the beginning of the term
+ + Now we know a bit more about what those addresses mean
+ + Draw the pointer, the allocation, and the thing that owns it
+** What does an allocator keep track of?
+ + Allocated blocks and free blocks
+ + A little metadata about each block
+ + Space inside a block that we're not using
+ + Free space split across gaps between blocks
+ + Internal vs. external fragmentation
+** Let's find a memory leak
+ + Run the correct program under a memory checker
+ + Make a /copy/, then remove its free
+ + Valgrind if it's available, or AddressSanitizer
+ + Read where the lost allocation came from
+ + Put the free back and check again
+** The project has more than memory to clean up
+ + Buffers
+ + Files
+ + Sockets
+ + The little allocation passed to each client thread
+ + Follow both the successful path and the error path
+ + Who owns each resource at each point?
+** Garbage collection
+ + What if we didn't call free ourselves?
+ + Reference counting
+ + Draw two objects that point to each other
+ + Why doesn't their reference count reach zero?
+ + Tracing collectors follow reachability instead
+ + Memory reclamation and closing a file are still different concerns
+** Work on one reproducible problem
+ + Find the first useful diagnostic, explain it, fix it, rerun
+ + A clean run only tells us about the paths we actually exercised

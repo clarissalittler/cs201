@@ -9,29 +9,34 @@
  + Host byte order vs. network byte order
  + =htons=, =htonl=, =ntohs=, =ntohl=
 *** A server that accepts one connection
- + =echo_once.c=
+ + =step1HelloOnce.c=
  + =socket=, =bind=, =listen=, =accept=
  + There are /two/ descriptors to keep straight
    + The listening socket
    + The accepted connection
- + Start it with port 0 to have the system choose a port
- + Connect with =nc 127.0.0.1 PORT=
- + Type something and get it back
+ + Start it with a port number: =./step1HelloOnce 5000=
+ + Connect with =nc -d 127.0.0.1 5000=
+ + It sends a fixed message, hangs up, and exits
+ + Connect again: "Connection refused", nobody's listening any more
 *** TCP gives us a stream of bytes
  + It doesn't preserve our application's message boundaries
  + One send doesn't necessarily correspond to one recv
  + Part of a line might arrive, then the rest
  + We still need the short-transfer loop from the file lectures
+   + The step examples skip it so the socket calls stand out
 *** When the client goes away
  + Read/recv returns zero at EOF
+   + That's how =step3EchoLoop.c= knows to close and go back to =accept=
  + A send can fail if the other end has closed
- + =MSG_NOSIGNAL= keeps that failed send from terminating this Linux example with SIGPIPE
- + This example listens on loopback and serves one connection, then exits
+ + =MSG_NOSIGNAL= keeps that failed send from terminating the server with SIGPIPE
+ + The step servers bind =INADDR_ANY=, so they accept connections on any of this machine's addresses, not just loopback
 *** Accepting another connection
  + Where would the outer loop go?
- + =echoServerLoop.c= shows the basic change, with less error handling
- + =echoClient.c= shows the other side of the conversation
- + The select/poll examples are under optional if you'd like to look ahead
+ + =step2HelloLoop.c= moves =accept= into a loop
+   + =diff step1HelloOnce.c step2HelloLoop.c=
+ + =step3EchoLoop.c= echoes, but a second client waits for the first
+ + =step4EchoPoll.c= and =step5EchoSelect.c= serve many clients at once
+ + =step6Client.c= shows the other side of the conversation
 *** A step-by-step server progression
  + [[file:SocketSteps.md][SocketSteps.md]] has the walkthrough and =nc= commands for each step
  + Each step changes as little as possible: =diff= neighbouring files
@@ -45,6 +50,22 @@
  + =step5EchoSelect.c=: the same server written with =select()=
  + =step6Client.c=: our own client that works with all five
    + It needs =poll()= too: keyboard /and/ socket
+*** Other kinds of sockets
+ + Change the arguments to =socket()= and the program keeps the same shape
+ + =udpEcho.c=: =SOCK_DGRAM= instead of =SOCK_STREAM=
+   + No =listen=, no =accept=: one socket, and every datagram says who sent it
+   + =recvfrom= / =sendto=
+   + =nc -u 127.0.0.1 PORT=
+ + =udpSend.c one two three=: three datagrams arrive as three =recvfrom=s
+   + Message boundaries are kept, unlike TCP
+   + Stop the server: =sendto= still "works" and nobody tells us
+ + =unixEcho.c=: =AF_UNIX= instead of =AF_INET=
+   + The address is a file name: =ls -l echo.sock=
+   + =nc -U -N echo.sock=
+   + Never touches the network: IPC between programs on one machine
+   + The kernel tells us the client's pid and uid
+ + =socketPair.c=: two connected sockets, no name, shared with =fork=
+   + A pipe that goes both ways
 
 ** Part 2: From echo to the web-server project
 *** Where we are

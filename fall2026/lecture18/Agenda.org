@@ -1,0 +1,62 @@
+* Agenda
+[[file:LinkerSteps.md][LinkerSteps.md]] has every command for today, in order.
+** What does gcc actually do?
+ + =./pipeline.sh hello.c=
+ + Preprocess, compile, assemble, link: four programs, four files
+ + Why does =hello.s= call =puts= when we wrote =printf=?
+ + We wrote one =.o=, but the linker gets =Scrt1.o=, =crti.o=, =-lc=, ...
+ + Remember writing =_start= ourselves in assembly? Now we know where C's comes from
+** Symbols: who defines what?
+ + =main.c= and =helper.c=, linked into =prog=
+ + =nm main.o= and =nm helper.o=
+   + T, D, B, R, U
+   + Uppercase is global, lowercase is local to the file
+   + What did =static= do?
+ + We've seen an undefined reference before. Now we can see why
+   + =gcc main.o -o broken=
+   + Every =U= that nothing else defines shows up in the error
+   + Write down the offsets in those errors: =.text+0x11=, ...
+** Relocations: the holes
+ + =objdump -dr main.o=
+ + =e8 00 00 00 00=: a call to... nowhere?
+ + The relocation note says what goes in the hole
+   + Same offsets as the error messages!
+ + =./reloc.sh main.o prog=: before and after
+ + Work one out by hand: address of the call + 5 + offset
+   + Don't forget it's little-endian
+ + Why does the relocation for =secret= say =.data= instead of =secret=?
+** When the linker says no (pairs)
+ + =dup_a.c= / =dup_b.c=: two definitions of one name
+   + Fix it with =static=
+ + =mismatch_main.c= / =mismatch_other.c=: =int x= in one file, =double x= in the other
+   + Modern gcc refuses; =-fcommon= brings back the old silent behavior
+   + Where does =1374389535= come from?
+   + The real fix is a shared header
+ + =weak_main.c=: a default someone else can replace
+ + =libhelper.a=: why does =-lhelper= have to come /after/ =main.o=?
+** The ELF format
+ + =xxd -l 64 hello=: decode the header by hand
+ + Why is our program type DYN instead of EXEC?
+ + =./elfpeek hello=: it's just structs at offsets
+ + Sections are for the linker, segments are for the loader
+   + =./peek.sh hello=: which sections went into which segment?
+   + Those segment permissions are the page permissions from lecture 14
+   + Where's =.bss=? (=MemSiz= vs =FileSiz=)
+** Poking at a program
+ + =./patch-string.sh hello "pipeline" "linker!!"=
+   + Why can't the new string be longer?
+ + =strip= a copy: no symbols, still runs
+** Dynamic linking
+ + =./usegreet=: it linked, so why won't it run?
+   + Linking and loading are different steps
+   + =LD_LIBRARY_PATH=, then =usegreet-rpath= and =$ORIGIN=
+   + Change =greet.c=, rebuild only the library, run again
+ + =LD_PRELOAD=./fakerand.so ./dice=
+   + =LD_DEBUG=bindings= to watch the loader choose
+   + =call <rand@plt>=: a stub the linker added
+   + PLT/GOT details are in the reading
+ + =./whereami= twice: same layout, different addresses
+ + =hello-static=: everything copied in
+** Exit check
+ + Point to one =U= in =nm= output and the relocation that goes with it
+ + Or: =./peek.sh= your project server and tell me one thing it needs from libc

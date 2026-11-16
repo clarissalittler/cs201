@@ -1,0 +1,33 @@
+* Agenda
+** What does the kernel actually do?
+ + We keep asking it for things
+ + Processes, memory, files, sockets, scheduling
+ + Let's use the server project to connect those pieces
+** Follow one request
+ + Browser connects
+ + Server accepts
+ + A worker handles the request
+ + We open and read a file, then send its bytes
+ + Where are the system calls? Where could a thread wait?
+ + Where does address translation fit?
+** Where should all those services live?
+ + One privileged address space with the main services together
+ + Or a smaller kernel with services talking to each other from user space
+ + Monolithic kernels and microkernels
+** Draw the same request both ways
+ + Put the filesystem, driver, networking service, and application on the diagram
+ + Which boundaries does the request cross?
+ + Which services can directly access each other's memory?
+** What happens when something breaks?
+ + A bad pointer in a driver
+ + A stuck worker
+ + A service that crashes
+ + What can each design contain, and what can still go wrong?
+** Tradeoffs
+ + Performance, communication costs, isolation
+ + How much code has to be trusted?
+ + What could we verify about the system?
+ + Use the concrete request diagram to explain one tradeoff
+** Project questions
+ + Try two clients, a missing path, and the response byte counts
+ + The longer kernel-history and Rust material is there to explore afterward

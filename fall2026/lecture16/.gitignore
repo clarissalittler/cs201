@@ -1,0 +1,15 @@
+/stdioOpen
+/stdioLines
+/stdioChars
+/stdioFormatted
+/stdioBinary
+/stdioSeek
+/stdioBuffering
+/stdioFileno
+/procSelf
+/openfileagain
+/weirdcopy
+/lineEditor
+/scores.txt
+/points.bin
+/wrapped.txt

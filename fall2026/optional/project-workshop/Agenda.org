@@ -1,0 +1,23 @@
+* Agenda
+** Homework help and project time!
+ + What's working?
+ + What's the smallest thing that's failing?
+ + If you're stuck, bring the code and what you expected it to do
+** Work time
+ + Start with one request going all the way through
+ + Then test the other paths
+ + I'll go around and help; keep working while someone else has a question
+** Check the server against the assignment
+ + [[file:../../../assignments/assignment4.md][Project requirements and checks]]
+ + Headers and content lengths
+ + Text and binary files
+ + A missing file
+ + More than one client
+ + [[file:../../../assignments/assignment4-scaffold/function-guide.md][Function guide]]
+** Things we've connected this term
+ + Pick something in your server and explain what happens underneath it
+ + Bytes, addresses, instructions, system calls, threads
+ + What makes more sense now than it did at the start?
+** More questions / finish up
+ + Check the actual submission arrangements
+ + Leave with a clear idea of what's done and anything still to fix
