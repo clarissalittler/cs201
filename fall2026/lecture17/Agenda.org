@@ -32,6 +32,19 @@
  + =echoServerLoop.c= shows the basic change, with less error handling
  + =echoClient.c= shows the other side of the conversation
  + The select/poll examples are under optional if you'd like to look ahead
+*** A step-by-step server progression
+ + [[file:SocketSteps.md][SocketSteps.md]] has the walkthrough and =nc= commands for each step
+ + Each step changes as little as possible: =diff= neighbouring files
+ + =step1HelloOnce.c=: one =accept=, a fixed message, then exit
+   + =nc -d 127.0.0.1 PORT= (=-d=: quit when the server hangs up)
+ + =step2HelloLoop.c=: =accept= in a loop, one client after another
+ + =step3EchoLoop.c=: echo until the client hangs up
+   + =nc -N 127.0.0.1 PORT= (=-N=: Ctrl-D tells the server we're done)
+   + Connect two clients: the second waits for the first
+ + =step4EchoPoll.c=: =poll()= so many clients can talk at once
+ + =step5EchoSelect.c=: the same server written with =select()=
+ + =step6Client.c=: our own client that works with all five
+   + It needs =poll()= too: keyboard /and/ socket
 
 ** Part 2: From echo to the web-server project
 *** Where we are

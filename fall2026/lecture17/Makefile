@@ -1,7 +1,8 @@
 CC = gcc
 CFLAGS = -std=gnu17 -Wall -Wextra -g
 LDLIBS = -pthread
-PROGRAMS = echoServerThread webServer webClient
+PROGRAMS = step1HelloOnce step2HelloLoop step3EchoLoop step4EchoPoll step5EchoSelect step6Client \
+           echoServerThread webServer webClient
 
 all: $(PROGRAMS)
 
