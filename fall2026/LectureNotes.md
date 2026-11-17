@@ -1170,8 +1170,103 @@ The tag is now bigger (it's everything that isn't the index into the line)
 	- `fclose`
 
 # Lecture 16: More on the file API and writing a line editor
+- Basic idioms of `fgets` and `fputs`
+- Reminder: next project due this weekend
+- Making our own goofy `cat`
+- Writing our own goofy version of `cp`
+- Let's write a `wc`
+- What limitations do they have?
+- Redirecting output with `>` and `>2`
+- Reading a file line by line into memory
+- Let's start writing our goofy line editor
 # Lecture 17: Sockets and networking code
+- Brief review of how the internet do work
+	- aka I explain networking badly
+	- Layers (TCP/IP model)
+		- Application
+			- higher level protocols built on top of whatever network stack you have
+			- DNS
+			- http
+			- email
+			- usenet
+			- gemini
+			- gopher
+		- Transport
+			- Definition: a "packet" is the conceptual unit of transfer across the internet
+				- A packet consists of the data you're sending and metadata about where it's going and other things about the data itself
+			- TCP
+				- Synchronous
+				- Makes sure every packet is delivered
+				- Makes sure that every packet is delivered *in order*
+					- Re-sends packets that were not received
+					- This means it needs to be told when every packet *is* received
+					- Also needs to number the packets in order
+				- *Connections*
+			- UDP
+				- You send packets to a destination
+				- ???
+				- Profit
+				- *Connectionless*
+		- Internet
+		- Link 
+- Internet sockets
+	- Sockets are basically "file descriptors" but the operating system knows to relate them to the network interface instead of locations on a disk
+		- These are "files" in the sense that you *can* use the `read` and `write` syscalls with them
+		- But generally don't!
+	- TCP handshake
+		- SYN
+			- Client sends an initial packet to the server
+			- This packet has the SYN label
+				- Synchronize
+			- The server is waiting to receive a SYN in order to start building a connection on its end
+		- SYNACK
+			- Server responds with both an acknowledgement and its own synchronize request
+			- Again, TCP requires this kind of explicit "hey I got the thing"
+			- And the server folds the initial request to synchronize from its end into the acknowledgement
+		- ACK
+			- Client acknowledge's the server's request for synchronization
+			- If everyone is feeling heard at this point, then a connection is established
+- [beej's guide](https://beej.us/guide/bgnet/html/split/index.html)
+- Your first sockets programming example
+	- This contains the basic pattern we need
+	- make a socket `socket`
+	- (optional but recc) `setsockopt` so that you can reuse ports
+		- Let's check what happens if we don't do this so we can see how annoying it is
+	- make the addr
+		- hey what's this `hto*` nonsense?
+	- `bind` the socket to the address
+		- this sets up the kernel datastructures *for* listening, rather than doing anything active
+	- `listen` on the bound socket
+		- this puts the TCP socket in the state of being able to accept new connections
+	- `accept` is the blocking system call that accepts a new connection based on receiving a `SYN`
+		- let's note that this returns a *new filedescriptor*
+- How do we handle more than one connection in the lifetime of the program?
+	- We need to do an accept *loop*
+	- Every accept will return the next available file descriptor
+- How do we make communication go both ways?
+	- `recv` as well as `send`
+- Actually multiplexing
+	- poll
+	- select
+	- just using freaking threads!
+- How do we write a *client*?
+	- Pretty similar!
+- Writing the goofiest web server possible
+- *Maybe* we'll talk about UDP sockets not just TCP
+	- `recvfrom` and `sendto` because there are no connections
 # Lecture 18: Linker details
+- Elves and programs that make them
+- How does linking on Linux work?
 # Lecture 19: Malloc and friends
+- Write a really simple `malloc`-like
+- It won't be super functional
+- But we'll talk about some of the design decisions and ways a `malloc` work
 # Lecture 20: The kernel design space
+- Monolithic kernels
+- Microkernels
+	- L4
+	- SeL4
+- Pico/exo kernels
+- Hypervisors work
+- Resources to learn about OS design and experimentation
 # Remaining lectures: Rust!
