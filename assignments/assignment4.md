@@ -1,6 +1,6 @@
 # Assignment 4: Build a multi-client server
 
-For the last assignment, you're going to write a server that a bunch of people can connect to at once. It runs on your own machine, it listens on a TCP port, and it does *something* with what its clients send it. What that something is? That's up to you. Make it fun!
+For the last assignment, you're going to write a server that a bunch of people can connect to at once. It runs on your own machine, it listens on a TCP port, and it does *something* with what its clients send it. I'm not picky about what, just feel free to get creative with it!
 
 Some ideas to get you going:
 
@@ -12,9 +12,8 @@ Some ideas to get you going:
 
 ## What your server needs to do
 
-Write your server in C. It should:
+It should:
 
-- **Listen on localhost only.** Bind to `127.0.0.1` (`htonl(INADDR_LOOPBACK)`) rather than `INADDR_ANY`, so only programs on your own machine can connect. Take the port number as a command-line argument.
 - **Handle several clients at the same time.** A second client should be able to connect and get served while the first is still connected. Nobody should have to wait in line for somebody else to hang up.
 - **Do something with each client's input.** Read what clients send, act on it, and send something back to at least the client who sent it. Pick a simple text protocol (one command per line works great) and write it down in your README so the rest of us know what to type.
 - **Work with `nc`.** Someone should be able to play with your server using `nc 127.0.0.1 <port>` and nothing else. You're welcome to write your own client too, but it's optional.
@@ -28,9 +27,8 @@ You can pick how you handle multiple clients:
 
 Forking a process per client works for servers where clients never interact, but as soon as clients need to see each other (chat, games, the MUD), separate processes make sharing hard. Unless you have a good reason, I'd pick one of the two above.
 
-## A few things TCP will do to you
-
-TCP is a *byte stream*, not a sequence of messages. One `recv` might hand you half a line, or two lines and the start of a third. Don't assume one `recv` equals one command. Keep a buffer for each client, append whatever arrives, and only process a command once you've seen its newline. Whatever's left over stays in the buffer for next time.
+## A few simple pointers
+So while some of our examples were pretty simple, you don't really control how many bytes `recv` pulls in so you'll need to check and make sure you see a newline before you consider a command *done* and take action based on it.
 
 Likewise, `send` can send fewer bytes than you asked for. Write a little helper that loops until everything's been sent, just like the copy loop from the file lectures.
 
@@ -45,9 +43,9 @@ The lecture 17 examples are a good place to start. They all echo text back, so t
 - [`step6Client.c`](https://github.com/clarissalittler/cs201/blob/main/fall2026/lecture17/step6Client.c) is a small client, if you want to write your own.
 - [`SocketSteps.md`](https://github.com/clarissalittler/cs201/blob/main/fall2026/lecture17/SocketSteps.md) walks through the whole progression with `nc` commands to try.
 
-Heads up: those examples skip most error checking and the short-send loop so the socket calls are easy to see, and they bind `INADDR_ANY`. You'll need to fix all three for your server.
+Heads up: those examples skip most error checking and the short-send loop so the socket calls are easy to see, so you'll want to fix that.
 
-A good first step is to copy one of them, switch it to loopback, and change the echo into something tiny of your own, like sending the line back in uppercase. Then add per-client state (a nickname, a score), and then the part where clients affect each other.
+A good first step is to copy one of them and change the echo into something tiny of your own, like sending the line back in uppercase. Then add per-client state (a nickname, a score), and then the part where clients affect each other.
 
 To try it out, start your server in one terminal:
 
