@@ -48,10 +48,14 @@ int main(int argc, char* argv[]){
     // now we write
 
     int c = 0;
-    int remaining = strlen(buf);
+    int remaining = strlen(buf); // we use strlen here because it counts the effective length of the string not just the max size of the buffer
     while(((c = write(fd,p,strlen(p))) > 0) && remaining > 0){
       remaining = remaining - c;
-      p = p + c;
+      p = p + c; // we use pointer arithmetic to advance the buffer
+      // based on how much was actually written
+      // because if we advance the buffer by a count of c
+      // for a array of characters that will advance the pointer p
+      // by c characters
     }
 
     // writes don't always write out everything they can in one go

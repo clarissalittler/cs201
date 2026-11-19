@@ -27,9 +27,9 @@ int main(int argc, char* argv[]){
   // if you want it to be truncated to 0 before writing
   // again you need to add O_TRUNC
   // then the last argument is the permissions, which if you're comfortable with Linux permission in octal
-  // i.e. O000 - O777
+  // i.e. 0000 - 0777
   // you can just give the argument in octal
-  // O666 means every gets read and write permissions
+  // 0666 means every gets read and write permissions
 
   if(fd < 0){
     printf("We couldn't open the file\n");
@@ -45,7 +45,7 @@ int main(int argc, char* argv[]){
     snprintf(buf,sizeof(buf),"%d\n",i);
 
     // now we write
-    write(fd,buf,strlen(buf)); // I accidentally put sizeof(buf) here not strlen(buf)
+    write(fd,buf,strlen(buf)); 
     // is this good enough?
     // writes don't always write out everything they can in one go
     // so similarly to reads you may have to put in a loop so that you don't leave some of the buffer unwritten

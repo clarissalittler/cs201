@@ -47,5 +47,5 @@ sockets, and shared memory remain optional clinics.
 
 ## Assignment planning
 
-Preview the final-project specification and provided scaffold now. Students may
-start preparing www files; sockets and HTTP are taught in lecture 17.
+Preview the final-project specification. Students can start deciding what
+their multi-client server should do. Lecture 17 introduces sockets.

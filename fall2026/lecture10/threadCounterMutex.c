@@ -17,7 +17,7 @@ void* threadFun(void* p){
   // then you put it back
   // the problem is that someone else may have put back
   // their work while you were doing yours
-  for(int i=0; i<100; i++){
+  for(int i=0; i<10000; i++){
     temp++;
     //usleep(100);
   }

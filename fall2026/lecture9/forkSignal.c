@@ -20,6 +20,8 @@
 
 volatile sig_atomic_t pinged = 0;
 
+// void (*f)(int) <-- this is the type of function pointer
+// that all signal handling needs
 void onPing(int sig){
   (void)sig;
   pinged = 1;
@@ -31,7 +33,7 @@ int main(){
   struct sigaction sa;
   sa.sa_handler = onPing;
   sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART;
+  sa.sa_flags = SA_RESTART; // this is to prevent interrupted syscalls (like read or write) from just terminating early and instead it loads up the syscall again
   sigaction(SIGUSR1, &sa, NULL);
 
   pid_t pid = fork();

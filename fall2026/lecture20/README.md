@@ -37,6 +37,6 @@ Rust’s ADTs/lists and the historical kernel reading list remain extensions. Ke
 
 ## Assignment planning
 
-Final-project checkpoint: demonstrate two clients, a missing path, and correct byte lengths. This is feedback against the existing requirements, not a new rubric.
+For the final-project checkpoint, show two clients connected at once and getting answers, then disconnect one and show the other still works.
 
 This is the last numbered lecture, but the term has a couple of sessions after it. The [project workshop](../optional/project-workshop/Agenda.org) is the plan for those, and final-project completion can come after them. Set actual dates and any exam arrangements only against the confirmed section calendar.

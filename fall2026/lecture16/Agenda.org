@@ -27,5 +27,6 @@
  + =procSelf.c=: the kernel describes our process as a text file, and we read it with =fgets=
  + The line editor (=lineEditor.c=) is there if you want a larger example
 ** A look ahead at the final project
- + We'll send files over a socket
- + You can start putting things in your www directory now
+ + A server lots of people connect to at once
+ + Each client is just another descriptor
+ + Start thinking: a chat? a game? a tiny MUD?

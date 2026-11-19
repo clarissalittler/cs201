@@ -1,0 +1,4 @@
+*.o
+/cmp1
+/sumLoop
+/addArray3

@@ -2,6 +2,8 @@
 
 These are local checks on Linux. They do not claim execution on PCC's teaching server.
 
+> November 2026: Assignment 4 was rewritten as an open-ended multi-client server with no scaffold. The web-server checks below describe the retired scaffold, now in [archive/](archive/README.md).
+
 - The four assignment prompts were revised from the approved drafts. Required work remains a C stack, an assembly array operation, a parallel array map, and a file-serving HTTP handler.
 - The assembly package preserves the existing sum example and I/O helper code. The build/run and GDB walkthrough were exercised locally: normal inputs, zeros, and the maximum assigned input values produced the expected sums.
 - The web-server scaffold and a private reference handler compiled with C11, warnings enabled, and strict conversion/shadow checks.

@@ -33,7 +33,7 @@ and time to catch up. The agenda follows the topic flow rather than a stopwatch.
 - 25 min: `stdioBinary` with `xxd`, `stdioSeek` (why can't a pipe seek?), and `stdioBuffering` to a terminal vs. a pipe. Line, full, and no buffering; `fflush`; what a crash does to the buffer.
 - 15 min: two layers, one file: `stdioFileno` (`fileno`, `fdopen`) and `procSelf` reading `/proc/self/status` with `fgets`.
 - 5 min: explain why the output order changed when piped, or why `fgetc`'s result needs an `int`.
-- 10 min: look ahead at the final project (files sent over a socket) and start the www directory; `lineEditor.c` for anyone who wants a larger example.
+- 10 min: look ahead at the final project: a multi-client server where each client is just another descriptor. Collect ideas (chat, games, a tiny MUD). Offer `lineEditor.c` to anyone who wants a larger file example.
 
 ## Example and scope notes
 
@@ -43,5 +43,5 @@ Directory traversal beyond lecture 15's `directory1.c` is reading.
 
 ## Assignment planning
 
-Students can start putting files in their www directory now. Sockets and HTTP
-come next lecture, where final-project implementation begins.
+Students can pick an idea and sketch the commands a client would type.
+Sockets come next lecture, where final-project implementation begins.

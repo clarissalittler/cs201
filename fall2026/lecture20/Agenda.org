@@ -29,5 +29,6 @@
  + What could we verify about the system?
  + Use the concrete request diagram to explain one tradeoff
 ** Project questions
- + Try two clients, a missing path, and the response byte counts
+ + Connect two clients at once and show what the server does
+ + Kill one of them: does everybody else keep going?
  + The longer kernel-history and Rust material is there to explore afterward

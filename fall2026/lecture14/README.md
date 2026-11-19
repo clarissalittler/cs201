@@ -56,5 +56,5 @@ faults and the kernel handles them.
 ## Assignment planning
 
 Project check-in while there's still plenty of term left. Record the
-translation/linking exit checks separately from project progress. HTTP and the
-web server come in lecture 17, so keep the check-in general.
+translation/linking exit checks separately from project progress. Sockets and
+the multi-client server come in lecture 17, so keep the check-in general.

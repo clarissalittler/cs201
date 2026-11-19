@@ -4,7 +4,7 @@
 _start:
 	mov $10,%rbx
 	mov $20,%rcx
-	add %rbx,%rcx
+	add %rbx,%rcx # %rcx = %rbx + %rcx
 	mov %rcx,%rdi
-	mov $60,%rax
+	mov $60,%rax # this makes the syscall find the exit function
 	syscall

@@ -1,0 +1,22 @@
+* Agenda
+** Rust!
+ + Remember all those questions about who owns a pointer?
+ + What if the compiler helped keep track of that?
+** First programs
+ + =hello.rs= and =echo.rs=
+ + =println!=, =let=, =mut=
+ + Only the syntax we need for these examples
+** Borrowing
+ + Copy =badborrow.moveme= to a scratch .rs file and try compiling it
+ + What does the diagnostic say?
+ + =fixborrow.rs=
+ + What changed about the lifetime of the borrow?
+** Moving vs. borrowing
+ + =func2.rs=
+ + Try changing the function argument
+ + Who can still use the value afterward?
+** (If there's time) Something we've already done in C
+ + =fileLines.rs= for resource cleanup
+ + Or =thread2.rs= for thread-argument ownership
+** Questions
+ + The rest of the examples are here to explore

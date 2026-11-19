@@ -1,0 +1,4 @@
+*.o
+/readWriteTest
+/sumLoopArray
+/fact

@@ -25,7 +25,7 @@ and time to catch up. The agenda follows the topic flow rather than a stopwatch.
 - 20 min: small-group debugging using the first failing test or diagnostic; everyone else continues project work.
 - 25 min: protected independent/project-pair work; check the smallest end-to-end path before adding features.
 - 10 min: break.
-- 25 min: run the published project checks and inspect headers, content lengths, missing-file behavior, and multiple clients.
+- 25 min: run the three assignment checks (simultaneous clients, one client leaving, two commands in one burst) and compare what happens to what you expected.
 - 15 min: share one explanation connecting two course layers, then finish unresolved implementation questions.
 - 5 min: identify what works, what remains, and the agreed submission arrangements.
 - 10 min: continue support. Do not consume this buffer with a new Rust lecture.

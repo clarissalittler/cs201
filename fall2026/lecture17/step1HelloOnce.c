@@ -48,6 +48,9 @@ int main(int argc, char* argv[]){
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family      = AF_INET;
+  // byte order for network programming is a consensus problem
+  // the consensus solution ended up being all network communication
+  // should be sent big-endian
   addr.sin_addr.s_addr = htonl(INADDR_ANY);  // any of this machine's addresses
   addr.sin_port        = htons(port);
 

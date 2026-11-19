@@ -23,6 +23,8 @@ int doubler(int n){
 
 void maparr(int arr[], int s,
 	    int (*func)(int)){
+  // this third parameter says
+  // "pass in a function that takes an int and returns an int", we're going to call that parameter "func"
   for(int i=0; i<s; i++){
     arr[i] = func(arr[i]);
   }

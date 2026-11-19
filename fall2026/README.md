@@ -24,7 +24,7 @@ we revisit them later.
 | 14 | Virtual addresses and linking | [lecture14/Agenda.org](lecture14/Agenda.org) |
 | 15 | File descriptors: everything is a file | [lecture15/Agenda.org](lecture15/Agenda.org) |
 | 16 | The FILE API and buffering | [lecture16/Agenda.org](lecture16/Agenda.org) |
-| 17 | TCP and the web-server project | [lecture17/Agenda.org](lecture17/Agenda.org) |
+| 17 | TCP and the multi-client server project | [lecture17/Agenda.org](lecture17/Agenda.org) |
 | 18 | The linker and the ELF format | [lecture18/Agenda.org](lecture18/Agenda.org) |
 | 19 | Heap ownership and a memory-debugging clinic | [lecture19/Agenda.org](lecture19/Agenda.org) |
 | 20 | Kernel organization: follow one request through the system | [lecture20/Agenda.org](lecture20/Agenda.org) |

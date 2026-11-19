@@ -1,0 +1,4 @@
+This is a file
+It's made of bytes
+It has lines
+These lines are NOT pointless

@@ -185,7 +185,7 @@ success. TCP said "Connection refused"; UDP drops the datagram and nobody
 tells the sender. The client only finds out because it stops waiting after
 one second (`SO_RCVTIMEO`). Retrying, ordering, and noticing loss are the
 application's job now, which is why DNS, games, and video calls use UDP and
-the web server project doesn't.
+the web (and your Assignment 4 server) don't.
 
 ### Unix-domain sockets: IPC on one machine
 

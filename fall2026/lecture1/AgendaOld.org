@@ -1,0 +1,40 @@
+* Agenda
+** What are we doing in this class?
+ + C, assembly, and the things underneath a running program
+ + What the operating system does for us
+ + Getting onto the course machine and compiling something
+** C: you already know most of this
+ + Coming from C++, what looks familiar?
+ + =printf= instead of =cout=
+ + Structs, pointers, and passing arguments
+ + Everything is passed by value, including pointers
+** Let's look at a whole program
+ + =c_objects.c=
+ + A pointer to a struct, and some memory for that struct to live in
+   + =malloc(sizeof *pair)=
+   + Check that we actually got the memory!
+   + Initialize the fields
+ + Draw the pointer and the thing it points to separately
+ + =pair->first= vs. =&pair->first=
+ + What changes when we pass the address of the other field?
+ + Who calls =free=, and when?
+** Arrays, briefly
+ + =arraything.c=
+ + =arr[i]= and =*(arr + i)=
+ + Passing a pointer doesn't tell the function how long the array is
+** Sizes and hex
+ + How many bytes does an int take up? A pointer?
+ + =sizeof= measures in bytes
+ + One hex digit is four bits; two hex digits are one byte
+ + Color codes are a handy example: =#8765AF=
+** How are those bytes actually stored?
+ + =byteOrderTest.c=
+ + =0x0123456789abcdef=
+ + Which byte do you expect at the lowest address?
+ + Let's check, then draw the addresses
+ + This example assumes the eight-byte long on our Linux/x86-64 machine
+** The stack assignment
+ + Sketch a struct for a stack and where its storage comes from
+ + Who owns each allocation? Who frees it?
+ + A stack /data structure/ and the program's /call stack/ are different things
+** Questions / getting everybody's setup working

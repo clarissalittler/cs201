@@ -1,4 +1,4 @@
-# Lecture 17: TCP and the web-server project
+# Lecture 17: TCP and the multi-client server project
 
 [Agenda](Agenda.org) · [Socket steps walkthrough](SocketSteps.md) · [Term overview](../README.md)
 
@@ -11,9 +11,9 @@ for steps 1–2, `-N` for steps 3–5, `-u` for UDP, `-U -N` for Unix sockets)
 plus things to try. If `bind` reports "Address already in use", pick another
 port.
 
-The final-project work uses the canonical
-[assignment scaffold](../../assignments/assignment4-scaffold/function-guide.md).
-Build it in a student working copy with its own Makefile.
+[Assignment 4](../../assignments/assignment4.md) has no scaffold: students
+copy `step4EchoPoll.c` or `echoServerThread.c` and turn the echo into their own
+multi-client server (chat, a game, a tiny MUD).
 
 Agenda.org is the outline to teach from; preparation and pacing notes follow below.
 
@@ -50,8 +50,8 @@ M7 lessons 3–6.
 - [Lesson 6 From Echo Server to Web Server.html](<../../../cs201-course-site/module-07/Lesson 6 From Echo Server to Web Server.html>)
 
 Read TCP addresses/ports and the server lifecycle, and recall the byte-copy loop
-from the file lectures. Read Assignment 4 and its function guide. Annotate a GET
-request and a response, and identify which scaffold pieces are supplied.
+from the file lectures. Read Assignment 4 and come with an idea for what your
+server will do with its clients' input.
 
 ## Pacing notes
 
@@ -62,10 +62,10 @@ and time to catch up. The agenda follows the topic flow rather than a stopwatch.
 - 20 min: run step 1 and step 2 with `nc -d`. Show "Connection refused" after step 1 exits, then `diff` the two files to find the accept loop.
 - 25 min: run step 3 with `nc -N`. TCP is a byte stream, not messages; `recv` returning 0 is EOF; `MSG_NOSIGNAL` avoids SIGPIPE. Connect two clients to see the second one wait, then repeat with step 4. If there's room, take 5 minutes to diff `udpEcho.c` and `unixEcho.c` against step 3 and run `udpSend` with the server stopped. Otherwise they, steps 5 and 6, and `socketPair.c` are follow-up reading.
 - 10 min: break.
-- 20 min: follow the accepted descriptor into a worker thread in the scaffold. Connect the per-client heap slot to the thread-argument lifetime lesson: who frees the slot, and who closes the socket?
-- 15 min: build a fixed HTTP response (status line, headers, blank line, body) and inspect it with `curl -v`. `Content-Length` counts bytes.
-- 15 min: protected project work. Get a fixed response first, then one file and one missing path. Walk through 404, binary file lengths, bounded parsing, and a client disconnect as questions come up.
-- 5 min: each student shows a response or a concrete next failing check, and names the owner of the socket and file.
+- 20 min: two ways to juggle clients. Compare step 4's `poll` loop with `echoServerThread.c`: where does shared state live, and what needs a mutex? Connect the per-client heap slot to the thread-argument lifetime lesson: who frees the slot, and who closes the socket?
+- 15 min: a line is not a `recv`. Send `printf 'one\ntwo\n' | nc -N` to step 4 and sketch a per-client line buffer. If there's room, show `webServer.c` with `curl -v` as "HTTP is just another text protocol."
+- 15 min: protected project work. Copy a step server, switch it to loopback, and make it do one tiny non-echo thing with two `nc` clients connected. Discuss disconnects, short sends, `MSG_NOSIGNAL`, and unbounded lines as questions come up.
+- 5 min: each student shows two clients being served or a concrete next failing check, and names who closes a departing client's socket and frees its state.
 
 ## Example and scope notes
 
@@ -83,12 +83,14 @@ passing over Unix sockets, and abstract socket names are out of scope.
 `unixEcho.c`.
 
 Do not complete the final assignment for students or live-build competing
-server architectures. The scaffold assumes a small request, but one read is
-still not a TCP framing guarantee.
+server architectures. Sketch the per-client line buffer, but leave writing it
+to the students; it's the piece most often skipped, and the assignment's
+two-commands-at-once check is there to catch it.
 
 ## Assignment planning
 
 Final-project implementation begins here at the latest. Students should leave
-with a fixed response working or a concrete next failing check. Lecture 19's
+with two `nc` clients connected to their own server or a concrete next failing
+check. Lecture 19's
 ownership audit and lecture 20's checkpoint both use the project, so it needs
 to be moving by then.

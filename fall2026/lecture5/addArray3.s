@@ -15,7 +15,7 @@ _start:
 	# into %rbx instead of just the value
 	mov $1,%rcx
 	addq $10,(%rbx,%rcx,8) # parentheses dereference
-	movq (%rbx,%rcx,8),%rdi
+	movq (%rbx,%rcx,8),%rdi # %rdi = *(%rbx + 1) i.e. %rdi = %rbx[1]
 	mov $60,%rax
 	syscall
 

@@ -4,16 +4,15 @@
  + What's the smallest thing that's failing?
  + If you're stuck, bring the code and what you expected it to do
 ** Work time
- + Start with one request going all the way through
- + Then test the other paths
+ + Start with two clients connected and both getting answers
+ + Then add the part where clients affect each other
  + I'll go around and help; keep working while someone else has a question
 ** Check the server against the assignment
  + [[file:../../../assignments/assignment4.md][Project requirements and checks]]
- + Headers and content lengths
- + Text and binary files
- + A missing file
- + More than one client
- + [[file:../../../assignments/assignment4-scaffold/function-guide.md][Function guide]]
+ + Two or more clients connected at the same time
+ + Kill one client: do the others keep working?
+ + Two commands in one burst: =printf 'cmd one\ncmd two\n' | nc -N 127.0.0.1 PORT=
+ + What happens to a client's socket and state when it leaves?
 ** Things we've connected this term
  + Pick something in your server and explain what happens underneath it
  + Bytes, addresses, instructions, system calls, threads

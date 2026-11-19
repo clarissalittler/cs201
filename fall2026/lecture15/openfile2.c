@@ -6,13 +6,15 @@
 
 int main(int argc, char* argv[]){
 
+  // we have to *dynamically* make an array of file descriptors
+  // because it's a variable length array at runtime
   int* fds = malloc(argc * sizeof(int));
   
   for(int i=1; i < argc; i++){
     // note: we deliberately open argv[1] every time, not argv[i]!
     // the point is to see that each open() of the *same* file
     // gets a fresh, increasing file descriptor number
-    int fd = open(argv[1], O_RDONLY);
+    int fd = open(argv[i], O_RDONLY);
     if(fd < 0){ // this means there was an error
       printf("Something went horribly wrong!\n");
     }

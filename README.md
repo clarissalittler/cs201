@@ -68,9 +68,9 @@ Topic-based organization focused on specific concepts:
 ### Assignments
 
 #### `assignments/`
-The current assignment sequence: a C warm-up, a whole-program assembly
-exercise, a pthreads assignment, and the final project — a small threaded
-HTTP server built from the scaffold in `assignments/assignment4-scaffold/`.
+The assignments progress from a C warm-up to a whole-program assembly
+exercise, a pthreads assignment, and an open-ended multi-client TCP server
+(a chat, a game, a tiny MUD) that students design and test with `nc`.
 
 ### Tutorial Collections
 

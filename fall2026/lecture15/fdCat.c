@@ -1,9 +1,5 @@
-// Everything is a file, part 2: one copy loop, many kinds of "file"
-//
-// This is the same open/read/write/close loop from lecture 13.
-// The point is how many different things it works on without
-// changing a single line.
-//
+// Everything is a file, part 2
+
 // try:
 //   ./fdCat sample.txt
 //   ./fdCat /proc/cpuinfo           (not on any disk -- the kernel generates it as you read)

@@ -12,8 +12,8 @@
 // and potentially return anything
 
 void* threadFun(void* p){
-  printf("Hi from a thread!\n");
   
+  printf("Hi from a thread!\n");
   return NULL;
 }
 
@@ -23,6 +23,7 @@ void* threadFun(void* p){
 // type that represent you either /have/ a thing or you /don't/
 // in (old-hat) C, you have to represent this with pointer shenanigans
 // since a pointer can be NULL
+// data Maybe a = Nothing | Just a
 
 int main(){
 

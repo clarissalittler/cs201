@@ -2,8 +2,6 @@
 //
 // Every process starts with three file descriptors already open:
 //   0 = standard input, 1 = standard output, 2 = standard error
-// They're not special to C -- they're just the first three slots
-// in the process's descriptor table.
 //
 // try:
 //   ./fdStandard
@@ -14,7 +12,7 @@
 #include <unistd.h>
 #include <string.h>
 
-int main(void){
+int main(){
   // fd 1: standard output
   char* msg = "this went to fd 1 (stdout)\n";
   write(1, msg, strlen(msg));
@@ -36,7 +34,5 @@ int main(void){
     write(1, buf, n);   // exactly n bytes -- read doesn't add a '\0'
   }
 
-  // the program has no idea whether 0, 1, and 2 are a terminal,
-  // a file, or a pipe. The shell set that up before we started.
   return 0;
 }

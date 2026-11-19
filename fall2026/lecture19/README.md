@@ -39,4 +39,4 @@ Full allocator construction and collector implementations are reading/extensions
 
 ## Assignment planning
 
-Final-project checkpoint: success and failure paths, binary data, and cleanup. A clean dynamic-checker run covers only executed paths.
+For the final-project checkpoint, trace resource cleanup on a success path and a failure path. A clean dynamic-checker run covers only executed paths.

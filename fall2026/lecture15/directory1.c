@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <string.h>
 
-void listDir(const char* path) {
+void listDir(char* path) {
     DIR* dir = opendir(path);
     if (dir == NULL) {
         printf("Error opening directory: %s\n",
@@ -22,7 +22,6 @@ void listDir(const char* path) {
 }
 
 int main(int argc, char* argv[]){
-  (void)argc;
 
   listDir(argv[1]);
   

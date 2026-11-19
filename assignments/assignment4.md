@@ -1,76 +1,96 @@
-# Assignment 4: Serving files over HTTP
+# Assignment 4: Build a multi-client server
 
-For our last assignment, let's build something you can point a browser at! You'll finish a small HTTP server in C that serves files from a directory called `www`.
+For the last assignment, you're going to write a server that a bunch of people can connect to at once. It runs on your own machine, it listens on a TCP port, and it does *something* with what its clients send it. What that something is? That's up to you. Make it fun!
 
-This brings together several things we've practiced: working with arrays of bytes, reading files, managing resources, and letting threads handle separate pieces of work.
+Some ideas to get you going:
 
-Download the [Assignment 4 starter ZIP](downloads/assignment4-starter.zip), which includes the scaffold, [function guide](assignment4-scaffold/function-guide.md), test files, and test script.
+- **A chat server.** Everybody who connects picks a nickname, and whatever one person types shows up for everyone else. Add `/who` to list who's online, or `/msg name hello` for whispers.
+- **A rock-paper-scissors tournament.** Players join, the server pairs them up, collects both moves, announces the winner, and keeps a scoreboard.
+- **A tiny MUD.** A handful of rooms, `look` and `go north` and `say`, and you can see the other players wandering around.
+- **A trivia night.** The server asks a question, the first correct answer gets the point, and `scores` shows the standings.
+- **Something else entirely:** a group guess-the-number game, a collaborative story where each person adds a line, a little auction house, tic-tac-toe with matchmaking. If you're not sure your idea is big enough (or too big), ask!
 
-## What you're building
+## What your server needs to do
 
-The [supplied scaffold](assignment4-scaffold/) listens for connections and starts a thread for each client. Your part is `handleRequest`: use the validated path in `request->path` to work out what file the client wants and send back a response.
+Write your server in C. It should:
 
-Your server should:
+- **Listen on localhost only.** Bind to `127.0.0.1` (`htonl(INADDR_LOOPBACK)`) rather than `INADDR_ANY`, so only programs on your own machine can connect. Take the port number as a command-line argument.
+- **Handle several clients at the same time.** A second client should be able to connect and get served while the first is still connected. Nobody should have to wait in line for somebody else to hang up.
+- **Do something with each client's input.** Read what clients send, act on it, and send something back to at least the client who sent it. Pick a simple text protocol (one command per line works great) and write it down in your README so the rest of us know what to type.
+- **Work with `nc`.** Someone should be able to play with your server using `nc 127.0.0.1 <port>` and nothing else. You're welcome to write your own client too, but it's optional.
+- **Survive clients leaving.** When a client disconnects (closes `nc`, hits Ctrl-C, whatever), your server should notice, close that client's socket, clean up whatever state it kept for them, and keep running for everyone else. A client vanishing must not crash the server!
+- **Handle errors and clean up.** Check the return values of the socket calls you use, and free and close what you acquire.
 
-- Handle `GET` requests and send HTTP/1.0 responses, closing the connection after each response.
-- Map `/` to `www/index.html` and other supported paths to files inside `www`.
-- Send `200 OK`, the appropriate `Content-Type`, the file's byte length as `Content-Length`, and then the file's bytes when the file exists.
-- Send `404 Not Found` with a short body when the file doesn't exist. Calculate the body's length from the body you're actually sending.
-- Serve `.html`, `.txt`, `.css`, `.png`, and `.jpg` files. The scaffold provides a helper for the content types.
-- Close any files you open and release any memory you allocate, including when something goes wrong.
+You can pick how you handle multiple clients:
 
-We'll keep the supported requests small and simple: headers must fit in the scaffold's 4 KB limit, paths use ordinary unencoded names containing letters, digits, underscores, hyphens, and periods, separated by single slashes, and we don't need request bodies, query strings, or persistent connections. The supplied helpers handle reading a complete header, checking the supported path format, and sending all the requested bytes. Use those helpers and check their return values. The scaffold handles rejection of requests outside this limited format.
+- **One thread with `poll()` (or `select()`).** One loop watches the listening socket and every client socket at once and only reads from the ones that are ready. Since everything happens on one thread, sharing data between clients (like a list of who's in the chat room) needs no locking.
+- **One thread per client.** Each client gets a thread that reads in a loop. This makes each client's code really straightforward, but any data the threads share needs a mutex. Assignment 3 skills, activate!
 
-Keep the files you serve inside `www`, and don't put symbolic links in that directory. This project doesn't require implementing the full HTTP standard.
+Forking a process per client works for servers where clients never interact, but as soon as clients need to see each other (chat, games, the MUD), separate processes make sharing hard. Unless you have a good reason, I'd pick one of the two above.
 
-## Work through it in stages
+## A few things TCP will do to you
 
-**First, send a fixed response.** Have your handler return a short message, such as `Hello from my server!`, with the correct headers. Check that the advertised length matches the bytes you send. This gives you a small working program before you add file handling.
+TCP is a *byte stream*, not a sequence of messages. One `recv` might hand you half a line, or two lines and the start of a third. Don't assume one `recv` equals one command. Keep a buffer for each client, append whatever arrives, and only process a command once you've seen its newline. Whatever's left over stays in the buffer for next time.
 
-**Next, serve a file.** Make `/` return `www/index.html`, then support another path such as `/about.txt`. Add the missing-file response. Check file-opening and reading results so an error doesn't lead to using invalid data.
+Likewise, `send` can send fewer bytes than you asked for. Write a little helper that loops until everything's been sent, just like the copy loop from the file lectures.
 
-**Finally, check different files and clients.** Serve the required file types, including an image and a file larger than your transfer buffer. Use the number of bytes read from a file when sending each chunk. An image can contain zero bytes, so `strlen` won't tell you its size!
+If you send to a client that has already hung up, the kernel can kill your whole server with `SIGPIPE`. Pass `MSG_NOSIGNAL` as the flags argument to `send`, and then deal with the error it returns instead.
 
-These are development checkpoints within one assignment. You can keep improving the same program as you go.
+## Getting started
 
-## Running and testing
+The lecture 17 examples are a good place to start. They all echo text back, so they're one step away from doing something more interesting:
 
-Use the supplied `Makefile` to build the server:
+- [`step4EchoPoll.c`](https://github.com/clarissalittler/cs201/blob/main/fall2026/lecture17/step4EchoPoll.c) serves many clients from one thread using `poll()`.
+- [`echoServerThread.c`](https://github.com/clarissalittler/cs201/blob/main/fall2026/lecture17/echoServerThread.c) starts a thread for each client.
+- [`step6Client.c`](https://github.com/clarissalittler/cs201/blob/main/fall2026/lecture17/step6Client.c) is a small client, if you want to write your own.
+- [`SocketSteps.md`](https://github.com/clarissalittler/cs201/blob/main/fall2026/lecture17/SocketSteps.md) walks through the whole progression with `nc` commands to try.
+
+Heads up: those examples skip most error checking and the short-send loop so the socket calls are easy to see, and they bind `INADDR_ANY`. You'll need to fix all three for your server.
+
+A good first step is to copy one of them, switch it to loopback, and change the echo into something tiny of your own, like sending the line back in uppercase. Then add per-client state (a nickname, a score), and then the part where clients affect each other.
+
+To try it out, start your server in one terminal:
 
 ```sh
-make
-./httpd
+./myserver 5000
 ```
 
-Run it from the scaffold directory so it can find `www`. In a second terminal on the **same machine**, try:
+Then connect from two or three more terminals:
 
 ```sh
-curl -i http://localhost:8080/
-curl -i http://localhost:8080/missing.html
+nc 127.0.0.1 5000
 ```
 
-If you're working on the Linux server through SSH, open a second SSH session and run `curl` there. `localhost` means the machine running the client: a browser on your laptop won't reach the remote server just by visiting your laptop's `localhost` address. If you run the server locally, you can use your local browser directly.
+If you get "Address already in use," pick another port. If you're working over SSH, open several SSH sessions to the same machine.
 
-If another student is using port 8080, run `./httpd 18080` to choose another port, then use that same port in your test commands. Run `python3 test_server.py` for the supplied checks, or `python3 test_server.py --port 18080` for another port. `make test-helpers` checks the supplied helper routines independently of your handler; those checks should pass from the start. The full server tests will fail until you replace the initial `501 Not Implemented` response.
+## Show us what you built
 
-Use the supplied test files and test script to check:
+Include transcripts (copy-and-paste from the terminals is fine) showing:
 
-- `/` and an explicitly named file return the expected contents.
-- A missing file returns a 404 response and the correct body length.
-- Text, stylesheets, and images have the expected content types.
-- An empty file, an image, and a file larger than the transfer buffer arrive intact.
-- Several clients can fetch files at the same time and receive complete, correct responses.
+1. **At least two clients connected at the same time**, taking turns or talking over each other, with the server responding to both. Show the output from each client's terminal.
+2. **A client leaving partway through.** Kill one `nc` while the others are connected, then show that the remaining clients still work.
+3. **Two commands arriving at once.** Something like `printf 'cmd one\ncmd two\n' | nc -N 127.0.0.1 5000` (using real commands from your protocol), showing that your server handles both.
 
-Include the test report and one response whose headers you explain. If something doesn't pass, include what you tried and where you're stuck.
+Then, in a few paragraphs or a diagram, explain:
 
-## Explain one piece
+- How your server waits on several clients at once. Walk through what happens when two clients send something at nearly the same time.
+- What state you keep for each client and for the server as a whole, and where it lives.
+- What happens, step by step, when a client disconnects. Who closes the socket, and who frees that client's state?
+- If you used threads: what your mutex protects, and what could go wrong without it.
 
-Walk us through one connection. Which thread handles it? Who closes the connected socket? Who closes the file? Which data belongs to that connection, and which data is shared?
+## Submission
 
-The scaffold already starts the threads, but you should be able to explain why two requests don't accidentally use each other's request buffers or sockets.
+Submit your C source, a Makefile or build instructions, a README describing your protocol (what clients can type and what they'll get back), your test transcripts, and your explanation. Compile with warnings turned on, something like:
 
-## What to submit
+```sh
+cc -std=c11 -Wall -Wextra -Wpedantic -g -pthread myserver.c -o myserver
+```
 
-Submit your source files and `Makefile`, any small files needed to reproduce your tests, build and run instructions, your test report, and your explanation. You don't need to submit the executable. The required server described above is enough for full credit.
+## If you want to go further
 
-If you'd like to go further, try directory listings or replace one-thread-per-connection with a fixed pool of workers. A thread pool would connect this project to Assignment 3's shared-work idea, with a condition variable to let workers wait for new connections. These are optional extensions.
+None of these are required, but they're fun:
+
+- Write your own client with `poll()` on the keyboard and the socket, maybe with a nicer display.
+- Kick idle clients after a timeout (`poll()` takes one).
+- Save state to a file so the scoreboard or the MUD survives a restart.
+- Limit how long a line can be, and decide what to do when someone sends more.

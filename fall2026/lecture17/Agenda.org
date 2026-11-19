@@ -67,39 +67,45 @@
  + =socketPair.c=: two connected sockets, no name, shared with =fork=
    + A pipe that goes both ways
 
-** Part 2: From echo to the web-server project
+** Part 2: From echo to your own server
 *** Where we are
- + A TCP connection gives us a stream of bytes
+ + =step4EchoPoll.c= already talks to lots of clients at once
+ + But echo is boring!
  + Now let's give those bytes a meaning
-*** One thread per client
- + [[file:../../assignments/assignment4-scaffold/httpd.c][The final-project scaffold]]
- + Follow the accepted descriptor into the worker
- + Remember the thread-argument problem with passing the address of a changing variable?
- + Each client gets its own allocated slot
- + Who frees that slot? Who closes the socket?
- + =echoServerThread.c= is another look at the handoff, with some rough edges
-*** A very small HTTP response
- + Status line
- + Headers
- + A blank line
- + The body
- + =Content-Length= counts /bytes/
- + Start with fixed text and look at it with =curl -v=
-*** From a response to a file server
- + Read the request line
- + Map / to /index.html
- + Look for the file inside www
- + Send the right content type and length
- + =webServer.c= and =webClient.c= are reference examples
- + The scaffold leaves the request handling for you to implement
-*** What if the file isn't there?
- + A 404 response is still a response
- + Binary files aren't strings
- + Keep the parsing bounded and keep track of actual byte counts
- + The client can disconnect partway through
- + Even a request that fits our buffer may take more than one read
+ + [[file:../../assignments/assignment4.md][Assignment 4]]: a localhost server that does /something/ fun with what its clients send
+   + Chat, rock-paper-scissors, a tiny MUD, trivia...
+*** Two ways to juggle clients
+ + One thread with =poll()=: =step4EchoPoll.c=
+   + One loop, and everything the clients share lives in that one thread
+   + No locks needed
+ + One thread per client: =echoServerThread.c=
+   + Each client's code is just a simple read loop
+   + Remember the thread-argument problem with passing the address of a changing variable?
+   + Each client gets its own allocated slot
+   + Who frees that slot? Who closes the socket?
+   + Anything the threads share needs a mutex
+*** A line is not a recv
+ + TCP doesn't know where your commands end
+ + =printf 'one\ntwo\n' | nc -N 127.0.0.1 PORT= can arrive as /one/ =recv=
+ + A slow typist (or a big line) can arrive in pieces
+ + Keep a buffer per client: append what arrives, handle each complete line, keep the leftover
+*** Per-client state
+ + A struct per client: the descriptor, the line buffer, a nickname, a score...
+ + Talking to everyone else is a loop over the other clients' descriptors
+ + Where does this state live in the =poll= version? In the thread version?
+*** What can go wrong?
+ + A client hangs up partway through: =recv= returns 0, so close, free, and forget them
+ + Sending to someone who already left: =MSG_NOSIGNAL=, then handle the error
+ + Short sends: we still need the loop from the file lectures
+ + Someone sends a huge line with no newline: bound the buffer
+ + Bind =INADDR_LOOPBACK= instead of =INADDR_ANY= so only your own machine can connect
+*** HTTP is just another text protocol
+ + =webServer.c= and =webClient.c=: the same socket calls, different bytes
+ + A request line, headers, a blank line, a body
+ + Try =curl -v http://localhost:8080/=
 *** Work time
- + Get a fixed response working before adding file handling
- + Then try one file and one missing path
+ + Pick an idea
+ + Copy =step4EchoPoll.c= or =echoServerThread.c= and switch it to loopback
+ + Make it do one tiny thing that isn't echo, like answering in uppercase
+ + Connect two =nc= clients at once
  + Tell me what's working and the next thing that's failing
- + [[file:../../assignments/assignment4-scaffold/function-guide.md][Function guide]] if you need help finding the relevant part of the scaffold

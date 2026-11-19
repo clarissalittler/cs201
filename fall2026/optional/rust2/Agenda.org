@@ -1,0 +1,22 @@
+* Agenda
+** Picking up where we left off
+ + Moves and borrows
+** Structs
+ + =structs1.rs=
+ + An impl block and a method
+ + =&self= vs. =&mut self=
+** Enums can have fields
+ + =adts1.rs=
+ + Different variants carry different information
+ + match lets us get that information back out
+** What does ? do?
+ + =fileLines.rs= vs. =fileLines2.rs=
+ + Follow the successful result, then the error
+ + Write out the match that ? is saving us
+** Try changing a match arm
+ + What does the compiler make us account for?
+** (Further examples) Lists
+ + =lists1.rs= and =lists2.rs=
+ + =BadList.c= is deliberately uncompilable
+ + A struct can't directly contain another whole copy of itself
+** Questions

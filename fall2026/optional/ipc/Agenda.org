@@ -1,0 +1,18 @@
+* Agenda
+** File descriptors, again
+ + Now there are two processes involved
+** Pipes
+ + =anonPipe.c=
+ + Draw the descriptors in the parent and child after fork
+ + Which ends does each process need?
+** Why isn't read reaching EOF?
+ + =anonPipeLoopFix.c=
+ + Every copy of the write end has to close
+ + The child's unused copy counts too!
+** Try changing which ends get closed
+ + Predict who waits and why
+** (If there's time) Another way to share information
+ + Choose named pipes /or/ =mmapFile.c=
+ + Sharing bytes doesn't automatically synchronize access
+ + Process-shared synchronization needs shared storage and the right configuration
+** Questions / project help

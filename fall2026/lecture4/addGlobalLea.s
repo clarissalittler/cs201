@@ -14,10 +14,11 @@ _start:
 	# this means I've just loaded the pointer
 	# into %rbx instead of just the value
 	addq $10,(%rbx) # parentheses dereference
+	# why the q?
 	mov num(%rip),%rdi
 	mov $60,%rax
 	syscall
 
-	# int num 200
-	# int* nump = &num
-	# *nump = *nump + 10
+	# long num = 200
+	# rbx = &num
+	# *rbx = *rbx + 10

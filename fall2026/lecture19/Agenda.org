@@ -19,7 +19,7 @@
  + Buffers
  + Files
  + Sockets
- + The little allocation passed to each client thread
+ + Each client's state (and the allocation passed to its thread, if you used threads)
  + Follow both the successful path and the error path
  + Who owns each resource at each point?
 ** Garbage collection

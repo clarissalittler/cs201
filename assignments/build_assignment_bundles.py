@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild the two student ZIPs from the canonical support directories.
+"""Rebuild the student ZIP(s) from the canonical support directories.
 
 Standard library only. Fixed timestamps make rebuilds reproducible.
 Compiled files, caches, and any unlisted support files are excluded.
@@ -11,13 +11,6 @@ ROOT = Path(__file__).resolve().parent
 PACKAGES = {
     'assignment2-starter': ('assignment2-support', [
         'README.md', 'Makefile', '.gitignore', 'sum5.s', 'readInt.s', 'writeInt.s',
-    ]),
-    'assignment4-starter': ('assignment4-scaffold', [
-        'README.md', 'Makefile', '.gitignore', 'httpd.c', 'http_support.c',
-        'http_support.h', 'function-guide.md', 'test_server.py',
-        'tests/test_helpers.c', 'www/index.html', 'www/_tests/about.txt',
-        'www/_tests/style.css', 'www/_tests/empty.txt', 'www/_tests/pixel.png',
-        'www/_tests/pixel.jpg', 'www/_tests/large.bin',
     ]),
 }
 

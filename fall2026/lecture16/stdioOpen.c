@@ -10,20 +10,19 @@
 //   "a"   append; creates the file, writes always go at the end
 //   "r+"  read and write; the file must exist
 //   add "b" ("rb", "wb") for binary -- does nothing on Linux, matters on Windows
-//
-// try:
-//   ./stdioOpen sample.txt
-//   ./stdioOpen nope.txt
-//   ./stdioOpen /etc/shadow        (exists, but are you allowed to read it?)
+
 
 #include <stdio.h>
 
 int main(int argc, char* argv[]){
   if(argc < 2){
     printf("usage: %s <file>\n", argv[0]);
+    printf("like, c'mon, man\n");
     return 1;
   }
-
+  // rather than file descriptors
+  // we can use an actual datastructure that holds information about the file
+  // FILE *but* everything that operates on FILE actually uses FILE*
   FILE* f = fopen(argv[1], "r");
   if(f == NULL){          // fopen returns NULL on failure (open returned -1)
     perror(argv[1]);      // e.g. "nope.txt: No such file or directory"

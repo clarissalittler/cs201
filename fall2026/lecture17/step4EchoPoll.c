@@ -67,11 +67,14 @@ int main(int argc, char* argv[]){
   fds[0].fd = listener;
 
   while(1){
+    // our while loop changes a bit in form:
+    // now a call to *poll* is the start of the loop
     // block until at least one descriptor is ready (-1 = no timeout)
     poll(fds, MAX_FDS, -1);
 
+    // THIS PART REPLACES THE ACCEPT LOOP
     // Is the listener ready? Then a new client is waiting.
-    if(fds[0].revents & POLLIN){
+    if(fds[0].revents & POLLIN){ // revents is set like a bit string, so to check for POLLIN we &
       int conn = accept(listener, NULL, NULL);
 
       // find an empty slot for it
@@ -90,11 +93,12 @@ int main(int argc, char* argv[]){
         printf("client connected on fd %d (slot %d)\n", conn, slot);
       }
     }
+    // HERE ENDETH THE ACCEPT LOOP REPLACEMENT
 
+    
     // Check every client slot. revents is filled in by poll():
     // POLLIN means data is waiting, POLLHUP/POLLERR mean trouble.
-    // In all three cases recv() won't block, and it tells us which it was.
-    for(int i = 1; i < MAX_FDS; i++){
+    for(int i = 1; i < MAX_FDS; i++){ // we're starting with 1 because the listener is 0
       if(fds[i].fd == -1) continue;
       if(!(fds[i].revents & (POLLIN | POLLHUP | POLLERR))) continue;
 
